@@ -1,0 +1,94 @@
+# Chapter 11: Trace-Driven Iteration and Model–Harness Co-Evolution
+
+### 11.1 Traces Are the Feedback Loop
+
+Models today are largely black boxes; their inner mechanisms are hard to interpret. But their inputs and outputs are visible in text, and that is enough to drive systematic improvement. LangChain treats traces as the primary surface for harness debugging: every agent action is stored, including latency, token counts, costs, and tool invocations ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
+
+Their *Trace Analyzer Skill* automates the loop:
+
+1. Fetch experiment traces from LangSmith.
+2. Spawn parallel error-analysis agents; the main agent synthesizes findings and suggestions.
+3. Aggregate feedback and make targeted changes to the harness.
+
+This is structurally similar to boosting in classical machine learning — iteration focuses on mistakes from previous runs. Human review at step 3 is helpful but not strictly required, mainly to catch changes that overfit to specific tasks at the cost of generalization.
+
+### 11.2 Stress-Test Load-Bearing Components
+
+Anthropic's harness-design follow-up adds a complementary discipline ([Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)). Every component in a harness encodes an assumption about what the model cannot do on its own. As models improve, those assumptions go stale. The recommended approach: remove one component at a time, run the eval, observe.
+
+When Opus 4.6 launched with significantly stronger long-context retrieval and reduced context-anxiety, Anthropic dropped the sprint construct entirely from their three-agent architecture. The generator now ran coherently for over two hours without sprint decomposition. The evaluator, which had been load-bearing on Sonnet 4.5, became more situational on 4.6 — useful for tasks at the edge of what the generator could do solo, unnecessary overhead within that boundary. The general principle the team articulates: "the evaluator is not a fixed yes-or-no decision. It is worth the cost when the task sits beyond what the current model does reliably solo."
+
+### 11.3 Model–Harness Co-Evolution
+
+Today's frontier coding models are post-trained with their harnesses in the loop ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). Useful primitives are discovered, added to the harness, and used in training the next generation, which becomes more capable within that harness. This creates a feedback loop with side effects: changing harness logic can produce worse model performance even when the change should be neutral.
+
+The Codex `apply_patch` tool is the canonical example. Codex models are post-trained on this specific patching format, and OpenCode — built as an open-source alternative to Claude Code — had to add an `apply_patch` tool specifically for GPT/Codex models to mimic the Codex harness; Claude and other models still use normal `edit` and `write` tools ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)).
+
+### 11.4 But the Best Harness Is Not Always the One the Model Was Trained In
+
+The corollary, and the practical license to iterate: the harness a model was trained in is often *not* optimal for a given task. Terminal-Bench 2.0 has been a recurring data point — Opus 4.6 in Claude Code scores at position 33, but the same model in different harnesses places at position 5 (within a noise band of about 4 positions) ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents); [LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)).
+
+LangChain's case study reaches the same conclusion experimentally. They ran a Claude Opus 4.6 test on an early version of their harness that scored 59.6%, competitive but worse than their tuned Codex configuration. The principles generalized — context preparation, verification — but a few rounds of harness iteration tailored to the model would have closed the gap ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
+
+The pragmatic rule: if you change the model, re-examine the harness. Tune what is now load-bearing, strip what is no longer.
+
+### 11.5 Practical Takeaways
+
+LangChain's distilled principles for harness iteration ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)):
+
+1. **Context engineering on behalf of agents** — onboard the model into its environment with directory structures, available tools, coding best practices, problem-solving strategies.
+2. **Help agents self-verify their work** — models bias toward their first plausible solution; prompt aggressively to verify by running tests.
+3. **Tracing as a feedback signal** — debug tooling and reasoning together (models go down wrong paths because they lack a tool *or* the instructions for one).
+4. **Detect and fix bad patterns in the short term** — guardrails like loop detection are crutches that will dissolve as models improve, but are useful today.
+5. **Tailor harnesses to models** — Claude and Codex prompting guides differ for a reason; principles generalize, specifics do not.
+
+HumanLayer's parallel set ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)):
+
+What worked: starting simple and adding configuration only after real failures; iterating and throwing away things that did not help; distributing battle-tested configurations across the team via repository-level config; optimizing for iteration speed rather than likelihood of one-shotting; pruning capabilities once you know what you actually need.
+
+What did not work: designing the ideal harness upfront; installing dozens of skills and MCP servers "just in case"; running the full test suite at the end of every session; micro-optimizing which sub-agents could access which tools.
+
+### 11.6 The Misleading Data on AGENTS.md
+
+A worth-reading detail: an ETH Zurich study tested 138 agentfiles across various repos and found that LLM-generated ones actively hurt performance while costing 20% more, that human-written ones helped only 4%, that agents spent 14–22% more reasoning tokens processing context-file instructions, and that codebase overviews and directory listings did not help at all because agents discovered repository structure on their own ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) citing the ETH Zurich paper).
+
+HumanLayer reads this as confirming their own AGENTS.md guidance — keep files concise, avoid auto-generation, use progressive disclosure rather than dumping every instruction up front, keep contents universally applicable rather than full of conditional rules. Their own CLAUDE.md is under 60 lines.
+
+The general principle: more configuration is not better. Every irrelevant instruction is an instruction the agent must process for no benefit, and the *instruction budget* matters as much as the token budget.
+
+---
+
+## Diagram: Trace-Driven Iteration Loop
+
+```mermaid
+flowchart LR
+    A["Deploy Agent\n(current harness)"] --> B["Collect Traces\n(actions, tokens, costs,\ntool invocations)"]
+    B --> C["Trace Analysis\n(parallel error-analysis agents\nsynthesize findings)"]
+    C --> D["Identify Failure Patterns\n(wrong tools? bad prompts?\nmissing context?)"]
+    D --> E["Harness Changes\n(tune prompts, add sensors,\nremove stale components)"]
+    E --> F["Run Evals\n(verify improvement,\ncheck for regressions)"]
+    F -->|"Model changed?"| G["Stress-Test Components\n(remove one, run eval,\nobserve)"]
+    G --> E
+    F -->|"Improvement confirmed"| A
+
+    style A fill:#1b4332,color:#fff
+    style F fill:#1b4332,color:#fff
+```
+
+---
+
+## Key Takeaways
+
+- **Traces are the primary debugging surface**: text I/O is visible even when model internals are not — systematic trace analysis drives harness improvement.
+- **The trained harness is often not the optimal harness**: Opus 4.6 in Claude Code scores position 33; the same model in a tuned harness scores position 5.
+- **Stress-test components when models change**: every harness component encodes an assumption that may go stale as models improve.
+- **Model–harness co-evolution is real**: post-training loops the harness into model training, creating coupling that breaks when either side changes unexpectedly.
+- **AGENTS.md has limited ROI**: concise, human-written, universally-applicable; LLM-generated hurts performance.
+- **Iteration speed beats upfront design**: start simple, add only after real failures, prune aggressively.
+
+## Further Reading
+
+- Vivek Trivedy, *Improving Deep Agents with Harness Engineering*, LangChain, Feb 2026. https://blog.langchain.com/improving-deep-agents-with-harness-engineering/
+- Prithvi Rajasekaran, *Harness Design for Long-Running Application Development*, Anthropic, Mar 2026. https://www.anthropic.com/engineering/harness-design-long-running-apps
+- Vivek Trivedy, *The Anatomy of an Agent Harness*, LangChain, Mar 2026. https://blog.langchain.com/the-anatomy-of-an-agent-harness/
+- Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents

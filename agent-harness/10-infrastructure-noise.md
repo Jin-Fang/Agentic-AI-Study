@@ -35,24 +35,24 @@ For consumers of benchmark results, the operational rule: leaderboard difference
 
 ## Diagram: Resource Configuration vs. Score (Terminal-Bench 2.0 Summary)
 
-The following table summarizes the two regimes observed across six resource configurations (same model, same harness, same tasks):
+The following table summarizes the two regimes reported by Anthropic. Only the 1×, 3×, and uncapped error rates are explicitly quantified in the article; intermediate rows are qualitative to avoid implying more precision than the source provides.
 
 | Resource Level | Infra Error Rate | Score Change | Interpretation |
 |---|---|---|---|
 | 1× (strict) | 5.8% | baseline | OOM kills mask real failures |
-| 2× | ~4.2% | +noise | Fewer crashes, same effective difficulty |
 | 3× | 2.1% | +noise | Sweet spot: infra errors cut 2/3 |
-| 4× | ~1.5% | +2 pts | Agents start exploiting extra RAM |
-| 5× | ~1.2% | +3 pts | Heavyweight strategies now viable |
-| Uncapped | ~0.5% | +4 pts | Resource-intensive defaults succeed |
+| Above 3× | lower | score begins rising faster than infra errors fall | Agents start exploiting extra RAM |
+| Uncapped | 0.5% | +6 pts over 1× | Resource-intensive defaults succeed |
 
 ```mermaid
-xychart-beta
-    title "Infrastructure Noise: Two Regimes (Terminal-Bench 2.0)"
-    x-axis ["1x", "2x", "3x", "4x", "5x", "Uncapped"]
-    y-axis "Percentage Points Above 1x Baseline" 0 --> 7
-    bar [0, 0.3, 0.5, 2.1, 3.2, 4.2]
-    line [0, 0.3, 0.5, 2.1, 3.2, 4.2]
+flowchart LR
+    A["1x strict enforcement\ninfra errors: 5.8%\nscore: baseline"] --> B["Up to 3x headroom\ninfra errors: 2.1%\nscore: within noise"]
+    B --> C["Above 3x\nscore gains outpace\ninfra-error reduction"]
+    C --> D["Uncapped\ninfra errors: 0.5%\nscore: +6 pts over 1x"]
+
+    style B fill:#2d6a4f,color:#fff
+    style C fill:#f77f00,color:#111
+    style D fill:#d62828,color:#fff
 ```
 
 *Above 3×, score gains outpace the decline in infrastructure errors — extra resources enable strategies, not just stability.*

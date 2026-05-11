@@ -2,6 +2,8 @@
 
 *A fact-based synthesis of contemporary writing on harness engineering, drawn from the [Awesome Harness Engineering](https://github.com/walkinglabs/awesome-harness-engineering) reading list. Every substantive claim is referenced inline.*
 
+中文版见：[Agent Harness：实践者教材](../agent-harness-zh/)
+
 ---
 
 ## Introduction

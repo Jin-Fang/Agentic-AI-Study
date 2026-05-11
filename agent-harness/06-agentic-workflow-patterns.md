@@ -35,7 +35,7 @@ Anthropic ends with three rules ([Anthropic — Building Effective Agents](https
 2. **Prioritize transparency** by explicitly showing the agent's planning steps.
 3. **Carefully craft the agent–computer interface** through tool documentation and testing.
 
-Frameworks help you start fast but introduce abstraction layers that obscure the underlying prompts and tool calls. Anthropic recommends starting with direct API calls and only reaching for a framework when the patterns demand it.
+Frameworks help you start fast but can introduce abstraction layers that obscure the underlying prompts and tool calls. Anthropic recommends starting with direct API calls when you are still learning the shape of the problem, then reaching for a framework when the repeated patterns and operational needs justify it.
 
 ### 6.5 The Micro-Agent Pattern
 
@@ -72,7 +72,7 @@ flowchart TD
 - **Workflows give predictability; agents give flexibility**: choose based on whether the subtask structure is known ahead of time.
 - **Five patterns cover most cases**: chaining, routing, parallelization, orchestrator-workers, and evaluator-optimizer.
 - **The micro-agent approach scales well today**: 5–10 step focused agents embedded in a deterministic DAG outperform "loop until done" for most tasks.
-- **Avoid frameworks until forced**: direct API calls preserve visibility into prompts and tool calls.
+- **Preserve visibility before abstraction**: direct API calls make early behavior easier to inspect; frameworks pay off once patterns stabilize.
 
 ## Further Reading
 

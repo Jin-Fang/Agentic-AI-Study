@@ -49,7 +49,7 @@ The benefits compound:
 - **Progressive disclosure**: tools are loaded only when needed, addressing the up-front context cost.
 - **Context-efficient results**: the agent can filter a 10,000-row spreadsheet to five matching rows in the execution environment before any data crosses into the model's context.
 - **Better control flow**: loops, conditionals, and error handling use familiar code patterns, saving on time-to-first-token because the runtime evaluates the conditions, not the model.
-- **Privacy-preserving operations**: intermediate results stay in the execution environment by default; only what the agent explicitly logs reaches the model. PII can be tokenized at the MCP-client boundary so it never reaches the model at all.
+- **Privacy-preserving operations**: intermediate results stay in the execution environment by default; only what the agent explicitly logs reaches the model. With a correctly designed proxy, PII can be tokenized at the MCP-client boundary so raw values need not reach the model.
 - **State persistence and skills**: agents can save working code as reusable functions backed by `SKILL.md` files, building up a toolbox over time.
 
 Cloudflare reported similar findings under the name "Code Mode," reinforcing the conclusion: LLMs are good at writing code, and developers should let them ([Anthropic — Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)).
@@ -62,7 +62,7 @@ Anthropic's recommended workflow for tool development has four stages ([Anthropi
 
 1. **Prototype** the tools in a local MCP server, test by hand, collect intuition.
 2. **Build an evaluation** with realistic tasks (multiple tool calls, real data, no toy sandboxes), each paired with verifiable success criteria.
-3. **Run the evaluation** programmatically, instructing agents to output reasoning blocks before tool calls so chain-of-thought is visible. Track top-level accuracy and metrics like total runtime, tool call counts, total tokens, and tool errors.
+3. **Run the evaluation** programmatically, capturing traces that include planning summaries, tool calls, tool results, runtime, token counts, and tool errors. Where a model exposes a visible thinking mode, that can help debug behavior, but the eval should not depend on access to hidden chain-of-thought.
 4. **Analyze results** by reading transcripts, paying attention to what agents *don't* say (LLMs do not always say what they mean), and refactor tools accordingly.
 
 Anthropic ran this loop on their own internal Slack and Asana tools and found that a Claude-optimized version of human-written tools outperformed expert manual implementations on held-out test sets — a result that validates the loop and is an early instance of agents improving their own tools.

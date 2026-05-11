@@ -2,13 +2,13 @@
 
 ### 2.1 Context Rot and the Attention Budget
 
-The single most important fact about modern language models, for the purposes of this book, is that their performance on a fixed task degrades as the context window fills. Anthropic calls this "context rot" and links it to needle-in-a-haystack benchmarks: as the number of tokens increases, the model's ability to accurately recall information from that context decreases ([Anthropic — Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)). The effect varies in steepness across models but emerges across all of them.
+The single most important operating constraint for agent harnesses is that useful context is not the same thing as maximum context length. Anthropic calls the failure mode "context rot" and links it to needle-in-a-haystack benchmarks: as the number of tokens increases, the model's ability to accurately recall information from that context can decrease ([Anthropic — Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)). The effect varies by model, task, and where the relevant information sits in the context, so the practical claim should be read probabilistically rather than as a hard law for every prompt.
 
-Anthropic's mechanistic explanation: the transformer architecture lets every token attend to every other token, producing n² pairwise relationships for n tokens. As context lengthens, the model's ability to capture those relationships gets stretched thin. Models are also trained on data distributions where shorter sequences are more common, so they have less experience with — and fewer specialized parameters for — context-wide dependencies. Position encoding interpolation lets models handle longer sequences than they were trained on, but at the cost of degraded position understanding ([Anthropic — Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)).
+Anthropic's mechanistic explanation is not that transformers literally "run out" of attention, but that long contexts create many more pairwise token relationships for the model to represent, while training data and positional mechanisms are usually stronger on shorter and more local dependencies. Position encoding interpolation and other long-context techniques let models handle longer sequences than they were originally trained on, but can still degrade positional resolution or retrieval reliability ([Anthropic — Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)).
 
-The practical conclusion: context is a finite resource with diminishing marginal returns. Anthropic phrases it as an "attention budget" that every new token depletes. HumanLayer puts it more bluntly — even as models support longer context windows, you will always get better results with a small, focused prompt and context, and most builders push the "tool-calling loop" idea aside when they realize anything more than 10–20 turns becomes a mess the LLM cannot recover from ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)).
+The practical conclusion: context is a finite resource with diminishing marginal returns. Anthropic phrases it as an "attention budget" that every new token spends. HumanLayer puts it more bluntly: even as models support longer context windows, production builders should usually prefer small, focused prompts and contexts; in their experience, open-ended "tool-calling loops" often become hard to recover from after roughly 10–20 turns ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)).
 
-A bigger context window does not help with this in the way one might hope. As HumanLayer points out, when a lab offers an extended-context version of a model, you usually get the same model with techniques like YaRN extending the sequence length, not a larger "instruction budget"; for needle-in-a-haystack the bigger window does not make the model better at finding the needle, it just makes the haystack bigger ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)).
+A bigger context window helps when the missing information genuinely needs to be present, but it does not automatically buy better attention or instruction-following. As HumanLayer points out, extended-context releases often use techniques like YaRN to extend sequence length rather than increasing the model's effective instruction budget; for needle-in-a-haystack-style tasks, a bigger window can simply make the haystack bigger ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)).
 
 ### 2.2 The Anatomy of Effective Context
 
@@ -32,13 +32,13 @@ Manus's three rules for keeping the cache hot: keep the prompt prefix stable (a 
 
 Manus's second principle is about action spaces. As tool counts grow — and MCP made this easy by letting users plug in hundreds of tools — the impulse is to dynamically load and unload tools mid-iteration. Manus's experiments produce a clear rule: avoid this. Tool definitions live near the front of context, so any change invalidates the cache for everything downstream; and previous turns may reference tools that no longer exist, leading to schema violations or hallucinated calls ([Manus — Context Engineering for AI Agents: Lessons from Building Manus](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus)).
 
-The alternative is logit masking: keep all tool definitions in context but, at decoding time, mask the logits for tools that should not be available given the current state. Most provider APIs support this through response prefill (Auto, Required, Specified modes in the Hermes function-calling format). Manus uses consistent action-name prefixes — `browser_*` for browser tools, `shell_*` for shell tools — so an entire group can be enforced or excluded with a simple constraint.
+The alternative is action masking: keep the stable tool surface in context, then constrain which actions can be selected at a given state. Depending on the provider and harness, this may be implemented with logit constraints, tool-choice controls, response prefill, or a runtime validator that rejects disallowed actions. Manus uses consistent action-name prefixes — `browser_*` for browser tools, `shell_*` for shell tools — so an entire group can be enforced or excluded with a simple constraint.
 
 ### 2.5 The File System as the Ultimate Context
 
 Even with a 128K-token window, real agentic work overruns context regularly. Observations from web pages and PDFs are huge; performance degrades long before the technical limit; and long inputs are expensive even with caching ([Manus — Context Engineering for AI Agents: Lessons from Building Manus](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus)).
 
-Manus's solution, and one Anthropic and LangChain converge on, is to treat the filesystem as the agent's true memory: unlimited, persistent, directly operable by the agent, and indexed by paths the agent can use as references. Manus's compression strategies are deliberately *restorable* — a web page can be dropped from context as long as the URL is preserved, and a document's contents can be omitted if its path remains.
+Manus's solution, and one Anthropic and LangChain converge on, is to treat the filesystem as the agent's working memory: much larger than context, persistent across turns, directly operable by the agent, and indexed by paths the agent can use as references. It is not "memory" in the human sense; without good filenames, summaries, indexes, or retrieval habits, the agent can still fail to find what it wrote. Manus's compression strategies are deliberately *restorable* — a web page can be dropped from context as long as the URL is preserved, and a document's contents can be omitted if its path remains.
 
 LangChain calls the filesystem "arguably the most foundational harness primitive" because it provides a workspace for reading data, code, and documentation; lets agents offload work incrementally instead of holding it all in context; and acts as a natural collaboration surface for multi-agent and human-agent coordination ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). Adding git on top brings versioning, rollback, and branching.
 
@@ -46,9 +46,9 @@ LangChain calls the filesystem "arguably the most foundational harness primitive
 
 The traditional pattern — embed everything, retrieve top-k chunks, prepend to context — is being supplemented by a *just-in-time* approach. Rather than pre-processing everything up front, agents maintain lightweight identifiers (file paths, queries, links) and dynamically load data into context when needed ([Anthropic — Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)).
 
-Anthropic's Claude Code uses this pattern for large-codebase work: the model writes targeted queries, stores results, and uses `head` and `tail` to analyze large data without loading it all. The metadata of file paths itself is informative — `test_utils.py` in a `tests/` folder implies a different role than the same name in `src/core_logic/`. Folder hierarchies, naming, and timestamps all become signals an agent can use to navigate.
+Anthropic's Claude Code uses this pattern for large-codebase work: the model writes targeted queries, stores results, and uses tools such as `head` and `tail` to analyze large data without loading it all. The metadata of file paths itself is informative — `test_utils.py` in a `tests/` folder implies a different role than the same name in `src/core_logic/`. Folder hierarchies, naming, and timestamps all become signals an agent can use to navigate.
 
-The trade-off: runtime exploration is slower than retrieving pre-computed data, and an agent without proper tool guidance will waste context chasing dead ends. The hybrid pattern is now common — drop a small amount of high-value context up front (Claude Code drops `CLAUDE.md` files into context naively) and let the agent explore for the rest.
+The trade-off: runtime exploration is slower than retrieving pre-computed data, and an agent without proper tool guidance will waste context chasing dead ends. The hybrid pattern is now common — provide a small amount of high-value context up front, such as project instructions in `CLAUDE.md` or `AGENTS.md`, and let the agent explore the rest on demand.
 
 ---
 
@@ -78,11 +78,11 @@ flowchart TD
 
 ## Key Takeaways
 
-- **Context rot is real**: model performance degrades as context fills — it is not just a token-count limit but a quality-of-attention limit.
-- **The KV-cache is the most important production metric**: stable prefixes are worth more than a larger context window.
-- **Mask tools, don't swap them**: dynamically adding/removing tools mid-run breaks the cache and causes schema violations.
-- **The filesystem is the agent's true memory**: unlimited, persistent, and directly operable — far superior to in-context storage for long tasks.
-- **Just-in-time retrieval beats pre-loading**: maintain lightweight identifiers and load data only when needed.
+- **Context rot is real enough to design around**: larger contexts can help, but they do not remove the need for curation.
+- **The KV-cache is a major production metric**: stable prefixes can matter as much as model quality for latency and cost.
+- **Mask tools when possible, don't churn them casually**: dynamically adding/removing tools mid-run can break cache locality and cause schema violations.
+- **The filesystem is working memory, not magic memory**: it is larger and persistent, but it still needs paths, summaries, and retrieval discipline.
+- **Just-in-time retrieval often beats pre-loading**: maintain lightweight identifiers and load data only when needed.
 
 ## Further Reading
 

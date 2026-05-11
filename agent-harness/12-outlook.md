@@ -2,7 +2,7 @@
 
 ### 12.1 The Field Is Young
 
-The vocabulary of harness engineering — initializer agents, context firewalls, sprint contracts, reasoning sandwiches, ambient affordances, computational vs. inferential controls — was largely coined within the last twelve to eighteen months. Most of the source articles for this textbook were published in 2025 and 2026. The field is moving faster than any single book can document.
+Much of the vocabulary used in this book — initializer agents, context firewalls, sprint contracts, reasoning sandwiches, ambient affordances, computational vs. inferential controls — entered the mainstream agent-engineering conversation within the last twelve to eighteen months. Some underlying ideas are older, but the shared language is recent. Most of the source articles for this textbook were published in 2025 and 2026. The field is moving faster than any single book can document.
 
 LangChain frames the trajectory honestly: as models improve, some of what lives in the harness today will be absorbed into the model. Models will get better at planning, self-verification, and long-horizon coherence natively, requiring less context injection. But the space of interesting harness combinations does not shrink as models improve. It moves ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/); [Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)).
 
@@ -62,7 +62,7 @@ mindmap
 
 ## Key Takeaways
 
-- **The vocabulary is 12–18 months old**: nearly every term of art in harness engineering was coined in 2025–2026 — the field is pre-paradigmatic.
+- **The shared vocabulary is young**: many terms became common in 2025–2026, even when the underlying ideas are older.
 - **Models absorb harness, but harness moves**: as models improve and take on more native capabilities, the interesting harness work moves to harder problems, not away.
 - **Six open problems dominate the research agenda**: behavioral correctness, harness coherence at scale, async multi-agent coordination, continual learning, just-in-time tool assembly, and traces-as-documentation.
 - **Five standing principles cut across all contexts**: finite context, simplest-that-works, read-the-transcripts, iterate-load-bearing, tailor-to-model.

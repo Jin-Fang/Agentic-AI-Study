@@ -14,9 +14,9 @@ The implementation builds on OS-level primitives — Linux bubblewrap and macOS 
 
 Claude Code on the web extends this to a cloud sandbox where sensitive credentials (git credentials, signing keys) are never inside the sandbox with the agent at all. A custom proxy handles git interactions, attaching scoped credentials only after validating that the operation is permitted (e.g., pushing only to the configured branch).
 
-### 5.3 Hooks and Middleware as Deterministic Enforcement
+### 5.3 Hooks and Middleware as Programmatic Enforcement
 
-The sandbox is one form of programmatic guardrail; hooks and middleware are another, finer-grained one. Claude Code supports user-defined commands or scripts that run automatically on lifecycle events — at agent start, after a tool call, on stop, and so on ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)). LangChain's middleware concept is structurally equivalent.
+The sandbox is one form of programmatic guardrail; hooks and middleware are another, finer-grained one. Claude Code supports user-defined commands or scripts that run automatically on lifecycle events — at agent start, after a tool call, on stop, and so on ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)). LangChain's middleware concept is structurally similar. Some hooks are fully deterministic scripts; others are procedural checkpoints that inject context back into the model. The reliability comes from the harness executing them automatically, not from the model remembering a rule.
 
 Common uses are notifications (sounds when an agent finishes), automated approvals or denials (deny migration commands; ask the user to run them instead), integrations (post a Slack message, open a PR), and verification (run typecheck and build on stop, surface errors to the agent so it has to fix them before finishing). HumanLayer's example hook runs Biome and TypeScript in parallel on every Claude stop, exits silently on success, and on failure surfaces only the errors with exit code 2, telling the harness to re-engage the agent.
 
@@ -92,7 +92,7 @@ quadrantChart
 
 - **Sandboxing reduces permission prompts by 84%** while maintaining safety — structural boundaries beat approval dialogs.
 - **Filesystem and network isolation must be paired**: each addresses a different attack vector, and either alone is insufficient.
-- **Hooks and middleware are deterministic enforcement**: they run regardless of model behavior, making them more reliable than prompt-based constraints.
+- **Hooks and middleware are programmatic enforcement**: they run regardless of model memory, making them more reliable than prompt-only constraints.
 - **Feedforward and feedback are both required**: guides without sensors have no learning loop; sensors without guides react but don't prevent.
 - **Three categories of harness coverage**: maintainability (well-tooled), architecture fitness (achievable), and behavior (the unsolved problem).
 - **Ambient affordances matter**: strongly-typed languages and opinionated frameworks make harnessing easier from day one.

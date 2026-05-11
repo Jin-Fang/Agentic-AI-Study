@@ -16,7 +16,7 @@ This is structurally similar to boosting in classical machine learning — itera
 
 Anthropic's harness-design follow-up adds a complementary discipline ([Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)). Every component in a harness encodes an assumption about what the model cannot do on its own. As models improve, those assumptions go stale. The recommended approach: remove one component at a time, run the eval, observe.
 
-When Opus 4.6 launched with significantly stronger long-context retrieval and reduced context-anxiety, Anthropic dropped the sprint construct entirely from their three-agent architecture. The generator now ran coherently for over two hours without sprint decomposition. The evaluator, which had been load-bearing on Sonnet 4.5, became more situational on 4.6 — useful for tasks at the edge of what the generator could do solo, unnecessary overhead within that boundary. The general principle the team articulates: "the evaluator is not a fixed yes-or-no decision. It is worth the cost when the task sits beyond what the current model does reliably solo."
+When Opus 4.6 launched with stronger long-context retrieval and better long-horizon coding behavior, Anthropic was able to remove the sprint construct in one version of the harness. The generator ran coherently for over two hours without sprint decomposition. The evaluator, which had been more load-bearing on earlier models, became more situational on 4.6 — useful for tasks at the edge of what the generator could do solo, unnecessary overhead within that boundary. The general principle the team articulates: "the evaluator is not a fixed yes-or-no decision. It is worth the cost when the task sits beyond what the current model does reliably solo."
 
 ### 11.3 Model–Harness Co-Evolution
 
@@ -26,7 +26,7 @@ The Codex `apply_patch` tool is the canonical example. Codex models are post-tra
 
 ### 11.4 But the Best Harness Is Not Always the One the Model Was Trained In
 
-The corollary, and the practical license to iterate: the harness a model was trained in is often *not* optimal for a given task. Terminal-Bench 2.0 has been a recurring data point — Opus 4.6 in Claude Code scores at position 33, but the same model in different harnesses places at position 5 (within a noise band of about 4 positions) ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents); [LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)).
+The corollary, and the practical license to iterate: the harness a model was trained in is often *not* optimal for a given task. Terminal-Bench 2.0 has been a recurring data point in the practitioner discussion — HumanLayer cites Opus 4.6 in Claude Code at position 33, while the same model in a different harness places at position 5, with about four positions of leaderboard noise ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents); [LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). Treat the exact ranks as leaderboard snapshots, not timeless model facts.
 
 LangChain's case study reaches the same conclusion experimentally. They ran a Claude Opus 4.6 test on an early version of their harness that scored 59.6%, competitive but worse than their tuned Codex configuration. The principles generalized — context preparation, verification — but a few rounds of harness iteration tailored to the model would have closed the gap ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
 
@@ -50,7 +50,7 @@ What did not work: designing the ideal harness upfront; installing dozens of ski
 
 ### 11.6 The Misleading Data on AGENTS.md
 
-A worth-reading detail: an ETH Zurich study tested 138 agentfiles across various repos and found that LLM-generated ones actively hurt performance while costing 20% more, that human-written ones helped only 4%, that agents spent 14–22% more reasoning tokens processing context-file instructions, and that codebase overviews and directory listings did not help at all because agents discovered repository structure on their own ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) citing the ETH Zurich paper).
+A worth-reading detail: an ETH Zurich study tested 138 agentfiles across various repos and found that LLM-generated ones hurt performance while costing 20% more, that human-written ones helped only about 4%, that agents spent 14–22% more reasoning tokens processing context-file instructions, and that codebase overviews and directory listings did not help in that benchmark because agents could discover repository structure on their own ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) citing the ETH Zurich paper).
 
 HumanLayer reads this as confirming their own AGENTS.md guidance — keep files concise, avoid auto-generation, use progressive disclosure rather than dumping every instruction up front, keep contents universally applicable rather than full of conditional rules. Their own CLAUDE.md is under 60 lines.
 
@@ -80,7 +80,7 @@ flowchart LR
 ## Key Takeaways
 
 - **Traces are the primary debugging surface**: text I/O is visible even when model internals are not — systematic trace analysis drives harness improvement.
-- **The trained harness is often not the optimal harness**: Opus 4.6 in Claude Code scores position 33; the same model in a tuned harness scores position 5.
+- **The trained harness is not automatically optimal**: leaderboard snapshots show the same model moving substantially under different harnesses.
 - **Stress-test components when models change**: every harness component encodes an assumption that may go stale as models improve.
 - **Model–harness co-evolution is real**: post-training loops the harness into model training, creating coupling that breaks when either side changes unexpectedly.
 - **AGENTS.md has limited ROI**: concise, human-written, universally-applicable; LLM-generated hurts performance.

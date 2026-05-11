@@ -1,6 +1,8 @@
 # Chapter 8: Twelve Factors for Production Agents
 
-HumanLayer's "12 Factor Agents" is a manifesto rather than an architecture. The twelve principles, drawn from many production deployments ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)):
+The previous chapters described individual harness techniques: context management, tools, sandboxing, workflows, and long-running handoffs. HumanLayer's "12 Factor Agents" chapter is best read as a production checklist that ties those techniques back to ordinary software architecture. It borrows the naming style of the classic Twelve-Factor App, but the factors are specific to LLM agents.
+
+HumanLayer's "12 Factor Agents" is a manifesto rather than a complete reference architecture. The twelve principles, drawn from many production deployments ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)):
 
 1. **Natural Language to Tool Calls**: the atomic pattern is converting user phrasing into a structured JSON call that deterministic code executes.
 2. **Own Your Prompts**: do not outsource prompt engineering to a framework's black box. Write prompts as first-class code so they can be tested, evaluated, and tuned.
@@ -15,7 +17,7 @@ HumanLayer's "12 Factor Agents" is a manifesto rather than an architecture. The 
 11. **Trigger from Anywhere**: enable launches from Slack, email, SMS, webhooks, crons. Combined with factor 7, this enables the *outer loop* — agents kicked off by events that contact humans for help when they reach critical points.
 12. **Make Your Agent a Stateless Reducer**: a fold over events. Pure, serializable, replay-able.
 
-The deeper claim binding these together is that "agents, at least the good ones, don't follow the 'here's your prompt, here's a bag of tools, loop until you hit the goal' pattern. Rather, they are comprised of mostly just software" ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)). The factors are mostly software-engineering hygiene applied to a stateful, non-deterministic component.
+The deeper claim binding these together is that "agents, at least the good ones, don't follow the 'here's your prompt, here's a bag of tools, loop until you hit the goal' pattern. Rather, they are comprised of mostly just software" ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)). The factors are mostly software-engineering hygiene applied to a stateful, non-deterministic component. They should not be treated as universal laws: a research prototype, a local coding assistant, and a regulated customer-support agent will need different trade-offs. The useful lesson is the direction of travel — make state explicit, make control flow inspectable, and put human interaction behind structured interfaces.
 
 ---
 

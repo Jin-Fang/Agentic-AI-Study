@@ -22,7 +22,7 @@ Anthropic's vocabulary ([Anthropic — Demystifying Evals for AI Agents](https:/
 
 - **Code-based**: string match, binary tests, static analysis, outcome verification, tool-call verification, transcript analysis. Fast, cheap, objective, reproducible — but brittle to valid variations.
 - **Model-based**: rubric scoring, natural-language assertions, pairwise comparison, multi-judge consensus. Flexible, scalable, handles open-ended tasks — but non-deterministic, requires human calibration.
-- **Human**: SME review, crowdsourced judgment, A/B testing. Gold-standard quality — but expensive and slow.
+- **Human**: SME review, crowdsourced judgment, A/B testing. Best for calibration and subjective judgments — but expensive, slow, and still vulnerable to inconsistency if rubrics are weak.
 
 Anthropic recommends deterministic graders where possible, model-based where necessary, human for periodic calibration. They also caution against grading the *path* the agent took rather than what it produced — agents regularly find valid approaches the eval designer did not anticipate, and grading paths makes the eval brittle.
 
@@ -42,7 +42,7 @@ For agents whose behavior varies between runs, two metrics with opposite slopes 
 - **pass@k**: probability of at least one correct solution in k attempts. Rises as k increases — more shots on goal means higher odds of success.
 - **pass^k**: probability that *all* k trials succeed. Falls as k increases — demanding consistency across more trials raises the bar.
 
-A 75% per-trial success rate gives pass^3 of about 42% and pass^10 close to zero, but pass@10 approaches 100%. The right metric depends on the product: one success matters in code search, every success matters for a customer-facing agent.
+A 75% per-trial success rate gives pass^3 of about 42% and pass^10 about 5.6%, while pass@10 is about 99.9999%. The right metric depends on the product: one success matters when the system can generate multiple candidates and select or show the best one; every success matters for a customer-facing agent that must behave reliably on repeated runs.
 
 ### 9.6 The Eight-Step Roadmap
 
@@ -100,7 +100,7 @@ flowchart TD
         direction LR
         K1["k=1\npass@1: 75%\npass^1: 75%"]
         K3["k=3\npass@3: ~98%\npass^3: ~42%"]
-        K10["k=10\npass@10: ~99.9%\npass^10: ~6%"]
+        K10["k=10\npass@10: ~99.9999%\npass^10: ~6%"]
         K1 --> K3 --> K10
     end
 
@@ -117,7 +117,7 @@ flowchart TD
 - **Evals are compounding infrastructure**: start with 20–50 tasks from real failures, even before the agent is mature.
 - **Outcome ≠ response**: measure the environmental state (database row, URL, file) not just what the agent said.
 - **Three grader types form a pyramid**: code-based for speed, model-based for nuance, human for calibration.
-- **pass@k and pass^k serve different products**: one-shot systems need pass@k; customer-facing agents need pass^k.
+- **pass@k and pass^k serve different products**: multi-attempt generation can use pass@k; repeated customer-facing execution needs pass^k-style reliability.
 - **Reading transcripts is the skill**: scores plateau for two reasons — agent regression or eval unfairness — only transcripts distinguish them.
 - **Evals are one layer of many**: automated evals + production monitoring + A/B testing + user feedback + human review.
 

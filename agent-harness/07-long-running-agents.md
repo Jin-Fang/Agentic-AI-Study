@@ -4,7 +4,7 @@
 
 Anthropic's "Effective Harnesses for Long-Running Agents" frames the core challenge with a metaphor: imagine a software project staffed by engineers working in shifts, each one arriving with no memory of what happened before ([Anthropic — Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)). Because context windows are limited and most projects exceed one window, agents need a way to bridge sessions.
 
-Compaction alone is not enough. Even with the Claude Agent SDK's automatic compaction, Opus 4.5 in a loop will fail to build a production-quality app from a high-level prompt like "build a clone of claude.ai." The failures cluster in two patterns: the agent tries to one-shot the app and runs out of context mid-implementation, leaving the next session to clean up; or, after some features are built, a later agent declares the job done.
+Compaction alone is not always enough. In Anthropic's long-running app experiments, even with the Claude Agent SDK's automatic compaction, a simple Opus 4.5 loop was not reliable for building a production-quality app from a high-level prompt like "build a clone of claude.ai." The failures clustered in two patterns: the agent tried to one-shot the app and ran out of context mid-implementation, leaving the next session to clean up; or, after some features were built, a later agent declared the job done.
 
 ### 7.2 The Initializer + Coding Agent Pattern
 
@@ -32,7 +32,7 @@ The pattern's benefit is that the agent is forced into a clean state at session 
 
 ### 7.3 Generator–Evaluator (GAN-Inspired)
 
-A follow-up by Prithvi Rajasekaran extends the pattern to the holy-grail problem of building production-quality apps from short prompts ([Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)). The motivating observation: when asked to evaluate their own work, agents reliably skew positive even when output is mediocre. Separating the agent doing the work from the agent judging it is a strong lever, because tuning a separate skeptical evaluator is more tractable than making a generator critical of its own output.
+A follow-up by Prithvi Rajasekaran extends the pattern to a harder problem: building production-quality apps from short prompts ([Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)). The motivating observation: when asked to evaluate their own work, agents reliably skew positive even when output is mediocre. Separating the agent doing the work from the agent judging it is a strong lever, because tuning a separate skeptical evaluator is more tractable than making a generator critical of its own output.
 
 Inspired by Generative Adversarial Networks, the architecture is three agents:
 
@@ -42,7 +42,7 @@ Inspired by Generative Adversarial Networks, the architecture is three agents:
 
 The two coordinate via *sprint contracts*: before each sprint, the generator proposes what it will build and how success will be verified; the evaluator reviews until they agree; the generator then builds against the agreed contract. Communication is file-based — one agent writes a file, another reads and responds.
 
-The cost is significant. For a "create a 2D retro game maker" prompt, the solo run took 20 minutes and cost $9, producing an app that looked plausible but where the game itself did not work — entities appeared on screen but nothing responded to input. The full harness took 6 hours and cost $200, producing a working game maker with sprite editor, level editor, AI-assisted level generation, and playable mode. The 20× cost premium bought a working application instead of broken stubs.
+The cost is significant. For a "create a 2D retro game maker" prompt, the solo run took 20 minutes and cost $9, producing an app that looked plausible but where the game itself did not work — entities appeared on screen but nothing responded to input. The full harness took 6 hours and cost $200, producing a working game maker with sprite editor, level editor, AI-assisted level generation, and playable mode. The more-than-20× cost premium bought a working application instead of broken stubs.
 
 ### 7.4 Self-Verification Is the Headline Lever
 
@@ -121,7 +121,7 @@ sequenceDiagram
 ## Key Takeaways
 
 - **The shift-change problem is fundamental**: context limits mean agents need structured handoff mechanisms, not just bigger windows.
-- **Initializer + coding agent is the canonical long-horizon pattern**: separate roles for planning and incremental execution.
+- **Initializer + coding agent is a useful long-horizon pattern**: separate roles for planning and incremental execution.
 - **Separating generator from evaluator is a strong lever**: agents skew positive about their own output; an independent evaluator is more reliable.
 - **Sprint contracts coordinate multi-agent work**: file-based communication with agreed success criteria before each build sprint.
 - **Context resets cure "context anxiety"**: sometimes a fresh start with a structured handoff outperforms compaction.

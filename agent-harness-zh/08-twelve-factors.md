@@ -1,12 +1,12 @@
 # 第 8 章：生产级 Agent 的十二要素
 
-前几章讨论了单个 harness 技术：上下文管理、工具、沙箱、工作流和长运行 handoff。HumanLayer 的 “12 Factor Agents” 更适合作为一张生产 checklist，把这些技术重新连接到普通软件架构。它借用了经典 Twelve-Factor App 的命名风格，但要素本身针对 LLM agent。
+前几章讨论了单个 harness 技术：上下文管理、工具、沙箱、工作流和长运行 handoff。HumanLayer 的 “12 Factor Agents” 更适合作为一份生产 checklist，把这些技术重新连接到普通软件架构。它借用了经典 Twelve-Factor App 的命名风格，但要素本身针对的是 LLM agent。
 
 HumanLayer 的 “12 Factor Agents” 是宣言，而不是完整参考架构。十二条原则来自许多生产部署 ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：
 
 1. **Natural Language to Tool Calls**：原子模式是把用户自然语言转换成结构化 JSON call，再由确定性代码执行。
 2. **Own Your Prompts**：不要把 prompt engineering 外包给 framework 黑箱。把 prompt 当作一等代码，使其可测试、可评估、可调优。
-3. **Own Your Context Window**：标准 message format 只是一个选择；把 history 压进单个 XML-tagged event log 也是选择。目标是最大信息密度、最小 token。
+3. **Own Your Context Window**：标准 message format 只是一个选择；把 history 压进单个 XML-tagged event log 也是一种选择。目标是最大信息密度、最小 token。
 4. **Tools Are Just Structured Outputs**：工具调用就是模型输出 JSON，命名意图与参数。确定性代码决定如何执行。
 5. **Unify Execution State and Business State**：不要把“当前步骤/下一步骤/retry count”与“对话中发生了什么”分开。应从单一 event log 推导执行状态。
 6. **Launch / Pause / Resume with Simple APIs**：agent 是程序，应支持标准 lifecycle，包括在工具选择和执行之间暂停。
@@ -17,7 +17,7 @@ HumanLayer 的 “12 Factor Agents” 是宣言，而不是完整参考架构。
 11. **Trigger from Anywhere**：允许从 Slack、email、SMS、webhook、cron 启动。结合 factor 7，可以形成 *outer loop*：由事件启动的 agent，在关键点联系人类求助。
 12. **Make Your Agent a Stateless Reducer**：agent 是对 events 的 fold。纯、可序列化、可重放。
 
-贯穿这些要素的深层主张是：“好的 agent 至少不是‘给你一个 prompt、一袋工具，循环直到目标完成’这种模式。它们大多只是软件” ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))。这些要素基本是把软件工程卫生应用到一个有状态、非确定性的组件上。它们不应被当成普遍法则：研究原型、本地 coding assistant、受监管客服 agent 会需要不同权衡。真正有用的方向是：让状态显式、让控制流可检查、把人类交互放在结构化接口后面。
+贯穿这些要素的深层主张是：“好的 agent 至少不是‘给你一个 prompt、一袋工具，循环直到目标完成’这种模式。它们大多只是软件” ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))。这些要素基本是在把软件工程卫生应用到一个有状态、非确定性的组件上。它们不应被当成普遍法则：研究原型、本地 coding assistant、受监管客服 agent 会需要不同权衡。真正有用的方向是：让状态显式、让控制流可检查、把人类交互放在结构化接口后面。
 
 ---
 

@@ -1,14 +1,14 @@
 # 第 3 章：压缩、记忆与子代理模式
 
-即便有良好的上下文工程，长周期任务也会超过单个上下文窗口。相关文献通常汇聚到三类技术。
+即便上下文工程做得很好，长周期任务也经常会超过单个上下文窗口。相关文献通常汇聚到三类技术。
 
 ### 3.1 压缩
 
 压缩（compaction）会在对话接近上下文窗口上限时，总结当前对话，并用该总结重新开启一个新的上下文窗口 ([Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents))。在 Claude Code 中，消息历史会被交给模型，并要求保留架构决策、未解决 bug 和实现细节，同时丢弃冗余工具输出。随后 agent 以压缩后的上下文和最近访问的文件继续工作。
 
-Anthropic 对压缩提示的建议是：在真实复杂 trace 上调优；先最大化 recall，确保相关信息被捕获；再迭代 precision，移除多余内容。最轻量的形式是清理工具结果：工具被调用且结果已被行动吸收后，原始结果通常可以丢弃。
+Anthropic 对压缩提示的建议是：在真实复杂 trace 上调优；先最大化 recall，确保相关信息被捕获；再迭代 precision，移除多余内容。最轻量的做法是清理工具结果：工具被调用且结果已被后续行动吸收后，原始结果通常可以丢弃。
 
-关键 caveat 是：压缩是有损的。它适合保留决策、目标、约束和 artifact 指针，而不是保留长调试 trace 的每个细节。好的 harness 会把压缩与可恢复引用结合起来：commit hash、文件路径、issue ID、URL、短笔记，让后续 agent 在摘要不够时能重新加载一手证据。
+关键限制是：压缩是有损的。它适合保留决策、目标、约束和产物指针，而不是保留长调试 trace 的每个细节。好的 harness 会把压缩与可恢复引用结合起来：commit hash、文件路径、issue ID、URL、短笔记，让后续 agent 在摘要不够时能重新加载一手证据。
 
 ### 3.2 结构化笔记
 
@@ -16,9 +16,9 @@ Anthropic 对压缩提示的建议是：在真实复杂 trace 上调优；先最
 
 Manus 的 `todo.md` 技巧是这一模式的专门形式，但它还有下一节中的额外作用。
 
-### 3.3 复诵：通过上下文尾部操纵注意力
+### 3.3 反复复述：把注意力拉回上下文尾部
 
-Manus 报告称，在处理复杂任务时，agent 会创建 `todo.md`，并随着任务推进逐步重写它，勾掉已完成项目。这不仅是为了组织工作。典型 Manus 任务平均约 50 次工具调用；在长上下文中，模型容易偏离主题或忘记早期目标。通过反复重写 todo list，agent 把目标“复诵”到上下文尾部，将全局计划推入模型最近注意范围，缓解 “lost-in-the-middle” 问题 ([Manus - Context Engineering for AI Agents](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus))。
+Manus 报告称，在处理复杂任务时，agent 会创建 `todo.md`，并随着任务推进逐步重写它，勾掉已完成项目。这不仅是为了组织工作。典型 Manus 任务平均约 50 次工具调用；在长上下文中，模型容易偏离主题或忘记早期目标。通过反复重写 todo list，agent 把目标“复述”到上下文尾部，将全局计划推入模型最近的注意范围，缓解 “lost-in-the-middle” 问题 ([Manus - Context Engineering for AI Agents](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus))。
 
 ### 3.4 子代理与上下文防火墙
 
@@ -30,7 +30,7 @@ HumanLayer 对这里什么有效、什么无效说得很明确。把子代理设
 
 Anthropic 的多代理研究系统是这一模式规模化应用的典型例子。lead agent 分析查询并并行派生专门 sub-agents，各自探索一个方面；每个 sub-agent 有自己的上下文窗口；结果被压缩回 lead，由 lead 综合成最终报告。lead-agent-as-Opus、sub-agents-as-Sonnet 的配置在 Anthropic 内部研究评估中比单 agent Opus 高 90.2% ([Anthropic - How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system))。机制很大程度是 token economics：他们的分析中，三个因素解释了 BrowseComp benchmark 上 95% 的性能方差，其中 token 使用量单独解释了 80%。
 
-代价是成本。Anthropic 数据中，多 agent 系统使用的 token 约为 chat 的 15 倍、single-agent run 的 4 倍，因此只有在高价值且并行化确实有帮助的任务上才经济。它不适合共享可变状态的强耦合子任务；许多重实现的 coding task 属于这一类。但在 coding workflow 中，如果委托工作是只读调查、或按 ownership 边界清晰分离，它仍有价值。当前模型也不擅长 agent 间实时协调，所以 coordinator 必须明确任务边界。
+代价是成本。Anthropic 数据中，多 agent 系统使用的 token 约为 chat 的 15 倍、single-agent run 的 4 倍，因此只有在高价值且并行化确实有帮助的任务上才经济。它不适合共享可变状态的强耦合子任务；许多重新实现类的 coding task 属于这一类。但在 coding workflow 中，如果委托工作是只读调查，或能按 ownership 边界清晰拆开，它仍有价值。当前模型也不擅长 agent 间实时协调，所以 coordinator 必须明确任务边界。
 
 ### 3.5 不要把 Few-Shot 做成惯性
 
@@ -62,7 +62,7 @@ sequenceDiagram
     SA1-->>PA: 压缩摘要 (1-2k tokens)
     SA2-->>PA: 压缩摘要 (1-2k tokens)
     Note over PA: 上下文防火墙:<br/>不接收中间噪声
-    PA->>FS: 写 todo.md (复诵)<br/>写 notes.md (结构化记忆)
+    PA->>FS: 写 todo.md (反复复述)<br/>写 notes.md (结构化记忆)
     FS-->>PA: 上下文重置后重新加载笔记
     PA->>PA: 综合最终结果
 ```
@@ -73,7 +73,7 @@ sequenceDiagram
 
 - **压缩延长任务视野，但会丢细节**：保留关键决策和可恢复引用，而不是每个原始观察。
 - **结构化笔记支持多会话连续性**：把进度写到磁盘的 agent，可以在上下文重置后恢复工作。
-- **复诵缓解 lost-in-the-middle**：反复重写 todo list，把目标推入最近注意范围。
+- **反复复述缓解 lost-in-the-middle**：反复重写 todo list，把目标推入最近注意范围。
 - **上下文防火墙是子代理模式的关键价值**：父 agent 不看中间噪声，只接收浓缩结果。
 - **保留有用错误**：self-healing 需要相关错误 trace 可见，但重复失败应被压缩。
 

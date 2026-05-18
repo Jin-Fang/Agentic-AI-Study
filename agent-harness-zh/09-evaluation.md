@@ -2,7 +2,7 @@
 
 ### 9.1 为什么需要 Evals
 
-没有 evals，调试就是被动的：等投诉、手动复现、修复、祈祷别回归 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。团队无法区分真实回归与噪声，无法自动测试许多场景，也无法衡量改进。采用新模型也会很慢：没有 evals，新模型上线意味着数周手工测试；有 evals 的团队可以在数天内验证优势并调 prompt。
+没有 evals，调试就是被动的：等投诉、手动复现、修复，然后祈祷别回归 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。团队无法区分真实回归与噪声，无法自动测试大量场景，也无法衡量改进。采用新模型也会很慢：没有 evals，新模型上线意味着数周手工测试；有 evals 的团队可以在数天内验证优势并调 prompt。
 
 Anthropic 将 evals 视为复利型基础设施：成本在前期可见，收益在 agent 生命周期中累积。他们建议尽早开始，哪怕只有 20-50 个简单任务。Agent 早期开发中 effect size 很大，小样本也足以发现方向；成熟 agent 需要更大 eval 才能检测较小效果。
 
@@ -14,7 +14,7 @@ Anthropic 的词汇 ([Anthropic - Demystifying Evals for AI Agents](https://www.
 - **Trial**：对一个 task 的一次尝试。因为输出有随机性，一个 task 会有多次 trial。
 - **Grader**：评分某个性能方面；一个 task 可以有多个 grader，每个包含 assertions。
 - **Transcript**（trace、trajectory）：trial 的完整记录。
-- **Outcome**：trial 结束时的最终环境状态，不同于 agent 文本回应。例如订票 agent 说“机票已订好”是 response；SQL 数据库是否有对应行才是 outcome。
+- **Outcome**：trial 结束时的最终环境状态，不同于 agent 的文本回应。例如订票 agent 说“机票已订好”是 response；SQL 数据库是否有对应行才是 outcome。
 - **Evaluation harness**：运行 eval end-to-end 的基础设施，区别于 agent harness。
 - **Agent harness**（或 scaffold）：与模型一起被评估的系统。“当我们评估一个 agent 时，评估的是 harness 与模型协同工作。”
 
@@ -24,13 +24,13 @@ Anthropic 的词汇 ([Anthropic - Demystifying Evals for AI Agents](https://www.
 - **Model-based**：rubric scoring、自然语言断言、pairwise comparison、多 judge 共识。灵活、可扩展、能处理开放任务，但非确定性，需要人类校准。
 - **Human**：领域专家 review、众包判断、A/B testing。最适合校准和主观判断，但昂贵、慢，如果 rubric 弱也会不一致。
 
-Anthropic 建议：能用确定性 grader 就用确定性；必要时用 model-based；human 用于周期性校准。他们还提醒，不要过度评分 agent 采取的路径，而应评估产物。Agent 经常找到 eval 设计者没想到的有效路径，路径评分会使 eval 脆弱。
+Anthropic 建议：能用确定性 grader 就用确定性；必要时用 model-based；human 用于周期性校准。他们还提醒，不要过度评分 agent 采取的路径，而应评估产物。Agent 经常能找到 eval 设计者没想到的有效路径，路径评分会使 eval 脆弱。
 
 ### 9.4 Capability Eval 与 Regression Eval
 
 两类目的不同 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
-- **Capability evals** 问“这个 agent 擅长什么？”它们从低通过率开始，目标是 agent 正挣扎的任务，给团队一座可爬的山。
+- **Capability evals** 问“这个 agent 擅长什么？”它们从低通过率开始，目标是 agent 正在挣扎的任务，给团队一座可爬的山。
 - **Regression evals** 问“agent 是否仍能完成过去能完成的事？”它们应接近 100%，用于防止倒退。
 
 Agent 成熟后，通过率高的 capability eval 会 *graduate* 到 regression suite。曾经衡量“能不能做到”的任务，会变成“是否仍可靠做到”的任务。
@@ -42,7 +42,7 @@ Agent 成熟后，通过率高的 capability eval 会 *graduate* 到 regression 
 - **pass@k**：k 次尝试中至少一次正确的概率。随着 k 增大而上升。
 - **pass^k**：k 次 trial 全部成功的概率。随着 k 增大而下降。
 
-如果单次成功率 75%，pass^3 约为 42%，pass^10 约为 5.6%，而 pass@10 约为 99.9999%。正确指标取决于产品：当系统可以生成多个候选并选择/展示最佳结果时，一次成功就有价值；面向客户重复执行的 agent 则需要 pass^k 式可靠性。
+如果单次成功率 75%，pass^3 约为 42%，pass^10 约为 5.6%，而 pass@10 约为 99.9999%。正确指标取决于产品：当系统可以生成多个候选并选择或展示最佳结果时，一次成功就有价值；面向客户重复执行的 agent 则需要 pass^k 式可靠性。
 
 ### 9.6 八步路线图
 
@@ -67,7 +67,7 @@ Anthropic 将从无 eval 到可信 eval 的路线概括为 ([Anthropic - Demysti
 
 ### 9.8 阅读 Transcript 是核心技能
 
-反复出现的主题是：在有人阅读 transcripts 前，不要直接相信 eval 分数。Anthropic 提到 Opus 4.5 在 CORE-Bench 上初始得分 42%，但调查发现严格 grader 会惩罚把期望答案 `96.124991...` 写成 `96.12`，任务 spec 模糊，还有无法精确复现的随机任务。修复 grader bug 并使用限制更少的 scaffold 后，分数跳到 95% ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。类似地，METR 发现 time-horizon benchmark 中有任务要求 agent 优化到某个阈值，但评分要求超过阈值，惩罚遵循指令的模型，奖励忽略指令的模型。
+反复出现的主题是：在有人阅读 transcripts 前，不要直接相信 eval 分数。Anthropic 提到 Opus 4.5 在 CORE-Bench 上初始得分 42%，但调查发现严格 grader 会惩罚把期望答案 `96.124991...` 写成 `96.12`，任务 spec 模糊，还有无法精确复现的随机任务。修复 grader bug 并使用限制更少的 scaffold 后，分数跳到 95% ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。类似地，METR 发现 time-horizon benchmark 中有任务要求 agent 优化到某个阈值，但评分要求超过阈值，于是惩罚遵循指令的模型，奖励忽略指令的模型。
 
 通用规则是：失败应显得公平。当分数平台期时，要问 eval 是否仍在测它应该测的东西。
 

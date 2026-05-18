@@ -11,7 +11,7 @@ More topics will be added as the field evolves.
 | Topic | Description |
 |-------|-------------|
 | [Agent Harness](./agent-harness/) | A practitioner's textbook on harness engineering — the system that surrounds a language model when it does real work. Covers context management, tools, sandboxing, workflow patterns, evaluation, and more. |
-| [Agent Harness 中文版](./agent-harness-zh/) | 上述 Agent Harness 教材的中文版，保留相同章节结构、引用和核心内容。 |
+| [Agent Harness 中文版](./agent-harness-zh/) | Agent Harness 教材的中文版本，沿用相同的章节结构、引用体系和核心内容。 |
 
 ---
 

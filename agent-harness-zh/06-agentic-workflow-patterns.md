@@ -2,12 +2,12 @@
 
 ### 6.1 Workflows 与 Agents
 
-Anthropic 在更大的 “agentic systems” 类别中区分两种架构 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))：
+Anthropic 在更大的 “agentic systems” 类别中区分了两种架构 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))：
 
 - **Workflows** 通过预定义代码路径编排 LLM 和工具。
 - **Agents** 动态决定自己的流程和工具使用。
 
-他们强调的第一原则是：先找到最简单可行方案，只在需要时增加复杂度。许多用例根本不需要 agent；带检索和上下文示例的单次 LLM 调用通常就足够。Workflow 适合结构明确、需要可预测性和一致性的任务；agent 适合需要灵活性和模型驱动决策的规模化场景。
+他们强调的第一原则是：先找到最简单可行方案，只在需要时增加复杂度。许多用例根本不需要 agent；带检索和上下文示例的单次 LLM 调用通常就足够。Workflow 适合结构明确、需要可预测性和一致性的任务；agent 适合需要灵活性和模型驱动决策的大规模场景。
 
 ### 6.2 Augmented LLM
 
@@ -17,7 +17,7 @@ Anthropic 在更大的 “agentic systems” 类别中区分两种架构 ([Anthr
 
 从最简单到最灵活：
 
-**Prompt chaining** 将任务分解成顺序步骤，每个 LLM 调用处理前一个输出，并可加程序化 gate。适合任务可清晰分解、愿意用延迟换准确率的情况。例如：先写营销文案，再翻译。
+**Prompt chaining** 将任务分解成顺序步骤，每个 LLM 调用处理前一步的输出，并可加程序化 gate。适合任务可清晰分解、愿意用延迟换准确率的情况。例如：先写营销文案，再翻译。
 
 **Routing** 对输入分类，并派发到专门后续流程。适合输入类别明确、且分类可靠的场景。例如：把客服问题路由到退款、技术支持或一般问题 pipeline。
 
@@ -39,7 +39,7 @@ Framework 能帮助快速开始，但也可能引入抽象层，遮蔽底层 pro
 
 ### 6.5 小代理模式
 
-HumanLayer 的实践版本表达了相同洞见 ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：“loop until done” 模式大约在 10-20 轮后会撞墙，agent 失去连贯性。有效做法是在更大的确定性 DAG 中撒入小而聚焦的 agent。他们的 deploybot 示例中，确定性代码负责 staging deploy、e2e test 和真正的 prod deploy 命令；LLM 只负责解释人类自然语言反馈（“能先部署 backend 吗？”）并提出更新步骤。把 agent 域限制在 5-10 步，错误 spin-out 会少很多。
+HumanLayer 的实践版本表达了相同洞见 ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：“loop until done” 模式大约在 10-20 轮后会撞墙，agent 失去连贯性。有效做法是在更大的确定性 DAG 中嵌入小而聚焦的 agent。他们的 deploybot 示例中，确定性代码负责 staging deploy、e2e test 和真正的 prod deploy 命令；LLM 只负责解释人类自然语言反馈（“能先部署 backend 吗？”）并提出更新步骤。把 agent 的作用域限制在 5-10 步，错误失控发散会少很多。
 
 原则可以推广：随着模型变强，agent 可处理步骤可能变多；但小而聚焦的 agent 方式让你今天就能交付，并随着模型能力增长逐步扩大范围。
 

@@ -2,7 +2,7 @@
 
 ### 11.1 Traces 是反馈回路
 
-今天的模型很大程度是黑箱，内部机制难以解释。但输入和输出以文本形式可见，这足以驱动系统改进。LangChain 将 traces 视作 harness 调试的主要表面：每个 agent 动作都被存储，包括延迟、token 数、成本和工具调用 ([LangChain - Improving Deep Agents](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/))。
+今天的模型很大程度上是黑箱，内部机制难以解释。但输入和输出以文本形式可见，这足以驱动系统改进。LangChain 将 traces 视作 harness 调试的主要表面：每个 agent 动作都被存储，包括延迟、token 数、成本和工具调用 ([LangChain - Improving Deep Agents](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/))。
 
 他们的 *Trace Analyzer Skill* 自动化了这个循环：
 
@@ -14,7 +14,7 @@
 
 ### 11.2 压力测试负载组件
 
-Anthropic 的 harness-design 后续文章增加了互补纪律 ([Anthropic - Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps))。Harness 中每个组件都编码了一个关于“模型无法独立完成什么”的假设。随着模型改进，这些假设会过期。推荐做法是：一次移除一个组件，跑 eval，观察。
+Anthropic 的 harness-design 后续文章增加了互补纪律 ([Anthropic - Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps))。Harness 中每个组件都编码了一个关于“模型无法独立完成什么”的假设。随着模型改进，这些假设会过期。推荐做法是：一次移除一个组件，跑 eval，然后观察结果。
 
 当 Opus 4.6 推出并带来更强长上下文检索和长周期 coding 行为后，Anthropic 在一个 harness 版本中移除了 sprint construct。Generator 可以不经 sprint decomposition 连续运行两个多小时。Evaluator 在早期模型上更 load-bearing，但在 4.6 上变得更情境化：对处在当前模型 solo 能力边缘的任务有用，在能力范围内则可能是不必要开销。团队总结的原则是：“evaluator 不是固定的 yes/no 决策。任务超出当前模型 solo 可靠边界时，它才值得成本。”
 
@@ -44,7 +44,7 @@ LangChain 总结的 harness 迭代原则 ([LangChain - Improving Deep Agents](ht
 
 HumanLayer 的平行经验 ([HumanLayer - Skill Issue](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents))：
 
-有效的是：从简单开始，只在真实失败后添加配置；迭代并丢弃无效内容；通过 repo-level config 在团队内分发经过验证的配置；优化迭代速度，而非一次成功概率；在知道真正需要什么后修剪能力。
+有效的是：从简单开始，只在真实失败后添加配置；迭代并丢弃无效内容；通过 repo-level config 在团队内分发经过验证的配置；优化迭代速度，而不是只优化一次成功概率；在知道真正需要什么后修剪能力。
 
 无效的是：预先设计理想 harness；“以防万一”安装几十个 skills 和 MCP servers；每次 session 末尾跑完整测试套件；微调每个 sub-agent 可访问哪些工具。
 
@@ -52,7 +52,7 @@ HumanLayer 的平行经验 ([HumanLayer - Skill Issue](https://www.humanlayer.de
 
 一个值得阅读的细节：ETH Zurich 研究测试了多个 repo 中 138 个 agentfiles，发现 LLM 生成的 agentfile 会损害性能并增加 20% 成本；人类写的只提升约 4%；agent 处理 context-file 指令时多花 14-22% reasoning tokens；代码库概览和目录列表在该 benchmark 中没有帮助，因为 agent 自己可以发现 repo 结构 ([HumanLayer - Skill Issue](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) citing the ETH Zurich paper)。
 
-HumanLayer 将其解读为支持自己的 AGENTS.md 建议：文件要简短，避免自动生成，用渐进披露而不是 upfront 倒入所有指令，内容应普遍适用，而不是充满条件规则。他们自己的 CLAUDE.md 不到 60 行。
+HumanLayer 将其解读为支持自己的 AGENTS.md 建议：文件要简短，避免自动生成，用渐进披露而不是前置倒入所有指令，内容应普遍适用，而不是充满条件规则。他们自己的 CLAUDE.md 不到 60 行。
 
 通用原则是：更多配置不等于更好。每条无关指令都是 agent 必须处理但没有收益的指令；*instruction budget* 与 token budget 同样重要。
 
@@ -84,7 +84,7 @@ flowchart LR
 - **模型变化时压力测试组件**：每个 harness 组件都编码了可能过期的假设。
 - **Model-harness 共同演化真实存在**：post-training 将 harness 纳入训练回路，改变任一侧都可能破坏耦合。
 - **AGENTS.md ROI 有限**：简短、人写、普遍适用；LLM 生成可能伤害性能。
-- **迭代速度胜过 upfront design**：从简单开始，只在真实失败后添加，并积极修剪。
+- **迭代速度胜过前置设计**：从简单开始，只在真实失败后添加，并积极修剪。
 
 ## 延伸阅读
 

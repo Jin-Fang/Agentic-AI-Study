@@ -4,7 +4,7 @@
 
 ---
 
-## Foundations
+## 基础
 
 - Justin Young et al., *Effective Harnesses for Long-Running Agents*, Anthropic, Nov 2025.  
   https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
@@ -26,7 +26,7 @@
 
 ---
 
-## Context, Memory, and Working State
+## 上下文、记忆与工作状态
 
 - Anthropic Applied AI Team, *Effective Context Engineering for AI Agents*, Anthropic, Sep 2025.  
   https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
@@ -36,7 +36,7 @@
 
 ---
 
-## Tools and Constraints
+## 工具与约束
 
 - Ken Aizawa, *Writing Effective Tools for Agents - with Agents*, Anthropic, Sep 2025.  
   https://www.anthropic.com/engineering/writing-tools-for-agents
@@ -49,14 +49,14 @@
 
 ---
 
-## Specs and Workflow Design
+## 规格与工作流设计
 
 - Dex Horthy, *12-Factor Agents*, HumanLayer, Apr 2025.  
   https://www.humanlayer.dev/blog/12-factor-agents
 
 ---
 
-## Evaluation and Observability
+## 评估与可观测性
 
 - Mikaela Grace et al., *Demystifying Evals for AI Agents*, Anthropic, Jan 2026.  
   https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents
@@ -69,7 +69,7 @@
 
 ---
 
-## Runtimes, Harnesses, and Reference Implementations
+## 运行时、Harness 与参考实现
 
 - Harrison Chase, *Agent Frameworks, Runtimes, and Harnesses, Oh My!*, LangChain, Oct 2025.  
   https://blog.langchain.com/agent-frameworks-runtimes-and-harnesses-oh-my/
@@ -79,7 +79,7 @@
 
 ---
 
-## Reading List
+## 阅读列表
 
 - *Awesome Harness Engineering*, walkinglabs.  
   https://github.com/walkinglabs/awesome-harness-engineering

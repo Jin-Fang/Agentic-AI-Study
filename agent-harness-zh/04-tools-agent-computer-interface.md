@@ -2,11 +2,11 @@
 
 ### 4.1 为什么工具设计不同
 
-Anthropic 用类比 HCI 的方式提出 *agent-computer interface*（ACI）：agent 如何使用工具，值得像人类如何使用界面一样认真设计 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))。工具格式有三条具体建议：
+Anthropic 借用 HCI 的类比提出 *agent-computer interface*（ACI）：agent 如何使用工具，值得像人类如何使用界面一样认真设计 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))。工具格式有三条具体建议：
 
 - 给模型足够 token 在提交语法前“思考”，因为语法一旦写出很难撤回。
 - 保持格式接近模型训练数据中常见形式。
-- 避免过高格式开销，例如 diff header 中精确行号、或 JSON 嵌套代码时过度转义。
+- 避免过高的格式开销，例如 diff header 中的精确行号，或 JSON 嵌套代码时的过度转义。
 
 Anthropic 构建 SWE-bench agent 时，在工具 schema 优化上花的时间比 prompt 本身更多。一个具体改进是：把工具路径从相对路径改为绝对路径后，agent 离开根目录后的路径错误几乎全部消失。
 
@@ -24,13 +24,13 @@ Manus 也用相同模式控制动作空间：所有浏览器工具用 `browser_`
 
 ### 4.4 返回有意义的上下文
 
-工具响应应优先考虑相关性，而不是最大灵活性；应优先使用自然语言标识符，而不是技术 ID。Anthropic 发现，把字母数字 UUID 解析成语义标签，甚至 0-indexed ID，可以显著提升 Claude 的精度并减少幻觉 ([Anthropic - Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents))。如果两者都需要，自然名称供 agent 使用、技术 ID 供下游调用，可以用 `response_format` enum 提供 `concise` 与 `detailed` 两种模式；他们的 Slack 示例中，concise 响应可以只有 detailed 的三分之一大小。
+工具响应应优先考虑相关性，而不是最大灵活性；应优先使用自然语言标识符，而不是技术 ID。Anthropic 发现，把字母数字 UUID 解析成语义标签，甚至 0-indexed ID，可以显著提升 Claude 的精度并减少幻觉 ([Anthropic - Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents))。如果两者都需要，可以让自然名称供 agent 使用、技术 ID 供下游调用，也可以用 `response_format` enum 提供 `concise` 与 `detailed` 两种模式；他们的 Slack 示例中，concise 响应体积可以只有 detailed 的三分之一。
 
 ### 4.5 Token 高效响应
 
 工具响应是上下文膨胀的主要来源。Anthropic 默认将 Claude Code 的工具响应限制为 25,000 token，并建议结合分页、范围选择、过滤和带合理默认值的截断 ([Anthropic - Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents))。被截断的响应应包含引导，建议 agent 采取更高效策略，例如小而精准的搜索，而不是一次宽泛搜索；错误响应也应有帮助，而不是不透明 traceback。
 
-HumanLayer 在自己代码库中的 “back-pressure” 实践就是直接应用：build 和 test hook 在成功时吞掉输出，只暴露错误。早期他们让 agent 每次改动后跑完整测试套件，4,000 行通过测试会灌满上下文，导致 agent 忘记真实任务并开始对测试文件产生幻觉 ([HumanLayer - Skill Issue](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents))。
+HumanLayer 在自己代码库中的 “back-pressure” 实践就是直接应用：build 和 test hook 在成功时吞掉输出，只暴露错误。早期他们让 agent 每次改动后跑完整测试套件，4,000 行通过测试输出会灌满上下文，导致 agent 忘记真实任务并开始对测试文件产生幻觉 ([HumanLayer - Skill Issue](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents))。
 
 ### 4.6 对工具描述做 Prompt Engineering
 
@@ -46,13 +46,13 @@ Anthropic 认为这是最有效的杠杆之一，并报告称 Claude Sonnet 3.5 
 
 收益会叠加：
 
-- **渐进披露**：只在需要时加载工具，减少 upfront 上下文成本。
+- **渐进披露**：只在需要时加载工具，减少前置上下文成本。
 - **上下文高效结果**：agent 可以在执行环境中把 10,000 行 spreadsheet 过滤到 5 行，再把结果带进模型上下文。
 - **更好的控制流**：循环、条件、错误处理用熟悉的代码模式，由 runtime 评估条件，而不是模型用 token 推演。
 - **隐私保护操作**：中间结果默认留在执行环境中；只有 agent 显式 log 的内容进入模型。设计正确的 proxy 可以在 MCP client 边界 token 化 PII，使原始值无需进入模型。
 - **状态持久化与 skills**：agent 可以把工作代码保存成由 `SKILL.md` 支持的可复用函数，逐步积累工具箱。
 
-Cloudflare 用 “Code Mode” 报告了相似发现，强化了这个结论：LLM 擅长写代码，开发者应让它们写代码 ([Anthropic - Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp))。
+Cloudflare 用 “Code Mode” 报告了相似发现，强化了这个结论：LLM 擅长写代码，开发者应当让它们通过写代码来完成一部分工具调用 ([Anthropic - Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp))。
 
 代价是：代码执行需要沙箱基础设施，带来运营和安全成本。
 
@@ -65,7 +65,7 @@ Anthropic 推荐的工具开发流程有四阶段 ([Anthropic - Writing Effectiv
 3. **Run the evaluation**：程序化运行，并捕获包含 planning summary、工具调用、工具结果、runtime、token count、工具错误的 trace。如果模型暴露 visible thinking mode，它可以帮助调试，但 eval 不应依赖隐藏 chain-of-thought。
 4. **Analyze results**：阅读 transcript，注意 agent 没说什么（LLM 不总是说出真实意图），并据此重构工具。
 
-Anthropic 在内部 Slack 和 Asana 工具上跑这个循环，发现 Claude 优化版工具在 held-out 测试集上超过专家手写实现。这验证了这个循环，也是 agent 改进自己工具的早期实例。
+Anthropic 在内部 Slack 和 Asana 工具上跑这个循环，发现 Claude 优化版工具在 held-out 测试集上超过专家手写实现。这验证了这个循环，也提供了 agent 改进自身工具的早期实例。
 
 ---
 

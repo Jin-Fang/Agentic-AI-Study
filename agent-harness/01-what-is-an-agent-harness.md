@@ -18,7 +18,9 @@ Before examining the harness piece by piece, it is worth seeing the cycle that e
 4. **Append the observation** — the tool result is appended to the context as a new message.
 5. **Repeat** — the loop runs again with the now-longer context, until the model returns a final answer or a stop condition is reached.
 
-Anthropic calls the model at the centre of this loop the *augmented LLM* — a model equipped with retrieval, tools, and memory, able to generate its own queries, select tools, and decide what to retain ([Anthropic — Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)). The pattern of interleaving reasoning with tool calls is often called *ReAct* (reason + act) in the research literature; whether or not the model thinks in visible text before each call, the loop structure is the same.
+A tool call is therefore not magic and not direct agency. It is structured output produced by the model and interpreted by code; HumanLayer later makes this explicit as the principle that "tools are just structured outputs" ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)). The same is true for every apparent "action" in an agent transcript: file edits, shell commands, browser clicks, database writes, and messages to humans become real only when the harness accepts the model's request and executes it.
+
+Anthropic calls the model at the centre of this loop the *augmented LLM* — a model equipped with retrieval, tools, and memory, able to generate its own queries, select tools, and decide what to retain ([Anthropic — Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)). The pattern of interleaving reasoning with tool calls is often called *ReAct* (reason + act) in the research literature ([Yao et al. — ReAct](https://arxiv.org/abs/2210.03629)); whether or not the model thinks in visible text before each call, the loop structure is the same.
 
 Two consequences of this loop shape the rest of the book. First, **context grows monotonically**: every turn appends a tool call and its observation, so an N-step task accumulates N rounds of history. This is why Chapter 2 treats context as a finite resource, and why compaction, sub-agents, and memory exist at all. Second, **the model never executes anything itself** — it only emits a request, and deterministic harness code decides what to honour. That gap between request and execution is the insertion point for every guardrail, sandbox, hook, and approval gate in the later chapters: the harness is what sits in the loop, between what the model asks for and what actually happens.
 
@@ -98,6 +100,7 @@ flowchart TB
 
 - **Agent = Model + Harness**: every capability beyond raw text I/O must be engineered into the surrounding system.
 - **The agent loop is the foundation**: assemble context, the model emits a tool call, the harness executes it, the result is appended — and the cycle repeats, growing context every turn.
+- **Tool calls are structured requests**: the model proposes actions in text; the harness decides which requests become real effects.
 - **Three concentric layers**: the LLM core, the builder harness (shipped by the AI lab), and the user harness (built by the team).
 - **Harness components derive from model deficits**: filesystem, sandbox, memory, compaction each address a specific limitation.
 - **Harness engineering is permanent work**: as models improve, harder problems are tackled and new failure modes emerge.

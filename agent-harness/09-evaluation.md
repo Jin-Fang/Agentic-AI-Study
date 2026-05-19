@@ -4,6 +4,8 @@
 
 Without evals, debugging is reactive: wait for complaints, reproduce manually, fix, hope nothing else regressed ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). Teams cannot distinguish real regressions from noise, automate testing of changes against many scenarios, or measure improvements. They also adopt new models slowly — without evals, taking advantage of a new model means weeks of manual testing, while evaluated teams can verify strengths and tune prompts in days.
 
+An eval is broader than a unit test. Unit tests usually check one deterministic function or module. Agent evals run the whole model-plus-harness system in an environment, then judge whether the final state satisfies the task. That matters because an agent can pass an intermediate test, produce a fluent answer, or take an unusual path while still failing the user's real goal.
+
 Anthropic positions evals as compounding infrastructure: the costs are visible up front, the benefits accumulate over the agent's lifecycle. Their advice: start early, even with 20–50 simple tasks. Effect sizes in early agent development are large, so small samples suffice; mature agents need larger evals to detect smaller effects.
 
 ### 9.2 The Anatomy of an Evaluation
@@ -41,6 +43,8 @@ For agents whose behavior varies between runs, two metrics with opposite slopes 
 
 - **pass@k**: probability of at least one correct solution in k attempts. Rises as k increases — more shots on goal means higher odds of success.
 - **pass^k**: probability that *all* k trials succeed. Falls as k increases — demanding consistency across more trials raises the bar.
+
+These metrics exist because agent runs are stochastic. The same prompt, model, and harness can produce different tool orders, search paths, or final answers across trials. A single run is therefore weak evidence; repeated trials tell you whether you have occasional success, consistent reliability, or a brittle lucky path.
 
 A 75% per-trial success rate gives pass^3 of about 42% and pass^10 about 5.6%, while pass@10 is about 99.9999%. The right metric depends on the product: one success matters when the system can generate multiple candidates and select or show the best one; every success matters for a customer-facing agent that must behave reliably on repeated runs.
 
@@ -115,6 +119,7 @@ flowchart TD
 ## Key Takeaways
 
 - **Evals are compounding infrastructure**: start with 20–50 tasks from real failures, even before the agent is mature.
+- **Eval is broader than unit testing**: it checks the model-plus-harness system against task outcomes in an environment.
 - **Outcome ≠ response**: measure the environmental state (database row, URL, file) not just what the agent said.
 - **Three grader types form a pyramid**: code-based for speed, model-based for nuance, human for calibration.
 - **pass@k and pass^k serve different products**: multi-attempt generation can use pass@k; repeated customer-facing execution needs pass^k-style reliability.

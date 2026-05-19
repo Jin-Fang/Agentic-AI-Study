@@ -4,6 +4,8 @@
 
 没有 evals，调试就是被动的：等投诉、手动复现、修复，然后祈祷别回归 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。团队无法区分真实回归与噪声，无法自动测试大量场景，也无法衡量改进。采用新模型也会很慢：没有 evals，新模型上线意味着数周手工测试；有 evals 的团队可以在数天内验证优势并调 prompt。
 
+Eval 比单元测试更宽。单元测试通常检查一个确定性的函数或模块；agent eval 运行的是整个 model + harness 系统，并在环境中判断最终状态是否满足任务。这一点很重要，因为 agent 可能通过了中间测试、回答得很流畅、甚至走了一条看似合理的路径，但仍然没有完成用户真正的目标。
+
 Anthropic 将 evals 视为复利型基础设施：成本在前期可见，收益在 agent 生命周期中累积。他们建议尽早开始，哪怕只有 20-50 个简单任务。Agent 早期开发中 effect size 很大，小样本也足以发现方向；成熟 agent 需要更大 eval 才能检测较小效果。
 
 ### 9.2 Evaluation 的结构
@@ -41,6 +43,8 @@ Agent 成熟后，通过率高的 capability eval 会 *graduate* 到 regression 
 
 - **pass@k**：k 次尝试中至少一次正确的概率。随着 k 增大而上升。
 - **pass^k**：k 次 trial 全部成功的概率。随着 k 增大而下降。
+
+这些指标之所以必要，是因为 agent 运行具有随机性。同一个 prompt、模型和 harness，在不同 trial 中可能产生不同的工具顺序、搜索路径或最终答案。因此，单次运行只能提供很弱的证据；重复 trial 才能看出系统只是偶尔成功、稳定可靠，还是碰巧走通了一条脆弱路径。
 
 如果单次成功率 75%，pass^3 约为 42%，pass^10 约为 5.6%，而 pass@10 约为 99.9999%。正确指标取决于产品：当系统可以生成多个候选并选择或展示最佳结果时，一次成功就有价值；面向客户重复执行的 agent 则需要 pass^k 式可靠性。
 
@@ -115,6 +119,7 @@ flowchart TD
 ## 要点
 
 - **Evals 是复利型基础设施**：即使 agent 未成熟，也从 20-50 个真实失败任务开始。
+- **Eval 比单元测试更宽**：它在环境中检查 model + harness 系统是否达成任务 outcome。
 - **Outcome 不等于 response**：测环境状态（数据库行、URL、文件），而不是只测 agent 说了什么。
 - **三类 grader 形成金字塔**：code-based 负责速度，model-based 负责细微判断，human 负责校准。
 - **pass@k 与 pass^k 服务不同产品**：多候选生成可用 pass@k，重复面向客户执行需要 pass^k 式可靠性。

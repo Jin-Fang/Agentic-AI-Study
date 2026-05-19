@@ -21,6 +21,9 @@ Full bibliography for *Agent Harness: A Practitioner's Textbook*.
 - Erik Schluntz and Barry Zhang, *Building Effective Agents*, Anthropic, Dec 2024.
   https://www.anthropic.com/engineering/building-effective-agents
 
+- Shunyu Yao et al., *ReAct: Synergizing Reasoning and Acting in Language Models*, arXiv, Oct 2022.
+  https://arxiv.org/abs/2210.03629
+
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026.
   https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 
@@ -46,6 +49,9 @@ Full bibliography for *Agent Harness: A Practitioner's Textbook*.
 
 - David Dworken and Oliver Weller-Davies, *Beyond Permission Prompts: Making Claude Code More Secure and Autonomous*, Anthropic, Oct 2025.
   https://www.anthropic.com/engineering/claude-code-sandboxing
+
+- Simon Willison, *The lethal trifecta for AI agents: private data, untrusted content, and external communication*, Jun 2025.
+  https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/
 
 ---
 

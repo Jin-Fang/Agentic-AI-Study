@@ -28,6 +28,8 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Tool call** — Structured output (typically JSON) in which the model names a tool and its arguments. Deterministic harness code decides what to do with it (Ch 4, 8).
 
+**Structured output** — Model output constrained into a machine-readable shape, usually JSON or XML, so software can parse it reliably. Tool calls are the agent-specific case (Ch 1, 4, 8).
+
 ---
 
 ## Context and Memory
@@ -82,6 +84,10 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Code execution (as a meta-tool)** — Presenting tools as a code API the agent invokes by writing code, rather than as direct calls — sharply reducing token cost (Ch 4).
 
+**Shell** — A command-line interface such as Bash or zsh. In agent systems, shell access is powerful because it lets the agent run tests, inspect files, install packages, and compose ad hoc tools (Ch 1, 4, 5).
+
+**Filesystem** — The directories and files the agent can read or write. It acts as workspace, durable memory, and a collaboration surface between agents and humans (Ch 1, 2, 5).
+
 **Sandbox** — An isolated environment, with filesystem and network boundaries, within which an agent can act freely without per-action approval prompts (Ch 5).
 
 **Hook / middleware** — Harness-executed scripts or checkpoints that run automatically on lifecycle events (start, post-tool-call, stop), enforcing rules deterministically (Ch 5).
@@ -91,6 +97,10 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 **Computational / inferential control** — Computational controls (linters, type checkers) are deterministic and fast; inferential controls (AI review, LLM-as-judge) handle nuance but are slower and non-deterministic (Ch 5).
 
 **Ambient affordances** — Properties of the environment itself (strong typing, clear module boundaries, opinionated frameworks) that make a codebase legible and tractable to agents (Ch 5).
+
+**CI (continuous integration)** — Automated checks that run around code changes, usually tests, linters, builds, and deployment gates. In harness design, CI-like checks become feedback sensors (Ch 5, 9).
+
+**Linter / type checker** — Deterministic tools that detect style, syntax, structural, or type errors before runtime. They are common computational sensors in an outer harness (Ch 5).
 
 **Prompt injection** — An attack in which instructions hidden in content the agent reads (a web page, a file, a tool result) are interpreted by the model as commands (Ch 5).
 
@@ -125,6 +135,10 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 **Initializer agent** — An agent that runs once to set up a project (init script, progress log, feature list) for the later coding-agent sessions to build on (Ch 7).
 
 **Sprint contract** — A file-based agreement between a generator and an evaluator agent on what will be built and how success is verified, settled before each build sprint (Ch 7).
+
+**Event log** — An append-only record of messages, tool calls, results, approvals, and errors. Execution state can be derived from it, making agents easier to replay and debug (Ch 8).
+
+**Checkpoint / resume** — A reliability pattern where an agent periodically saves enough state to restart after failure or context reset without losing work (Ch 7, 8).
 
 **Stateless reducer** — Modeling an agent as a pure fold over an event log, making it serializable, replayable, and testable (Ch 8).
 

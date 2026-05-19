@@ -2,6 +2,8 @@
 
 The previous chapters described individual harness techniques: context management, tools, sandboxing, workflows, and long-running handoffs. This chapter steps back: HumanLayer's "12 Factor Agents" is best read as a production checklist that ties those techniques back to ordinary software architecture. It borrows the naming style of the classic Twelve-Factor App, but the factors are specific to LLM agents — and it is a manifesto, not a complete reference architecture.
 
+Two software concepts do a lot of work in this chapter. *State* is the information needed to continue execution: the current step, retry counts, approvals, user messages, tool results, and business objects touched so far. An *event log* is the append-only record from which that state can be reconstructed. When an agent is modeled as a reducer over events, pause/resume, replay, debugging, and testing become ordinary software problems rather than hidden conversation state.
+
 The twelve principles, drawn from many production deployments ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)):
 
 1. **Natural Language to Tool Calls**: the atomic pattern is converting user phrasing into a structured JSON call that deterministic code executes.

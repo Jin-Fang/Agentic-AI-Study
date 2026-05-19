@@ -2,6 +2,8 @@
 
 前几章讨论了单个 harness 技术：上下文管理、工具、沙箱、工作流和长运行 handoff。本章退一步看：HumanLayer 的 “12 Factor Agents” 更适合作为一份生产 checklist，把这些技术重新连接到普通软件架构。它借用了经典 Twelve-Factor App 的命名风格，但要素本身针对的是 LLM agent——而且它是一份宣言，而不是完整参考架构。
 
+本章里有两个软件概念很关键。*状态* 是继续执行所需的信息：当前步骤、重试次数、审批、用户消息、工具结果，以及目前已经触及的业务对象。*事件日志* 是可以用来重建这些状态的追加式记录。把 agent 建模为对事件的 reducer 后，暂停/恢复、重放、调试和测试就会变成普通软件问题，而不是隐藏在对话里的状态问题。
+
 这十二条原则来自许多生产部署 ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：
 
 1. **Natural Language to Tool Calls**：原子模式是把用户自然语言转换成结构化 JSON call，再由确定性代码执行。

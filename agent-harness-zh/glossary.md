@@ -28,6 +28,8 @@
 
 **Tool call(工具调用)** — 模型发出的结构化输出(通常是 JSON),指明工具名和参数。由确定性的 harness 代码决定如何处理(第 4、8 章)。
 
+**结构化输出(structured output)** — 被约束成机器可读形状的模型输出,通常是 JSON 或 XML,便于软件可靠解析。工具调用是它在 agent 系统中的典型形式(第 1、4、8 章)。
+
 ---
 
 ## 上下文与记忆
@@ -82,6 +84,10 @@
 
 **代码执行(作为元工具)** — 把工具呈现为 agent 通过写代码来调用的代码 API,而不是直接调用——大幅降低 token 成本(第 4 章)。
 
+**Shell** — Bash、zsh 这类命令行接口。在 agent 系统中,shell 访问很强大,因为它让 agent 可以运行测试、检查文件、安装包,并临时组合工具(第 1、4、5 章)。
+
+**文件系统(filesystem)** — agent 可以读写的目录和文件。它既是工作区,也是持久记忆,还是 agent 与人类协作的界面(第 1、2、5 章)。
+
 **Sandbox(沙箱)** — 带有文件系统和网络边界的隔离环境,agent 可在其中自由行动而无需逐动作审批(第 5 章)。
 
 **Hook / middleware(中间件)** — 由 harness 在生命周期事件(启动、工具调用后、停止)自动执行的脚本或检查点,确定性地强制规则(第 5 章)。
@@ -91,6 +97,10 @@
 **Computational / inferential control(计算型/推断型控制)** — 计算型控制(linter、类型检查器)确定且快;推断型控制(AI review、LLM-as-judge)能处理细微判断,但更慢、非确定(第 5 章)。
 
 **Ambient affordances(环境可供性)** — 环境本身的属性(强类型、清晰模块边界、有立场的框架),使代码库对 agent 更易理解和处理(第 5 章)。
+
+**CI(持续集成)** — 围绕代码变更自动运行的检查,通常包括测试、linter、构建和部署关卡。在 harness 设计中,这类检查会成为反馈型 sensor(第 5、9 章)。
+
+**Linter / type checker(linter / 类型检查器)** — 在运行前发现风格、语法、结构或类型错误的确定性工具。它们是外层 harness 中常见的计算型 sensor(第 5 章)。
 
 **Prompt injection(提示注入)** — 一种攻击:藏在 agent 所读内容(网页、文件、工具结果)中的指令被模型当作命令执行(第 5 章)。
 
@@ -125,6 +135,10 @@
 **Initializer agent** — 只运行一次、为后续 coding agent session 搭好项目(init 脚本、进度日志、feature list)的 agent(第 7 章)。
 
 **Sprint contract** — generator 与 evaluator 两个 agent 之间基于文件的约定,在每个构建 sprint 前敲定要构建什么、如何验证成功(第 7 章)。
+
+**Event log(事件日志)** — 对消息、工具调用、结果、审批和错误的追加式记录。执行状态可以从中推导出来,因此 agent 更容易重放和调试(第 8 章)。
+
+**Checkpoint / resume(检查点/恢复)** — 一种可靠性模式:agent 定期保存足够状态,以便在失败或上下文重置后继续工作而不丢进度(第 7、8 章)。
 
 **Stateless reducer(无状态归约器)** — 把 agent 建模为对 event log 的纯 fold,使其可序列化、可重放、可测试(第 8 章)。
 

@@ -4,6 +4,8 @@
 
 这个领域的基本前提很简单。LangChain 的 Vivek Trivedy 将其概括为：“Agent = Model + Harness。**如果你不是模型，那你就是 harness。**”([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。除此之外，系统提示、工具、沙箱、记忆、子代理、控制流、评估基础设施，都属于 harness。如何把这些东西设计好，就是本书要研究的内容。
 
+理解本书所需的背景主要是软件工程，而不是模型内部机制。贯穿全书，可以先把模型理解为一个接收 token、输出 token 的组件。它可能输出给用户看的文本，也可能输出请求某个动作的结构化文本，但真正执行动作的始终是模型周围的软件。区分“模型输出”和“真实世界效果”，正是后续章节反复讨论上下文、工具、状态、测试、沙箱和评估的原因。
+
 ---
 
 ## 核心公式

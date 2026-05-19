@@ -98,23 +98,23 @@ sequenceDiagram
     participant GIT as Git Repository
 
     USER->>IA: "Build a clone of claude.ai"
-    IA->>FL: 写 feature list\n(全部 passes: false)
+    IA->>FL: 写 feature list<br/>(全部 passes: false)
     IA->>GIT: 初始 commit + init.sh
 
     loop 每个 coding session
         USER->>CA: 启动新 session
         CA->>GIT: 读 git log + progress file
-        CA->>FL: 选择最高优先级\n未完成 feature
+        CA->>FL: 选择最高优先级<br/>未完成 feature
         CA->>CA: 运行 init.sh (dev server up)
         CA->>CA: E2E baseline test
         CA->>CA: 实现一个 feature
-        CA->>CA: 浏览器驱动验证\n(Puppeteer MCP)
+        CA->>CA: 浏览器驱动验证<br/>(Puppeteer MCP)
         CA->>FL: 翻转 passes: true
         CA->>GIT: Commit + 更新 progress
     end
 
-    Note over FL: 不删除 features\n只翻转 passes boolean
-    Note over CA: Session 边界保持干净状态\n= 可安全合并
+    Note over FL: 不删除 features<br/>只翻转 passes boolean
+    Note over CA: Session 边界保持干净状态<br/>= 可安全合并
 ```
 
 ---

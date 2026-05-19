@@ -51,11 +51,11 @@ HumanLayer 的实践版本表达了相同洞见 ([HumanLayer - 12-Factor Agents]
 flowchart TD
     INPUT["用户输入"] --> CHOICE{选择模式}
 
-    CHOICE -->|"任务可清晰\n分解成步骤"| CHAIN["Prompt Chaining\n-> 步骤 1 -> 步骤 2 -> 步骤 3\n每步输出进入下一步"]
-    CHOICE -->|"输入有\n明确类别"| ROUTE["Routing\n-> 分类器 -> 专家 A\n             -> 专家 B\n             -> 专家 C"]
-    CHOICE -->|"子任务独立"| PARALLEL["Parallelization\n-> Worker 1 ↘\n-> Worker 2 -> Aggregator\n-> Worker 3 ↗\n(sectioning or voting)"]
-    CHOICE -->|"子任务形状\n依赖输入"| ORCH["Orchestrator-Workers\n-> Orchestrator 动态委托\n-> Workers\n-> 综合结果"]
-    CHOICE -->|"标准清楚 +\n迭代有价值"| EVALOPT["Evaluator-Optimizer\n-> Generator -> Evaluator\n      ↑_____________↓\n   (循环直到达标)"]
+    CHOICE -->|"任务可清晰<br/>分解成步骤"| CHAIN["Prompt Chaining<br/>-> 步骤 1 -> 步骤 2 -> 步骤 3<br/>每步输出进入下一步"]
+    CHOICE -->|"输入有<br/>明确类别"| ROUTE["Routing<br/>-> 分类器 -> 专家 A<br/>             -> 专家 B<br/>             -> 专家 C"]
+    CHOICE -->|"子任务独立"| PARALLEL["Parallelization<br/>-> Worker 1 ↘<br/>-> Worker 2 -> Aggregator<br/>-> Worker 3 ↗<br/>(sectioning or voting)"]
+    CHOICE -->|"子任务形状<br/>依赖输入"| ORCH["Orchestrator-Workers<br/>-> Orchestrator 动态委托<br/>-> Workers<br/>-> 综合结果"]
+    CHOICE -->|"标准清楚 +<br/>迭代有价值"| EVALOPT["Evaluator-Optimizer<br/>-> Generator -> Evaluator<br/>      ↑_____________↓<br/>   (循环直到达标)"]
 
     CHAIN --> OUT["输出"]
     ROUTE --> OUT

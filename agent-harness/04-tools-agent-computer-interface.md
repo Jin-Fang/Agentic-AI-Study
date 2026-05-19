@@ -16,29 +16,37 @@ Anthropic's later "Writing Effective Tools for Agents" elaborates on the central
 
 Tools should consolidate frequently-chained operations. Rather than `list_users`, `list_events`, and `create_event`, build `schedule_event`. Rather than `read_logs`, build `search_logs`. Rather than `get_customer_by_id` + `list_transactions` + `list_notes`, build `get_customer_context`.
 
-### 4.3 Namespacing
+### 4.3 Where Tools Come From: The Model Context Protocol
+
+The sections around this one assume an agent with a set of well-designed tools. In practice, many of those tools arrive over a standard interface: the *Model Context Protocol* (MCP). MCP is an open client–server standard. An *MCP server* exposes a set of tools — and, optionally, resources and reusable prompts — over a uniform protocol; any MCP-compatible *client*, such as Claude Code, an IDE, or a custom agent, can discover and call them without bespoke integration ([Anthropic — Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)).
+
+The value is composability. A team can connect a Google Drive server, a Salesforce server, and an internal database server to the same agent — each built and maintained independently — and the agent sees one combined tool surface. This is why MCP recurs throughout this book: it is the substrate for the namespacing, masking, and code-execution patterns described in the rest of this chapter.
+
+The cost is that MCP made tool over-supply trivial. As Chapter 2 noted, MCP let users plug in hundreds of tools, and a context loaded with hundreds of tool definitions is exactly the bloat that Chapter 2's *mask, don't remove* rule and the consolidation advice above push back on. MCP is plumbing, not a substitute for tool design: a poorly designed MCP server simply delivers poorly designed tools at scale. The discipline of this chapter — consolidate frequently-chained operations, namespace, cap responses, write descriptions like onboarding docs — applies whether a tool is hand-written or arrives over MCP.
+
+### 4.4 Namespacing
 
 When agents have access to dozens of MCP servers and hundreds of tools, name collisions and ambiguous purpose become critical failure modes. Anthropic recommends grouping related tools under common prefixes — service prefixes (`asana_*`, `jira_*`) and resource prefixes within those (`asana_projects_*`, `asana_users_*`). They report that prefix vs. suffix namespacing schemes have non-trivial effects on tool-use evaluations and that the right scheme is workload-specific ([Anthropic — Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents)).
 
 Manus uses the same pattern for action-space control: by giving all browser tools a `browser_` prefix and all shell tools a `shell_` prefix, they can mask large groups of tools at once with simple logit constraints ([Manus — Context Engineering for AI Agents: Lessons from Building Manus](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus)).
 
-### 4.4 Returning Meaningful Context
+### 4.5 Returning Meaningful Context
 
 Tool responses should prioritize relevance over flexibility, and natural-language identifiers over technical ones. Anthropic finds that resolving alphanumeric UUIDs to semantically meaningful labels (or even 0-indexed IDs) significantly improves Claude's precision and reduces hallucinations ([Anthropic — Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents)). Where both are needed — natural names for the agent, technical IDs for downstream calls — a `response_format` enum with `concise` and `detailed` modes works well: concise responses can be a third the size of detailed ones in their Slack examples.
 
-### 4.5 Token-Efficient Responses
+### 4.6 Token-Efficient Responses
 
 Tool responses are a major source of context bloat. Anthropic restricts Claude Code's tool responses to 25,000 tokens by default, and recommends a combination of pagination, range selection, filtering, and truncation with sensible defaults ([Anthropic — Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents)). Truncated responses should include guidance steering the agent toward more efficient strategies (small targeted searches over one broad search, for instance), and error responses should be helpful, not opaque tracebacks.
 
 HumanLayer's "back-pressure" practice in their own codebase is a direct application of this: their build and test hooks swallow output on success, surfacing only errors. Early on they had the agent run the full test suite after every change, and 4,000 lines of passing tests would flood the context window, causing the agent to lose track of the actual task and start hallucinating about test files ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)).
 
-### 4.6 Prompt-Engineering Tool Descriptions
+### 4.7 Prompt-Engineering Tool Descriptions
 
 Anthropic positions this as one of the most effective levers, and reports that it took precise refinements to tool descriptions for Claude Sonnet 3.5 to achieve state-of-the-art on SWE-bench Verified ([Anthropic — Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents)). The advice: write the tool description as you would for a new junior engineer joining the team. Make implicit context explicit (specialized query formats, niche terminology, relationships between resources). Use unambiguous parameter names — `user_id` rather than `user`. Run many examples in a workbench, look at the mistakes, and iterate.
 
 A concrete debugging example: when Anthropic launched Claude's web search tool, traces revealed that Claude was needlessly appending `2025` to the `query` parameter, biasing results. Fixing it required no model retraining — only a clearer tool description.
 
-### 4.7 Code Execution as a Meta-Tool
+### 4.8 Code Execution as a Meta-Tool
 
 A more recent shift: instead of presenting MCP tools as direct calls, present them as a code API that the agent invokes by writing code. Anthropic's "Code Execution with MCP" makes the case that for agents with hundreds of tools across dozens of MCP servers, the standard pattern of loading every tool definition into context up front and passing every intermediate result through the model is wasteful ([Anthropic — Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)).
 
@@ -56,7 +64,7 @@ Cloudflare reported similar findings under the name "Code Mode," reinforcing the
 
 The catch: code execution requires sandboxing infrastructure, which has its own operational and security cost.
 
-### 4.8 Iterative Tool Refinement With Evals
+### 4.9 Iterative Tool Refinement With Evals
 
 Anthropic's recommended workflow for tool development has four stages ([Anthropic — Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents)):
 
@@ -73,18 +81,18 @@ Anthropic ran this loop on their own internal Slack and Asana tools and found th
 
 ```mermaid
 flowchart LR
-    A["1. Prototype\nLocal MCP server\nManual testing\nBuild intuition"] --> B["2. Build Eval\nRealistic tasks\nReal data\nVerifiable criteria"]
-    B --> C["3. Run Eval\nProgrammatic runs\nChain-of-thought\nTrack: accuracy,\ntokens, errors"]
-    C --> D["4. Analyze\nRead transcripts\nNote what agents\ndon't say\nIdentify patterns"]
+    A["1. Prototype<br/>Local MCP server<br/>Manual testing<br/>Build intuition"] --> B["2. Build Eval<br/>Realistic tasks<br/>Real data<br/>Verifiable criteria"]
+    B --> C["3. Run Eval<br/>Programmatic runs<br/>Chain-of-thought<br/>Track: accuracy,<br/>tokens, errors"]
+    C --> D["4. Analyze<br/>Read transcripts<br/>Note what agents<br/>don't say<br/>Identify patterns"]
     D --> E{Pass?}
     E -->|"No — refine tools"| A
-    E -->|"Yes — ship"| F["Production\nTool Set"]
+    E -->|"Yes — ship"| F["Production<br/>Tool Set"]
 
     subgraph DESIGN["Good Tool Design Principles"]
-        G["Consolidate chained ops\n(schedule_event not\nlist+create)"]
-        H["Namespace by prefix\n(asana_*, jira_*)"]
-        I["Token-cap responses\n(25k default)"]
-        J["Use natural IDs\nnot UUIDs"]
+        G["Consolidate chained ops<br/>(schedule_event not<br/>list+create)"]
+        H["Namespace by prefix<br/>(asana_*, jira_*)"]
+        I["Token-cap responses<br/>(25k default)"]
+        J["Use natural IDs<br/>not UUIDs"]
     end
 
     F -.-> DESIGN
@@ -96,6 +104,7 @@ flowchart LR
 
 - **Tool design deserves as much care as prompt design**: the ACI (agent–computer interface) analogy with HCI is apt.
 - **More tools hurt, not help**: consolidate frequently-chained operations into single, purpose-built tools.
+- **MCP standardizes where tools come from**: it makes tools composable across independent servers, but also makes over-supply easy — tool-design discipline applies regardless.
 - **Namespacing is not cosmetic**: it enables logit-level masking of tool groups and prevents collision in large MCP environments.
 - **Tool responses are a major source of context bloat**: cap, paginate, filter, and truncate by default.
 - **Code execution as meta-tool is a step-change**: exposing MCP tools as a typed code API cut token usage by 98.7% in Anthropic's example.

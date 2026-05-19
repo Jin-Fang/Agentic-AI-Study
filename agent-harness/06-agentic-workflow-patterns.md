@@ -51,11 +51,11 @@ The principle generalizes: when the model gets smarter, agents may grow to handl
 flowchart TD
     INPUT["User Input"] --> CHOICE{Choose Pattern}
 
-    CHOICE -->|"Task decomposes\nclearly into steps"| CHAIN["Prompt Chaining\n→ Step 1 → Step 2 → Step 3 →\nEach output feeds next"]
-    CHOICE -->|"Input has\ndistinct categories"| ROUTE["Routing\n→ Classifier → Specialist A\n                → Specialist B\n                → Specialist C"]
-    CHOICE -->|"Subtasks are\nindependent"| PARALLEL["Parallelization\n→ Worker 1 ↘\n→ Worker 2 → Aggregator\n→ Worker 3 ↗\n(sectioning or voting)"]
-    CHOICE -->|"Subtask shape\ndepends on input"| ORCH["Orchestrator-Workers\n→ Orchestrator dynamically\n  delegates → Workers\n  → Synthesizes results"]
-    CHOICE -->|"Clear criteria +\niterative refinement"| EVALOPT["Evaluator-Optimizer\n→ Generator → Evaluator\n      ↑_____________↓\n   (loop until criteria met)"]
+    CHOICE -->|"Task decomposes<br/>clearly into steps"| CHAIN["Prompt Chaining<br/>→ Step 1 → Step 2 → Step 3 →<br/>Each output feeds next"]
+    CHOICE -->|"Input has<br/>distinct categories"| ROUTE["Routing<br/>→ Classifier → Specialist A<br/>                → Specialist B<br/>                → Specialist C"]
+    CHOICE -->|"Subtasks are<br/>independent"| PARALLEL["Parallelization<br/>→ Worker 1 ↘<br/>→ Worker 2 → Aggregator<br/>→ Worker 3 ↗<br/>(sectioning or voting)"]
+    CHOICE -->|"Subtask shape<br/>depends on input"| ORCH["Orchestrator-Workers<br/>→ Orchestrator dynamically<br/>  delegates → Workers<br/>  → Synthesizes results"]
+    CHOICE -->|"Clear criteria +<br/>iterative refinement"| EVALOPT["Evaluator-Optimizer<br/>→ Generator → Evaluator<br/>      ↑_____________↓<br/>   (loop until criteria met)"]
 
     CHAIN --> OUT["Output"]
     ROUTE --> OUT

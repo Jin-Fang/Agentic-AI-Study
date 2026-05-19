@@ -50,7 +50,7 @@ What did not work: designing the ideal harness upfront; installing dozens of ski
 
 ### 11.6 The Misleading Data on AGENTS.md
 
-A worth-reading detail: an ETH Zurich study tested 138 agentfiles across various repos and found that LLM-generated ones hurt performance while costing 20% more, that human-written ones helped only about 4%, that agents spent 14–22% more reasoning tokens processing context-file instructions, and that codebase overviews and directory listings did not help in that benchmark because agents could discover repository structure on their own ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) citing the ETH Zurich paper).
+A worth-reading detail: an ETH Zurich study tested 138 agentfiles (the generic term for AGENTS.md / CLAUDE.md-style instruction files) across various repos and found that LLM-generated ones hurt performance while costing 20% more, that human-written ones helped only about 4%, that agents spent 14–22% more reasoning tokens processing context-file instructions, and that codebase overviews and directory listings did not help in that benchmark because agents could discover repository structure on their own ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) citing the ETH Zurich paper).
 
 HumanLayer reads this as confirming their own AGENTS.md guidance — keep files concise, avoid auto-generation, use progressive disclosure rather than dumping every instruction up front, keep contents universally applicable rather than full of conditional rules. Their own CLAUDE.md is under 60 lines.
 
@@ -62,12 +62,12 @@ The general principle: more configuration is not better. Every irrelevant instru
 
 ```mermaid
 flowchart LR
-    A["Deploy Agent\n(current harness)"] --> B["Collect Traces\n(actions, tokens, costs,\ntool invocations)"]
-    B --> C["Trace Analysis\n(parallel error-analysis agents\nsynthesize findings)"]
-    C --> D["Identify Failure Patterns\n(wrong tools? bad prompts?\nmissing context?)"]
-    D --> E["Harness Changes\n(tune prompts, add sensors,\nremove stale components)"]
-    E --> F["Run Evals\n(verify improvement,\ncheck for regressions)"]
-    F -->|"Model changed?"| G["Stress-Test Components\n(remove one, run eval,\nobserve)"]
+    A["Deploy Agent<br/>(current harness)"] --> B["Collect Traces<br/>(actions, tokens, costs,<br/>tool invocations)"]
+    B --> C["Trace Analysis<br/>(parallel error-analysis agents<br/>synthesize findings)"]
+    C --> D["Identify Failure Patterns<br/>(wrong tools? bad prompts?<br/>missing context?)"]
+    D --> E["Harness Changes<br/>(tune prompts, add sensors,<br/>remove stale components)"]
+    E --> F["Run Evals<br/>(verify improvement,<br/>check for regressions)"]
+    F -->|"Model changed?"| G["Stress-Test Components<br/>(remove one, run eval,<br/>observe)"]
     G --> E
     F -->|"Improvement confirmed"| A
 

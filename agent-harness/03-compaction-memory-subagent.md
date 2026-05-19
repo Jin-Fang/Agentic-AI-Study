@@ -28,7 +28,7 @@ HumanLayer is emphatic about what does and does not work here. Setting up "front
 
 Sub-agents also help with cost control: HumanLayer uses an expensive model (Opus) for the orchestrator and a cheaper model (Sonnet or Haiku) for sub-agents. There is no need to burn Opus tokens on a `grep`.
 
-Anthropic's multi-agent research system is the canonical example of this pattern at scale. A lead agent analyzes the query and spawns specialized sub-agents to explore aspects in parallel; each sub-agent uses its own context window; results are compressed back to the lead, which synthesizes a final report. The lead-agent-as-Opus, sub-agents-as-Sonnet configuration outperformed single-agent Opus by 90.2% on Anthropic's internal research evaluation ([Anthropic — How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system)). The mechanism is largely token economics: in their analysis, three factors explained 95% of performance variance on the BrowseComp benchmark, with token usage alone explaining 80%.
+Anthropic's multi-agent research system is the canonical example of this pattern at scale. A lead agent analyzes the query and spawns specialized sub-agents to explore aspects in parallel; each sub-agent uses its own context window; results are compressed back to the lead, which synthesizes a final report. The lead-agent-as-Opus, sub-agents-as-Sonnet configuration outperformed single-agent Opus by 90.2% — a relative improvement — on Anthropic's internal research evaluation ([Anthropic — How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system)). The mechanism is largely token economics: in their analysis, three factors explained 95% of performance variance on the BrowseComp benchmark, with token usage alone explaining 80%.
 
 The catch is cost. Multi-agent systems use roughly 15× more tokens than chats and 4× more than single-agent runs in Anthropic's data, so they only make economic sense for high-value tasks where parallelization actually helps. They are a poor fit for tightly coupled subtasks that share mutable state — many implementation-heavy coding tasks fall into this category — but they can still help coding workflows when the delegated work is read-only, investigative, or cleanly separated by ownership boundary. Current models are also not strong at real-time coordination across agents, so the coordinator must keep task boundaries explicit.
 
@@ -43,6 +43,18 @@ Their fix: introduce small, structured variation — different serialization tem
 The complementary principle: do not erase useful errors. The natural impulse is to retry failed actions and hide the failed traces, but Manus argues this removes evidence the model needs to update its priors away from similar mistakes ([Manus — Context Engineering for AI Agents: Lessons from Building Manus](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus)). Leaving the latest failed action and relevant stack trace in context lets the model implicitly learn from it. This does not mean preserving unlimited logs forever; repeated identical failures should be compacted into a short diagnosis plus a retry counter. Manus calls error recovery "one of the clearest indicators of true agentic behavior" — and notes it is underrepresented in academic benchmarks, which tend to focus on success under ideal conditions.
 
 HumanLayer formalizes this as Factor 9: compact errors into context. The agent's *self-healing* property — reading an error and adjusting its next call — is one of the genuine benefits of LLM agents, and it works only when the error is visible ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)). With a counter to limit consecutive identical errors, this pattern is robust.
+
+### 3.7 Cost, Latency, and Model Routing
+
+The sub-agent pattern above already used cost as a design variable — an expensive model orchestrating, cheaper models doing the legwork. It is worth making the general principle explicit: cost and latency are first-class harness concerns, not afterthoughts.
+
+Three levers recur across the literature:
+
+- **Model routing.** Not every step needs the strongest model. A harness can route cheap, high-volume work — a `grep`, a classification, a short summary — to a small fast model, and reserve the frontier model for reasoning-heavy steps. HumanLayer uses Opus for the orchestrator and Sonnet or Haiku for sub-agents ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)); Anthropic's research system makes the same lead-agent / sub-agent split (chapter 7).
+- **The KV-cache.** Stable context prefixes are served from cache at roughly a tenth of the price, and a fraction of the latency, of uncached tokens (chapter 2). Cache discipline is often the single largest cost lever in a production agent.
+- **Token accounting.** Agentic workloads are prefill-heavy — Manus reports a ~100:1 input-to-output ratio — and cost scales with context length. Multi-agent systems can burn roughly 15× the tokens of a single chat, which is why they pay off only on high-value tasks.
+
+Latency has its own structure. Time-to-first-token is dominated by prefill, and therefore by cache hits; end-to-end latency is dominated by the number of *sequential* model round-trips. Parallel tool calls and parallel sub-agents cut wall-clock time substantially — up to 90% on Anthropic's research workloads (chapter 7) — without reducing total token cost. The general rule: treat tokens, dollars, and seconds as explicit budgets, and know which lever moves which.
 
 ---
 
@@ -76,6 +88,7 @@ sequenceDiagram
 - **Recitation defeats "lost-in-the-middle"**: repeatedly rewriting a todo list pushes goals into the model's recent attention span.
 - **The context firewall is the sub-agent pattern's key value**: the parent never sees intermediate noise; it receives only condensed results.
 - **Leave useful errors in context**: self-healing only works when the relevant error trace is visible, but repeated failures should be compacted.
+- **Cost and latency are design variables**: route cheap work to small models, keep the KV-cache warm, and parallelize for wall-clock speed.
 
 ## Further Reading
 

@@ -10,16 +10,16 @@
 
 ```mermaid
 flowchart LR
-    A["原始语言模型\n(文本输入 -> 文本输出)"] --> B["Agent Harness"]
-    B --> C["Agent\n(可以浏览、跑测试、\n写入数据库、从错误中恢复、\n支撑长周期工作)"]
+    A["原始语言模型<br/>(文本输入 -> 文本输出)"] --> B["Agent Harness"]
+    B --> C["Agent<br/>(可以浏览、跑测试、<br/>写入数据库、从错误中恢复、<br/>支撑长周期工作)"]
 
     subgraph B["Agent Harness"]
         direction TB
         SP["系统提示"]
         T["工具与工具描述"]
-        I["内置基础设施\n(文件系统、沙箱、浏览器)"]
-        O["编排逻辑\n(子代理派生、路由)"]
-        M["中间件与 Hooks\n(压缩、lint 检查)"]
+        I["内置基础设施<br/>(文件系统、沙箱、浏览器)"]
+        O["编排逻辑<br/>(子代理派生、路由)"]
+        M["中间件与 Hooks<br/>(压缩、lint 检查)"]
     end
 ```
 

@@ -30,13 +30,13 @@ Manus's three rules for keeping the cache hot: keep the prompt prefix stable (a 
 
 ### 2.4 Mask, Don't Remove
 
-Manus's second principle is about action spaces. As tool counts grow — and MCP made this easy by letting users plug in hundreds of tools — the impulse is to dynamically load and unload tools mid-iteration. Manus's experiments produce a clear rule: avoid this. Tool definitions live near the front of context, so any change invalidates the cache for everything downstream; and previous turns may reference tools that no longer exist, leading to schema violations or hallucinated calls ([Manus — Context Engineering for AI Agents: Lessons from Building Manus](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus)).
+Manus's second principle is about action spaces. As tool counts grow — and MCP (the Model Context Protocol — see Chapter 4) made this easy by letting users plug in hundreds of tools — the impulse is to dynamically load and unload tools mid-iteration. Manus's experiments produce a clear rule: avoid this. Tool definitions live near the front of context, so any change invalidates the cache for everything downstream; and previous turns may reference tools that no longer exist, leading to schema violations or hallucinated calls ([Manus — Context Engineering for AI Agents: Lessons from Building Manus](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus)).
 
 The alternative is action masking: keep the stable tool surface in context, then constrain which actions can be selected at a given state. Depending on the provider and harness, this may be implemented with logit constraints, tool-choice controls, response prefill, or a runtime validator that rejects disallowed actions. Manus uses consistent action-name prefixes — `browser_*` for browser tools, `shell_*` for shell tools — so an entire group can be enforced or excluded with a simple constraint.
 
 ### 2.5 The File System as the Ultimate Context
 
-Even with a 128K-token window, real agentic work overruns context regularly. Observations from web pages and PDFs are huge; performance degrades long before the technical limit; and long inputs are expensive even with caching ([Manus — Context Engineering for AI Agents: Lessons from Building Manus](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus)).
+Even with a 128K-token window (Manus's figure at the time; current windows are larger, but the dynamic is unchanged), real agentic work overruns context regularly. Observations from web pages and PDFs are huge; performance degrades long before the technical limit; and long inputs are expensive even with caching ([Manus — Context Engineering for AI Agents: Lessons from Building Manus](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus)).
 
 Manus's solution, and one Anthropic and LangChain converge on, is to treat the filesystem as the agent's working memory: much larger than context, persistent across turns, directly operable by the agent, and indexed by paths the agent can use as references. It is not "memory" in the human sense; without good filenames, summaries, indexes, or retrieval habits, the agent can still fail to find what it wrote. Manus's compression strategies are deliberately *restorable* — a web page can be dropped from context as long as the URL is preserved, and a document's contents can be omitted if its path remains.
 
@@ -56,17 +56,17 @@ The trade-off: runtime exploration is slower than retrieving pre-computed data, 
 
 ```mermaid
 flowchart TD
-    A["Task Begins\n(empty context)"] --> B["Context Budget\n(finite attention window)"]
+    A["Task Begins<br/>(empty context)"] --> B["Context Budget<br/>(finite attention window)"]
     B --> C{Budget state?}
-    C -->|"Prefix stable"| D["KV-Cache Hit\n(10x cheaper tokens)"]
-    C -->|"Prefix changed"| E["KV-Cache Miss\n(full re-computation)"]
-    D --> F["Append action + observation\nto context"]
+    C -->|"Prefix stable"| D["KV-Cache Hit<br/>(10x cheaper tokens)"]
+    C -->|"Prefix changed"| E["KV-Cache Miss<br/>(full re-computation)"]
+    D --> F["Append action + observation<br/>to context"]
     E --> F
     F --> G{Context nearing limit?}
     G -->|No| C
-    G -->|Yes| H["Offload to File System\n(unlimited, persistent memory)"]
-    H --> I["Keep lightweight reference\n(URL, file path, query)"]
-    I --> J["Just-in-Time Retrieval\nwhen needed"]
+    G -->|Yes| H["Offload to File System<br/>(unlimited, persistent memory)"]
+    H --> I["Keep lightweight reference<br/>(URL, file path, query)"]
+    I --> J["Just-in-Time Retrieval<br/>when needed"]
     J --> F
 
     style D fill:#2d6a4f,color:#fff

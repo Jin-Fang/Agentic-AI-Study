@@ -10,16 +10,16 @@ The premise of the field is simple. As Vivek Trivedy of LangChain puts it: "Agen
 
 ```mermaid
 flowchart LR
-    A["Raw Language Model\n(text in → text out)"] --> B["Agent Harness"]
-    B --> C["Agent\n(can browse, run tests,\nwrite to databases,\nrecover from errors,\nsustain long-horizon work)"]
+    A["Raw Language Model<br/>(text in → text out)"] --> B["Agent Harness"]
+    B --> C["Agent<br/>(can browse, run tests,<br/>write to databases,<br/>recover from errors,<br/>sustain long-horizon work)"]
 
     subgraph B["Agent Harness"]
         direction TB
         SP["System Prompts"]
         T["Tools & Descriptions"]
-        I["Bundled Infrastructure\n(filesystem, sandbox, browser)"]
-        O["Orchestration Logic\n(sub-agent spawning, routing)"]
-        M["Middleware & Hooks\n(compaction, lint checks)"]
+        I["Bundled Infrastructure<br/>(filesystem, sandbox, browser)"]
+        O["Orchestration Logic<br/>(sub-agent spawning, routing)"]
+        M["Middleware & Hooks<br/>(compaction, lint checks)"]
     end
 ```
 

@@ -19,11 +19,11 @@ The premise of the field is simple. As Vivek Trivedy of LangChain puts it: "Agen
 | Chapter | Title | Description |
 |---------|-------|-------------|
 | [Preface](./00-preface.md) | Preface | Framing and purpose of the textbook |
-| [Ch 1](./01-what-is-an-agent-harness.md) | What Is an Agent Harness? | The Model + Harness equation, inner/outer harness layers, historical arc |
+| [Ch 1](./01-what-is-an-agent-harness.md) | What Is an Agent Harness? | The Model + Harness equation, the agent loop, inner/outer harness layers, historical arc |
 | [Ch 2](./02-context-as-finite-resource.md) | Context as a Finite Resource | Context rot, attention budgets, KV-cache, filesystem as memory |
 | [Ch 3](./03-compaction-memory-subagent.md) | Compaction, Memory, and the Sub-Agent Pattern | Compaction, note-taking, recitation, context firewalls |
-| [Ch 4](./04-tools-agent-computer-interface.md) | Tools and the Agent–Computer Interface | Tool design, namespacing, token-efficient responses, code execution as meta-tool |
-| [Ch 5](./05-sandboxing-guardrails.md) | Sandboxing, Guardrails, and Safe Autonomy | Permission fatigue, filesystem/network isolation, hooks, feedforward vs feedback |
+| [Ch 4](./04-tools-agent-computer-interface.md) | Tools and the Agent–Computer Interface | Tool design, MCP, namespacing, token-efficient responses, code execution as meta-tool |
+| [Ch 5](./05-sandboxing-guardrails.md) | Sandboxing, Guardrails, and Safe Autonomy | The security threat model, permission fatigue, filesystem/network isolation, hooks, feedforward vs feedback |
 | [Ch 6](./06-agentic-workflow-patterns.md) | Agentic Workflow Patterns | Five compositional workflow patterns, micro-agent approach |
 | [Ch 7](./07-long-running-agents.md) | Long-Running Agents and Multi-Context-Window Tasks | Shift-change problem, initializer+coding agent pattern, GAN-inspired architecture |
 | [Ch 8](./08-twelve-factors.md) | Twelve Factors for Production Agents | HumanLayer's 12-factor manifesto for production-ready agents |
@@ -32,6 +32,7 @@ The premise of the field is simple. As Vivek Trivedy of LangChain puts it: "Agen
 | [Ch 11](./11-trace-driven-iteration.md) | Trace-Driven Iteration and Model–Harness Co-Evolution | Traces as feedback loops, stress-testing components, model–harness coupling |
 | [Ch 12](./12-outlook.md) | Outlook | Open problems and standing principles |
 | [References](./references.md) | References | Full bibliography |
+| [Glossary](./glossary.md) | Glossary | Quick definitions for key terms used throughout the book |
 
 ---
 

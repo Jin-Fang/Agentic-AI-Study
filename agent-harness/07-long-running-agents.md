@@ -97,23 +97,23 @@ sequenceDiagram
     participant GIT as Git Repository
 
     USER->>IA: "Build a clone of claude.ai"
-    IA->>FL: Write feature list\n(passes: false for all)
+    IA->>FL: Write feature list<br/>(passes: false for all)
     IA->>GIT: Initial commit + init.sh
 
     loop Each coding session
         USER->>CA: Start new session
         CA->>GIT: Read git log + progress file
-        CA->>FL: Pick highest-priority\nunfinished feature
+        CA->>FL: Pick highest-priority<br/>unfinished feature
         CA->>CA: Run init.sh (dev server up)
         CA->>CA: E2E baseline test
         CA->>CA: Implement one feature
-        CA->>CA: Browser-driven verification\n(Puppeteer MCP)
+        CA->>CA: Browser-driven verification<br/>(Puppeteer MCP)
         CA->>FL: Flip passes: true
         CA->>GIT: Commit + update progress
     end
 
-    Note over FL: Never remove features —\nonly flip passes boolean
-    Note over CA: Clean state at session\nboundary = safe merge
+    Note over FL: Never remove features —<br/>only flip passes boolean
+    Note over CA: Clean state at session<br/>boundary = safe merge
 ```
 
 ---

@@ -89,25 +89,25 @@ Automated evals are not a complete picture. Anthropic compares the situation to 
 ```mermaid
 flowchart TD
     subgraph ANATOMY["Evaluation Anatomy"]
-        TASK["Task\n(inputs + success criteria)"] --> TRIAL["Trial\n(single attempt)"]
-        TRIAL --> GRADER["Grader(s)\n(code-based / model-based / human)"]
-        GRADER --> OUTCOME["Outcome\n(env state, not just response text)"]
-        TRIAL --> TRANSCRIPT["Transcript / Trace\n(full record)"]
+        TASK["Task<br/>(inputs + success criteria)"] --> TRIAL["Trial<br/>(single attempt)"]
+        TRIAL --> GRADER["Grader(s)<br/>(code-based / model-based / human)"]
+        GRADER --> OUTCOME["Outcome<br/>(env state, not just response text)"]
+        TRIAL --> TRANSCRIPT["Transcript / Trace<br/>(full record)"]
         TRANSCRIPT --> GRADER
     end
 
     subgraph METRICS["pass@k vs pass^k  (75% per-trial rate)"]
         direction LR
-        K1["k=1\npass@1: 75%\npass^1: 75%"]
-        K3["k=3\npass@3: ~98%\npass^3: ~42%"]
-        K10["k=10\npass@10: ~99.9999%\npass^10: ~6%"]
+        K1["k=1<br/>pass@1: 75%<br/>pass^1: 75%"]
+        K3["k=3<br/>pass@3: ~98%<br/>pass^3: ~42%"]
+        K10["k=10<br/>pass@10: ~99.9999%<br/>pass^10: ~5.6%"]
         K1 --> K3 --> K10
     end
 
     OUTCOME --> CAPVREGG{Eval type?}
-    CAPVREGG -->|"Low pass rate\n— climbing"| CAP["Capability Eval\n'Can we do this at all?'"]
-    CAPVREGG -->|"Near 100%\n— protecting"| REG["Regression Eval\n'Still doing this reliably?'"]
-    CAP -->|"Graduates when\npass rate high"| REG
+    CAPVREGG -->|"Low pass rate<br/>— climbing"| CAP["Capability Eval<br/>'Can we do this at all?'"]
+    CAPVREGG -->|"Near 100%<br/>— protecting"| REG["Regression Eval<br/>'Still doing this reliably?'"]
+    CAP -->|"Graduates when<br/>pass rate high"| REG
 ```
 
 ---

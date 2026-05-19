@@ -46,9 +46,9 @@ The following table summarizes the two regimes reported by Anthropic. Only the 1
 
 ```mermaid
 flowchart LR
-    A["1x strict enforcement\ninfra errors: 5.8%\nscore: baseline"] --> B["Up to 3x headroom\ninfra errors: 2.1%\nscore: within noise"]
-    B --> C["Above 3x\nscore gains outpace\ninfra-error reduction"]
-    C --> D["Uncapped\ninfra errors: 0.5%\nscore: +6 pts over 1x"]
+    A["1x strict enforcement<br/>infra errors: 5.8%<br/>score: baseline"] --> B["Up to 3x headroom<br/>infra errors: 2.1%<br/>score: within noise"]
+    B --> C["Above 3x<br/>score gains outpace<br/>infra-error reduction"]
+    C --> D["Uncapped<br/>infra errors: 0.5%<br/>score: +6 pts over 1x"]
 
     style B fill:#2d6a4f,color:#fff
     style C fill:#f77f00,color:#111

@@ -1,8 +1,8 @@
 # 第 8 章：生产级 Agent 的十二要素
 
-前几章讨论了单个 harness 技术：上下文管理、工具、沙箱、工作流和长运行 handoff。HumanLayer 的 “12 Factor Agents” 更适合作为一份生产 checklist，把这些技术重新连接到普通软件架构。它借用了经典 Twelve-Factor App 的命名风格，但要素本身针对的是 LLM agent。
+前几章讨论了单个 harness 技术：上下文管理、工具、沙箱、工作流和长运行 handoff。本章退一步看：HumanLayer 的 “12 Factor Agents” 更适合作为一份生产 checklist，把这些技术重新连接到普通软件架构。它借用了经典 Twelve-Factor App 的命名风格，但要素本身针对的是 LLM agent——而且它是一份宣言，而不是完整参考架构。
 
-HumanLayer 的 “12 Factor Agents” 是宣言，而不是完整参考架构。十二条原则来自许多生产部署 ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：
+这十二条原则来自许多生产部署 ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：
 
 1. **Natural Language to Tool Calls**：原子模式是把用户自然语言转换成结构化 JSON call，再由确定性代码执行。
 2. **Own Your Prompts**：不要把 prompt engineering 外包给 framework 黑箱。把 prompt 当作一等代码，使其可测试、可评估、可调优。

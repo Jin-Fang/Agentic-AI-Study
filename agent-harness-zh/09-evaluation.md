@@ -89,25 +89,25 @@ Anthropic 将从无 eval 到可信 eval 的路线概括为 ([Anthropic - Demysti
 ```mermaid
 flowchart TD
     subgraph ANATOMY["Evaluation Anatomy"]
-        TASK["Task\n(inputs + success criteria)"] --> TRIAL["Trial\n(single attempt)"]
-        TRIAL --> GRADER["Grader(s)\n(code-based / model-based / human)"]
-        GRADER --> OUTCOME["Outcome\n(env state, not just response text)"]
-        TRIAL --> TRANSCRIPT["Transcript / Trace\n(full record)"]
+        TASK["Task<br/>(inputs + success criteria)"] --> TRIAL["Trial<br/>(single attempt)"]
+        TRIAL --> GRADER["Grader(s)<br/>(code-based / model-based / human)"]
+        GRADER --> OUTCOME["Outcome<br/>(env state, not just response text)"]
+        TRIAL --> TRANSCRIPT["Transcript / Trace<br/>(full record)"]
         TRANSCRIPT --> GRADER
     end
 
     subgraph METRICS["pass@k vs pass^k  (75% per-trial rate)"]
         direction LR
-        K1["k=1\npass@1: 75%\npass^1: 75%"]
-        K3["k=3\npass@3: ~98%\npass^3: ~42%"]
-        K10["k=10\npass@10: ~99.9999%\npass^10: ~6%"]
+        K1["k=1<br/>pass@1: 75%<br/>pass^1: 75%"]
+        K3["k=3<br/>pass@3: ~98%<br/>pass^3: ~42%"]
+        K10["k=10<br/>pass@10: ~99.9999%<br/>pass^10: ~5.6%"]
         K1 --> K3 --> K10
     end
 
     OUTCOME --> CAPVREGG{Eval type?}
-    CAPVREGG -->|"低通过率\n正在爬坡"| CAP["Capability Eval\n'我们能做到吗?'"]
-    CAPVREGG -->|"接近 100%\n防止倒退"| REG["Regression Eval\n'是否仍可靠?'"]
-    CAP -->|"通过率升高后\n毕业进入"| REG
+    CAPVREGG -->|"低通过率<br/>正在爬坡"| CAP["Capability Eval<br/>'我们能做到吗?'"]
+    CAPVREGG -->|"接近 100%<br/>防止倒退"| REG["Regression Eval<br/>'是否仍可靠?'"]
+    CAP -->|"通过率升高后<br/>毕业进入"| REG
 ```
 
 ---

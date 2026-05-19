@@ -35,27 +35,27 @@ The field is not yet old enough to have textbooks. This document is an attempt t
 
 ```mermaid
 mindmap
-  root((Open Problems in\nHarness Engineering))
+  root((Open Problems in Harness Engineering))
     Correctness
-      Behavioral harnesses\nfor functional correctness
-      AI-generated tests\nnot yet good enough
-      No mutation testing\nequivalent for harnesses
+      Behavioral harnesses for functional correctness
+      AI-generated tests not yet good enough
+      No mutation testing equivalent for harnesses
     Coordination
-      Multi-agent async\norchestration
-      Result coordination\nacross parallel agents
-      State consistency\nin async systems
+      Multi-agent async orchestration
+      Result coordination across parallel agents
+      State consistency in async systems
     Memory
-      Continual learning\nacross sessions
-      Domain knowledge\naccumulation
-      Cross-session memory\nprimitives
+      Continual learning across sessions
+      Domain knowledge accumulation
+      Cross-session memory primitives
     Tooling
-      Just-in-time\ntool assembly
-      Dynamic context\nassembly per task
-      Harness coherence\nat scale
+      Just-in-time tool assembly
+      Dynamic context assembly per task
+      Harness coherence at scale
     Documentation
-      Traces as system\ndocumentation
-      Harness coverage\nmetrics
-      Sensor effectiveness\nmeasurement
+      Traces as system documentation
+      Harness coverage metrics
+      Sensor effectiveness measurement
 ```
 
 ---

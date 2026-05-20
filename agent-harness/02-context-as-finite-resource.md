@@ -42,6 +42,10 @@ Manus's solution, and one Anthropic and LangChain converge on, is to treat the f
 
 LangChain calls the filesystem "arguably the most foundational harness primitive" because it provides a workspace for reading data, code, and documentation; lets agents offload work incrementally instead of holding it all in context; and acts as a natural collaboration surface for multi-agent and human-agent coordination ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). Adding git on top brings versioning, rollback, and branching.
 
+For coding agents, the practical version of that idea is stronger: the repository should be the system of record. OpenAI's Codex harness guidance argues that successful agent-first repositories keep the context an agent needs close to the code: `AGENTS.md` points to the right places, short design documents explain local architecture, and structural checks encode the rules that matter ([OpenAI — Harness Engineering](https://openai.com/index/harness-engineering/)). If a decision lives only in Slack, a ticket, or a senior engineer's memory, it is not reliable context for a fresh agent session.
+
+This is not an argument for dumping more text into the prompt. It is an argument for making repository facts discoverable. A useful cold-start test is to open a new agent session with no oral briefing and ask it five questions: what system is this, how is it organized, how do I run it, how do I verify it, and what is the current state? If the answers are not available from repo files and standard commands, the harness has a knowledge-visibility gap. Fixing that gap usually means small documents next to the code, stable entry points, progress files, and verification commands, not a giant root instruction file.
+
 ### 2.6 Just-in-Time Retrieval
 
 The traditional pattern — embed everything, retrieve top-k chunks, prepend to context — is being supplemented by a *just-in-time* approach. Rather than pre-processing everything up front, agents maintain lightweight identifiers (file paths, queries, links) and dynamically load data into context when needed ([Anthropic — Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)).
@@ -82,6 +86,7 @@ flowchart TD
 - **The KV-cache is a major production metric**: stable prefixes can matter as much as model quality for latency and cost.
 - **Mask tools when possible, don't churn them casually**: dynamically adding/removing tools mid-run can break cache locality and cause schema violations.
 - **The filesystem is working memory, not magic memory**: it is larger and persistent, but it still needs paths, summaries, and retrieval discipline.
+- **The repository is the agent's system of record**: critical project facts need to be discoverable from repo files and commands during a cold start.
 - **Just-in-time retrieval often beats pre-loading**: maintain lightweight identifiers and load data only when needed.
 
 ## Further Reading
@@ -91,3 +96,4 @@ flowchart TD
 - Dex Horthy, *12-Factor Agents*, HumanLayer, Apr 2025. https://www.humanlayer.dev/blog/12-factor-agents
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 - Vivek Trivedy, *The Anatomy of an Agent Harness*, LangChain, Mar 2026. https://blog.langchain.com/the-anatomy-of-an-agent-harness/
+- OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/

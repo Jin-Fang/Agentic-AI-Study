@@ -69,13 +69,19 @@ Anthropic 将从无 eval 到可信 eval 的路线概括为 ([Anthropic - Demysti
 - **Research agents**：groundedness check（论断有来源支持）、coverage check（包含关键事实）、source-quality check（权威来源，而非首个检索结果）。需要频繁与人类专家校准。
 - **Computer-use agents**：真实或 sandbox 环境，URL/page-state check，后端状态验证（订单是否真的创建，而不仅是出现确认页面）。WebArena 和 OSWorld 是典型例子。
 
-### 9.8 阅读 Transcript 是核心技能
+### 9.8 面向修复的验证反馈
+
+对 coding agent 来说，最有用的 grader 往往同时也是修复信号。只说 “test failed” 的检查能确认 outcome 不好，但给 agent 的抓手很少。更好的失败消息会说明违反的是哪条路径、期望状态是什么、实际状态是什么、下一步该检查哪里。OpenAI 的 Codex harness 指南强调，应把反复出现的 review 意见和架构规则转成 repo-local 检查，让 agent 在还能修复时收到具体反馈 ([OpenAI - Harness Engineering](https://openai.com/index/harness-engineering/))。
+
+端到端验证也应作为完成门槛，而不是象征性的最后一步。Anthropic 的长运行应用 harness 要求 coding agent 启动应用，并通过浏览器驱动路径验证 feature，因为 agent 否则容易在本地测试或视觉检查通过后宣称完成，但真实用户流程仍然坏着 ([Anthropic - Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents))。第 9.2 节的通用规则在这里直接适用：评估环境状态，而不是评估 agent 的自信。
+
+### 9.9 阅读 Transcript 是核心技能
 
 反复出现的主题是：在有人阅读 transcripts 前，不要直接相信 eval 分数。Anthropic 提到 Opus 4.5 在 CORE-Bench 上初始得分 42%，但调查发现严格 grader 会惩罚把期望答案 `96.124991...` 写成 `96.12`，任务 spec 模糊，还有无法精确复现的随机任务。修复 grader bug 并使用限制更少的 scaffold 后，分数跳到 95% ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。类似地，METR 发现 time-horizon benchmark 中有任务要求 agent 优化到某个阈值，但评分要求超过阈值，于是惩罚遵循指令的模型，奖励忽略指令的模型。
 
 通用规则是：失败应显得公平。当分数平台期时，要问 eval 是否仍在测它应该测的东西。
 
-### 9.9 Evals 只是多层体系中的一层
+### 9.10 Evals 只是多层体系中的一层
 
 自动 eval 不是完整图景。Anthropic 将其类比安全工程中的 Swiss-cheese model：没有一层能抓住所有问题 ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。完整栈包括：
 
@@ -121,6 +127,7 @@ flowchart TD
 - **Evals 是复利型基础设施**：即使 agent 未成熟，也从 20-50 个真实失败任务开始。
 - **Eval 比单元测试更宽**：它在环境中检查 model + harness 系统是否达成任务 outcome。
 - **Outcome 不等于 response**：测环境状态（数据库行、URL、文件），而不是只测 agent 说了什么。
+- **面向修复的反馈能提高自我修正**：检查应说明哪里失败、为什么失败，以及什么证据才算修好。
 - **三类 grader 形成金字塔**：code-based 负责速度，model-based 负责细微判断，human 负责校准。
 - **pass@k 与 pass^k 服务不同产品**：多候选生成可用 pass@k，重复面向客户执行需要 pass^k 式可靠性。
 - **阅读 transcript 是核心技能**：分数平台期可能是 agent 回归，也可能是 eval 不公平；只有 transcript 能区分。
@@ -132,3 +139,5 @@ flowchart TD
 - Gian Segato, *Quantifying Infrastructure Noise in Agentic Coding Evals*, Anthropic, Feb 2026. https://www.anthropic.com/engineering/infrastructure-noise
 - Vivek Trivedy, *Improving Deep Agents with Harness Engineering*, LangChain, Feb 2026. https://blog.langchain.com/improving-deep-agents-with-harness-engineering/
 - Ken Aizawa, *Writing Effective Tools for Agents - with Agents*, Anthropic, Sep 2025. https://www.anthropic.com/engineering/writing-tools-for-agents
+- OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/
+- Justin Young et al., *Effective Harnesses for Long-Running Agents*, Anthropic, Nov 2025. https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents

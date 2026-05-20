@@ -6,6 +6,9 @@
 
 ## 基础
 
+- OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026.
+  https://openai.com/index/harness-engineering/
+
 - Justin Young et al., *Effective Harnesses for Long-Running Agents*, Anthropic, Nov 2025.  
   https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 
@@ -89,3 +92,6 @@
 
 - *Awesome Harness Engineering*, walkinglabs.  
   https://github.com/walkinglabs/awesome-harness-engineering
+
+- *Learn Harness Engineering*, Walking Labs.
+  https://walkinglabs.github.io/learn-harness-engineering/zh/

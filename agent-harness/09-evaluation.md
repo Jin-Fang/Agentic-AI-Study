@@ -69,13 +69,19 @@ Anthropic's distilled roadmap to going from no evals to evals you trust ([Anthro
 - **Research agents**: groundedness checks (claims supported by sources), coverage checks (key facts included), source-quality checks (authoritative sources, not first-retrieved). Require frequent calibration against expert humans.
 - **Computer-use agents**: real or sandboxed environment, URL/page-state checks, backend state verification (was an order actually placed, or did just a confirmation page appear?). WebArena and OSWorld are the canonical examples.
 
-### 9.8 Reading Transcripts Is the Skill
+### 9.8 Verification Feedback for Coding Agents
+
+For coding agents, the most useful graders often double as repair signals. A failing check that says only "test failed" confirms that the outcome is bad but gives the agent little traction. A better failure message names the violated path, the expected state, the observed state, and the next place to inspect. OpenAI's Codex harness guidance emphasizes turning recurring review comments and architectural rules into repository-local checks so agents receive specific feedback while they are still able to fix the work ([OpenAI — Harness Engineering](https://openai.com/index/harness-engineering/)).
+
+End-to-end verification should also be treated as a done gate, not a ceremonial final step. Anthropic's long-running application harness required the coding agent to start the app and verify the feature through a browser-driven path because agents were otherwise prone to declaring features complete after local tests or visual inspection while the actual user flow remained broken ([Anthropic — Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)). The general rule from section 9.2 applies directly: grade the environment state, not the agent's confidence.
+
+### 9.9 Reading Transcripts Is the Skill
 
 A repeated theme: do not take eval scores at face value until someone reads the transcripts. Anthropic recounts a case where Opus 4.5 initially scored 42% on CORE-Bench, but investigation revealed rigid grading penalizing "96.12" when the expected answer was "96.124991…", ambiguous task specs, and stochastic tasks that were impossible to reproduce exactly. After fixing the grading bugs and running with a less constrained scaffold, the score jumped to 95% ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). Similarly, METR found tasks in their time-horizon benchmark that asked agents to optimize to a stated score threshold, but where the grading required exceeding the threshold — penalizing models that followed instructions and rewarding ones that ignored them.
 
 The general rule: failures should seem fair. When scores plateau, the question to ask is whether the eval is measuring what it should.
 
-### 9.9 Evals Are One Layer of Many
+### 9.10 Evals Are One Layer of Many
 
 Automated evals are not a complete picture. Anthropic compares the situation to the Swiss-cheese model from safety engineering: no single layer catches every issue ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). The complete stack:
 
@@ -121,6 +127,7 @@ flowchart TD
 - **Evals are compounding infrastructure**: start with 20–50 tasks from real failures, even before the agent is mature.
 - **Eval is broader than unit testing**: it checks the model-plus-harness system against task outcomes in an environment.
 - **Outcome ≠ response**: measure the environmental state (database row, URL, file) not just what the agent said.
+- **Repair-oriented feedback improves self-correction**: checks should tell the agent what failed, where, and what evidence would count as fixed.
 - **Three grader types form a pyramid**: code-based for speed, model-based for nuance, human for calibration.
 - **pass@k and pass^k serve different products**: multi-attempt generation can use pass@k; repeated customer-facing execution needs pass^k-style reliability.
 - **Reading transcripts is the skill**: scores plateau for two reasons — agent regression or eval unfairness — only transcripts distinguish them.
@@ -132,3 +139,5 @@ flowchart TD
 - Gian Segato, *Quantifying Infrastructure Noise in Agentic Coding Evals*, Anthropic, Feb 2026. https://www.anthropic.com/engineering/infrastructure-noise
 - Vivek Trivedy, *Improving Deep Agents with Harness Engineering*, LangChain, Feb 2026. https://blog.langchain.com/improving-deep-agents-with-harness-engineering/
 - Ken Aizawa, *Writing Effective Tools for Agents — with Agents*, Anthropic, Sep 2025. https://www.anthropic.com/engineering/writing-tools-for-agents
+- OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/
+- Justin Young et al., *Effective Harnesses for Long-Running Agents*, Anthropic, Nov 2025. https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents

@@ -30,7 +30,23 @@ The **coding agent** runs every subsequent session with a different prompt that 
 
 The pattern's benefit is that the agent is forced into a clean state at session boundaries — the kind of state appropriate for merging to a main branch — which means the next agent can start work without first cleaning up the previous one's mess.
 
-### 7.3 Generator–Evaluator (GAN-Inspired)
+### 7.3 Session Lifecycle and Clean Exit
+
+Long-running harnesses need an explicit session lifecycle: start, warm up, choose bounded work, verify, record evidence, and exit cleanly. The last step is load-bearing. If a session ends with failing tests, stale temporary files, an unupdated feature list, or a vague progress note, the next agent spends its first turns reconstructing the previous state instead of advancing the task.
+
+A clean exit should therefore be part of the definition of done:
+
+- The standard startup path still works.
+- The relevant build, lint, test, or end-to-end checks have been run, and failures are either fixed or recorded as blockers.
+- The progress artifact says what changed, what was verified, what remains uncertain, and the best next action.
+- The feature list or task list reflects reality: no item is marked passing without evidence.
+- Temporary debugging artifacts, commented-out experiments, and obsolete notes are removed or explicitly quarantined.
+
+OpenAI describes a related maintenance loop in its Codex harness work: agent-generated systems tend to copy whatever patterns already exist in the repository, so architectural rules and "golden principles" need to be written into docs, linters, and recurring cleanup passes rather than left as occasional human taste ([OpenAI — Harness Engineering](https://openai.com/index/harness-engineering/)). Anthropic's initializer/coding-agent pattern reaches the same operational conclusion from the session side: the next session should be able to resume from repository artifacts, not from the previous agent's private memory.
+
+For larger projects, a lightweight quality document is useful alongside the progress log. The progress log answers "what happened in the last session?" A quality document answers "which modules are healthy, risky, hard for agents to understand, or missing verification?" That distinction matters because the next agent should not only know the next feature; it should also know where the codebase is deteriorating.
+
+### 7.4 Generator–Evaluator (GAN-Inspired)
 
 A follow-up by Prithvi Rajasekaran extends the pattern to a harder problem: building production-quality apps from short prompts ([Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)). The motivating observation: when asked to evaluate their own work, agents reliably skew positive even when output is mediocre. Separating the agent doing the work from the agent judging it is a strong lever, because tuning a separate skeptical evaluator is more tractable than making a generator critical of its own output.
 
@@ -44,7 +60,7 @@ The two coordinate via *sprint contracts*: before each sprint, the generator pro
 
 The cost is significant. For a "create a 2D retro game maker" prompt, the solo run took 20 minutes and cost $9, producing an app that looked plausible but where the game itself did not work — entities appeared on screen but nothing responded to input. The full harness took 6 hours and cost $200, producing a working game maker with sprite editor, level editor, AI-assisted level generation, and playable mode. The more-than-20× cost premium bought a working application instead of broken stubs.
 
-### 7.4 Self-Verification Is the Headline Lever
+### 7.5 Self-Verification Is the Headline Lever
 
 LangChain's Top-30-to-Top-5 case study reaches the same conclusion via a different route ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)). With trace analysis, they identified the most common failure pattern: the agent wrote a solution, re-read its own code, decided it looked fine, and stopped. They added structured guidance to the system prompt — Plan, Build with verification in mind, Verify by running tests and comparing output to spec, Fix — and a `PreCompletionChecklistMiddleware` that intercepts the agent before exit and forces a verification pass.
 
@@ -52,7 +68,7 @@ This pattern echoes the "Ralph Wiggum loop" that has spread through the develope
 
 LangChain's combined changes — context middleware mapping the cwd and tooling, build-verify guidance, loop detection, and a "reasoning sandwich" of high-low-high reasoning compute — improved the score by 13.7 points (from 52.8% to 66.5%) with no model change.
 
-### 7.5 Context Resets vs. Compaction
+### 7.6 Context Resets vs. Compaction
 
 Anthropic's harness-design follow-up makes an explicit distinction ([Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)). Compaction summarizes earlier parts of a conversation in place; the same agent continues with a shortened history. A *context reset* clears the context entirely and starts a fresh agent, with a structured handoff carrying the previous agent's state and next steps.
 
@@ -60,7 +76,7 @@ The two address different problems. Compaction preserves continuity. Resets cure
 
 When Opus 4.5 largely fixed the context-anxiety behavior on its own, Anthropic was able to drop context resets from the harness entirely. This is an explicit example of the model-harness coupling discussed in chapter 11.
 
-### 7.6 Multi-Agent Research Systems
+### 7.7 Multi-Agent Research Systems
 
 For tasks with parallel structure — research with many independent threads to explore — the orchestrator-worker pattern from chapter 6 applies. Anthropic's research feature uses Claude Opus 4 as the lead agent and Claude Sonnet 4 as sub-agents ([Anthropic — How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system)). The lead analyzes the query, develops a strategy, and spawns parallel sub-agents that each search and return condensed findings; the lead synthesizes; a citation agent then attributes claims to sources.
 
@@ -75,7 +91,7 @@ Eight prompt-engineering principles surface from their experience:
 7. **Guide the thinking process**: extended thinking serves as a controllable scratchpad for planning; interleaved thinking helps sub-agents evaluate quality and refine queries between tool calls.
 8. **Parallel tool calling transforms speed**: spinning up sub-agents in parallel and having sub-agents call multiple tools in parallel cut research time by up to 90% on complex queries.
 
-### 7.7 Production Reliability for Stateful Agents
+### 7.8 Production Reliability for Stateful Agents
 
 Anthropic's research-system post documents engineering challenges that emerge once agents run for long periods ([Anthropic — How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system)):
 
@@ -122,6 +138,7 @@ sequenceDiagram
 
 - **The shift-change problem is fundamental**: context limits mean agents need structured handoff mechanisms, not just bigger windows.
 - **Initializer + coding agent is a useful long-horizon pattern**: separate roles for planning and incremental execution.
+- **Clean exit is part of done**: each session should leave working startup paths, updated state artifacts, verification evidence, and no untracked mess for the next agent.
 - **Separating generator from evaluator is a strong lever**: agents skew positive about their own output; an independent evaluator is more reliable.
 - **Sprint contracts coordinate multi-agent work**: file-based communication with agreed success criteria before each build sprint.
 - **Context resets cure "context anxiety"**: sometimes a fresh start with a structured handoff outperforms compaction.
@@ -134,3 +151,4 @@ sequenceDiagram
 - Vivek Trivedy, *Improving Deep Agents with Harness Engineering*, LangChain, Feb 2026. https://blog.langchain.com/improving-deep-agents-with-harness-engineering/
 - Jeremy Hadfield et al., *How We Built Our Multi-Agent Research System*, Anthropic, Jun 2025. https://www.anthropic.com/engineering/multi-agent-research-system
 - Vivek Trivedy, *The Anatomy of an Agent Harness*, LangChain, Mar 2026. https://blog.langchain.com/the-anatomy-of-an-agent-harness/
+- OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/

@@ -97,6 +97,10 @@ Long context is useful, but clean context is more useful.
 
 Long-context models reduce pressure but do not remove the need for context engineering. More room can support larger documents, richer traces, and fewer compactions. It can also encourage careless dumping.
 
+Long context also does not mean uniform use of every token. *Lost in the Middle* showed that models can be much better at using relevant information near the beginning or end of the input than information placed in the middle ([Lost in the Middle](https://arxiv.org/abs/2307.03172)). Different models and context lengths vary, but the lesson is stable: "included somewhere" is not the same as "usable."
+
+For harnesses, evidence placement is a design choice. Put the current task, critical constraints, and decisive evidence where the model is likely to use them. If a long document must be included, consider section summaries, targeted retrieval, citations, and follow-up search instead of assuming the full window will be read with equal reliability.
+
 Measure long-context workflows with realistic tasks. Ask whether the additional context improves success rate, reduces retries, or merely increases cost. Sometimes a search tool plus a small context beats a giant prompt.
 
 ## Key Takeaways

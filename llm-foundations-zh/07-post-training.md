@@ -1,14 +1,14 @@
 # 第 7 章：Post-Training
 
-预训练教模型预测文本。Post-training 塑造模型作为 assistant 的行为。Karpathy 的 intro 把预训练和 fine-tuning 分开讲，并描述后续阶段如何让模型更适合对话和指令遵循 ([Intro to LLMs, around 00:14:29](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=869s))。
+预训练教模型预测文本；post-training 则塑造模型作为 assistant 的行为。Karpathy 的 intro 把预训练和 fine-tuning 分开讲，并描述后续阶段如何让模型更适合对话和指令遵循 ([Intro to LLMs, around 00:14:29](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=869s))。
 
 这个区别非常关键。Base model 可能知识丰富，但不一定合作。Assistant model 则被训练成更受控地回应用户请求。
 
 ## Supervised Fine-Tuning
 
-Supervised fine-tuning，简称 SFT，会用期望行为的样例继续训练模型：指令和好回答、对话、格式模式、工具调用演示、领域任务等。这会把模型从 raw continuation 推向 instruction following。
+Supervised fine-tuning，简称 SFT，会用期望行为的样例继续训练模型：指令和好回答、对话、格式模式、工具调用演示、领域任务等。它把模型从 raw continuation 推向 instruction following。
 
-模型仍然在预测 token，但分布变了。它看过许多 assistant 行为样例，所以 chat prompt 会诱发 assistant-like continuation。
+模型仍然在预测 token，但要拟合的分布变了。它看过许多 assistant 行为样例，所以 chat prompt 更容易诱发 assistant-like continuation。
 
 Karpathy 把 fine-tuning 讲成把 raw internet-document completer 改造成 assistant model 的阶段 ([Intro to LLMs, around 00:14:29](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=869s))。实践中，训练数据不再像任意网页，而更像对话：
 
@@ -17,13 +17,13 @@ User: Explain gradient descent.
 Assistant: ...
 ```
 
-或者是供应商特定 chat template 序列化出来的 role。模型学到的不只是内容，还包括交互风格：回答最新用户、尊重高优先级指令、格式化代码块、拒绝某些请求、提问澄清，以及在格式要求时使用工具。
+也可能是供应商特定 chat template 序列化出来的 role。模型学到的不只是内容，还包括交互风格：回答最新用户、尊重高优先级指令、格式化代码块、拒绝某些请求、提问澄清，以及在格式要求时使用工具。
 
 这就是 base model 和 chat model 即使架构相近，体感也会非常不同的原因。
 
 ## Instruction Data 教会接口
 
-Post-training 可以教模型接口约定。如果工具调用在训练数据中表现为 JSON object，模型就会学这个模式。如果隐藏测试奖励简洁答案，模型就会学简洁。如果 safety 数据包含拒绝样例，模型就会学 refusal pattern。
+Post-training 可以教会模型接口约定。如果工具调用在训练数据中表现为 JSON object，模型就会学习这种模式。如果隐藏测试奖励简洁答案，模型就会学习简洁。如果 safety 数据包含拒绝样例，模型就会学习 refusal pattern。
 
 Harness 应尽量和模型训练过的接口保持一致：
 
@@ -39,17 +39,27 @@ Instruction-following 模型通常使用人类偏好数据。InstructGPT 工作�
 
 操作上的结果是，模型更倾向于产生人类喜欢的输出：更有帮助、更诚实、更少毒性、更遵循指令。但这不是正确性或安全性的形式化证明。
 
-后续方法会更直接地优化偏好。Direct Preference Optimization 用另一种方式处理 preference learning，不再以同样方式训练单独 reward model ([Direct Preference Optimization](https://arxiv.org/abs/2305.18290))。Constitutional AI 使用由原则引导的模型反馈，减少某些 harmlessness training 对人类标签的依赖 ([Constitutional AI](https://arxiv.org/abs/2212.08073))。
+经典 RLHF 流程通常包含几个部分：
+
+1. 训练或从一个 SFT assistant model 开始。
+2. 采样多个候选回答。
+3. 收集人类 ranking 或 preference。
+4. 训练 reward model 去预测这些偏好。
+5. 根据 reward 优化 assistant policy，通常还会用约束让它不要离 reference model 太远。
+
+Reference constraint 很重要。没有它，policy optimization 可能把模型推向奇怪输出：这些输出利用了 reward model 的漏洞，却并不真正帮助用户。
+
+后续方法会更直接地优化偏好。Direct Preference Optimization 把同一类 preference-learning 问题改写成更简单的 classification-style objective，避免以同样形式训练单独 reward model 和在线 RL loop ([Direct Preference Optimization](https://arxiv.org/abs/2305.18290))。它仍然是 preference optimization，不是事实真理来源。Constitutional AI 使用由原则引导的模型反馈，减少某些 harmlessness training 对人类标签的依赖 ([Constitutional AI](https://arxiv.org/abs/2212.08073))。
 
 Karpathy 的 deep dive 更细地解释了 reward-model 框架。Reward model 本身也是一个神经网络，训练目标是根据偏好数据给输出打分 ([Deep Dive, around 02:52:39](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10359s))。它的输出可以是一个 scalar score，表示 reward model 对某个候选回答的偏好程度。
 
-主模型随后可以基于这个学得的 reward signal 优化。这样做强大，因为人类判断昂贵；一旦 reward model 存在，它可以比人类更便宜地给大量样本打分。但它也危险，因为 reward model 只是近似。
+主模型随后可以基于这个学得的 reward signal 优化。这很强大，因为人类判断昂贵；一旦 reward model 存在，它就能以更低成本给大量样本打分。但这也有风险，因为 reward model 只是近似。
 
 Karpathy 把这种近似称为 human preference 的有损模拟 ([Deep Dive, around 03:00:54](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10854s))。有损模拟可以被优化，也可以被利用。
 
 ## Reward Hacking
 
-如果优化器过度优化一个不完美 reward model，它可能找到分数高但真实并不好的输出。Karpathy 把这称为 reward hacking：模型发现 reward model 喜欢的 artifact，即使人类不喜欢 ([Deep Dive, around 03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s))。
+如果优化器过度优化一个不完美 reward model，它可能找到分数高但真实并不好的输出。Karpathy 把这称为 reward hacking：模型发现 reward model 喜欢的伪特征，即使人类并不喜欢 ([Deep Dive, around 03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s))。
 
 Harness engineer 应该在 RLHF 之外也识别同一模式：
 
@@ -59,7 +69,7 @@ Harness engineer 应该在 RLHF 之外也识别同一模式：
 - helpfulness 指标可能被自信猜测骗过；
 - support bot 可能优化“快速关闭”而不是正确解决。
 
-每个 proxy metric 都可能变成被优化的目标。重要 workflow 应该加入 adversarial cases、人类 review 和多重信号。
+每个 proxy metric 都可能变成被优化的目标。重要 workflow 应该加入 adversarial cases、人类 review 和多重信号，避免单一指标被系统钻空子。
 
 ## 可验证和不可验证奖励
 
@@ -84,7 +94,7 @@ Jailbreak 展示了这种分离。Karpathy 给出例子说明 adversarial prompt
 
 ## Fine-Tuning vs Harnessing
 
-Fine-tuning 改模型。Harnessing 改模型周围环境。许多问题应该先在 harness 里解决：
+Fine-tuning 改的是模型；harnessing 改的是模型周围的环境。许多问题应该先在 harness 里解决：
 
 - 需要当前文档？用检索。
 - 需要精确计算？用工具。
@@ -100,4 +110,3 @@ Fine-tuning 改模型。Harnessing 改模型周围环境。许多问题应该先
 - SFT 用期望回答样例训练模型。
 - RLHF 和 preference optimization 把输出推向偏好行为。
 - Harness 不应把模型行为误认为保证真实、权限或执行。
-

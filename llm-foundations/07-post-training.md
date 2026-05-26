@@ -41,7 +41,17 @@ Instruction-following models often use human preference data. In the InstructGPT
 
 The operational result is a model that tends to produce outputs humans prefer: more helpful, more honest, less toxic, and more likely to follow instructions. It is not a formal proof of correctness or safety.
 
-Later methods optimize preferences more directly. Direct Preference Optimization reframes preference learning without training a separate reward model in the same way ([Direct Preference Optimization](https://arxiv.org/abs/2305.18290)). Constitutional AI uses model feedback guided by principles to reduce reliance on human labels for some harmlessness training ([Constitutional AI](https://arxiv.org/abs/2212.08073)).
+The classic RLHF shape has several pieces:
+
+1. Train or start from an SFT assistant model.
+2. Sample multiple candidate responses.
+3. Collect human rankings or preferences.
+4. Train a reward model to predict those preferences.
+5. Optimize the assistant policy against that reward, usually with a constraint that keeps it near the reference model.
+
+That reference constraint is important. Without it, policy optimization can push the model toward strange outputs that exploit the reward model rather than genuinely helping users.
+
+Later methods optimize preferences more directly. Direct Preference Optimization reframes the same broad preference-learning problem as a simpler classification-style objective, avoiding a separately trained reward model and online RL loop in the same form ([Direct Preference Optimization](https://arxiv.org/abs/2305.18290)). It is still preference optimization, not a magic source of truth. Constitutional AI uses model feedback guided by principles to reduce reliance on human labels for some harmlessness training ([Constitutional AI](https://arxiv.org/abs/2212.08073)).
 
 Karpathy's deep dive goes deeper into the reward-model framing. A reward model is itself another neural network trained to score outputs according to preference data ([Deep Dive, around 02:52:39](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10359s)). Its output can be a single scalar score that says, in effect, how much the reward model prefers a candidate response.
 

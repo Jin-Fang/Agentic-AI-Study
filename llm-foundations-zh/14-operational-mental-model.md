@@ -1,10 +1,10 @@
 # 第 14 章：操作性心智模型
 
-只要把模型放进正确心智盒子里，harness engineering 就会清晰很多。LLM 不是数据库，不是 shell，不是浏览器，不是长期记忆系统，也不是独立自治 worker。它是一个具备广泛学习能力的条件 token generator。Harness 把这个 generator 变成能工作的系统。
+只要把模型放进正确的心智框架里，harness engineering 就会清晰很多。LLM 不是数据库，不是 shell，不是浏览器，不是长期记忆系统，也不是独立自治的 worker。它是一个具备广泛学习能力的条件 token generator。Harness 把这个 generator 变成能工作的系统。
 
 ## Model-Harness Map
 
-设计时可以使用下面的责任映射：
+设计时可以使用下面这张责任映射：
 
 | 需求 | 模型角色 | Harness 角色 |
 |------|----------|--------------|
@@ -30,19 +30,19 @@
 - 工具能力意味着 permission boundaries。
 - 模型升级意味着 eval suites。
 
-这就是从 LLM 基础到 harness engineering 的实际桥梁。
+这就是从 LLM 基础走向 harness engineering 的实际桥梁。
 
 ## 讲座最后的实践建议
 
-Karpathy 在 deep dive 结尾给出的实际建议很朴素：把这些系统当工具使用，但不要完全信任它们 ([Deep Dive, around 03:09:24](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11364s), [03:30:42](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=12642s))。这也是 harness engineer 的姿态。
+Karpathy 在 deep dive 结尾给出的实践建议很朴素：把这些系统当工具使用，但不要完全信任它们 ([Deep Dive, around 03:09:24](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11364s), [03:30:42](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=12642s))。这也应该是 harness engineer 的姿态。
 
 模型有用，是因为它能压缩模式、解释语言、起草代码、转换文本、基于 evidence 推理和协调工具。模型不能盲信，是因为它会幻觉、误读上下文、过拟合 prompt、遵循注入指令、误用工具，或优化错误 proxy。
 
-正确态度既不是否定，也不是崇拜，而是系统设计。
+正确态度既不是否定，也不是崇拜，而是认真做系统设计。
 
 ## 多模态和 Agentic 扩展
 
-同样基础也扩展到多模态系统。Karpathy 描述音频和图片可以被 tokenized 或以其他方式送入模型的序列处理机制 ([Deep Dive, around 03:09:57](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11397s))。对 harness engineering 来说，截图、图片、音频、视频和文档都需要 representation choice。
+同样的基础也可以扩展到多模态系统。Karpathy 描述音频和图片可以被 tokenized，或以其他方式送入模型的序列处理机制 ([Deep Dive, around 03:09:57](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11397s))。对 harness engineering 来说，截图、图片、音频、视频和文档都需要选择合适的 representation。
 
 Browser agent 可能使用：
 
@@ -53,9 +53,9 @@ Browser agent 可能使用：
 - network logs；
 - direct browser actions。
 
-每种 representation 都有不同优点和盲点。截图能显示视觉布局，但可能隐藏 DOM metadata。DOM tree 暴露结构，但可能看不到视觉遮挡。OCR 可能漏小字。Harness 应按任务选择 representation，并做评估。
+每种 representation 都有不同的优点和盲点。截图能显示视觉布局，但可能隐藏 DOM metadata。DOM tree 暴露结构，但可能看不到视觉遮挡。OCR 可能漏掉小字。Harness 应该按任务选择 representation，并进行评估。
 
-Long-running agents 又增加一层。Karpathy 指向能随时间执行任务、由人类监督多个 agent 的未来 ([Deep Dive, around 03:11:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11518s))。这个未来依赖的不只是一个聪明 prompt，而是持久基础设施：状态、工具、eval、权限、trace、checkpoint 和 human control surface。
+Long-running agents 又增加一层。Karpathy 指向的是一种未来：agent 能随时间执行任务，人类则监督多个 agent ([Deep Dive, around 03:11:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11518s))。这个未来依赖的不只是一个聪明 prompt，而是持久基础设施：状态、工具、eval、权限、trace、checkpoint 和 human control surface。
 
 ## 好 Harness 让正确行为变容易
 
@@ -71,7 +71,7 @@ Long-running agents 又增加一层。Karpathy 指向能随时间执行任务、
 - 记录 trace 方便 debug；
 - 改 prompt、工具、模型或检索前运行 eval。
 
-Harness 不只是 wrapper。它是流畅模型调用和可工作系统之间的差别。
+Harness 不只是 wrapper。它决定了一次流畅的模型调用，能否变成真正可工作的系统。
 
 ## Harness 决策 Checklist
 
@@ -86,7 +86,7 @@ Harness 不只是 wrapper。它是流畅模型调用和可工作系统之间的�
 - **什么会失败？** 加 eval case 和 trace。
 - **什么需要批准？** 不可逆效果前加人类 checkpoint。
 
-这个 checklist 把 LLM 基础转化为工程实践。
+这份 checklist 把 LLM 基础转化为工程实践。
 
 ## 最该记住的一句话
 
@@ -100,6 +100,5 @@ Harness 不只是 wrapper。它是流畅模型调用和可工作系统之间的�
 
 - 把每项责任放在 model-harness 边界的正确一侧。
 - 从模型属性推导 harness 控制。
-- 构建能 grounding、verification 和 constraint 的系统。
+- 构建能够 grounding、verification 和 constraint 的系统。
 - 把 LLM 基础当作操作性知识，而不是学术背景。
-

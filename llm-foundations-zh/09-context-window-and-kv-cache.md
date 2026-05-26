@@ -1,14 +1,14 @@
 # 第 9 章：Context Window 与 KV Cache
 
-Context window 是模型单次调用中能条件化的最大 token 序列。Karpathy 把 context window 描述为模型当前能看到的工作上下文 ([Intro to LLMs, around 00:32:42](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1962s))。把长 context window 当成记忆很诱人，但这是错误的。
+Context window 是模型单次调用中最多能条件化的 token 序列。Karpathy 把 context window 描述为模型当前能看到的工作上下文 ([Intro to LLMs, around 00:32:42](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1962s))。把长 context window 当成记忆很诱人，但这是错误的。
 
-Context 是输入。Memory 是调用外部持久存在的状态。
+Context 是输入；memory 是调用之外持久存在的状态。
 
 ## 有限上下文
 
-Prompt 里的每个 token 都在争夺 attention 和预算。系统指令、developer 指令、用户消息、检索文档、工具输出、示例和摘要都共享同一个窗口。窗口满了，就必须省略或压缩某些内容。
+Prompt 里的每个 token 都在争夺 attention 和预算。系统指令、developer 指令、用户消息、检索文档、工具输出、示例和摘要共享同一个窗口。窗口满了，就必须省略或压缩某些内容。
 
-失败模式不只是硬性溢出。在窗口未满之前，性能就可能下降。重要约束可能离生成点太远。干扰文本可能吸走 attention。摘要可能遗漏细节。检索文档可能引入冲突说法。
+失败模式不只是硬性溢出。即使窗口还没满，性能也可能下降。重要约束可能离生成点太远，干扰文本可能吸走 attention，摘要可能遗漏细节，检索文档也可能引入冲突说法。
 
 Karpathy 把 context window 称为有限而珍贵的资源，并把它和模型完成任务所能使用的信息联系起来 ([Intro to LLMs, around 00:32:42](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1962s), [00:44:38](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2678s))。这就是模型机制和 context engineering 的连接点。如果信息不在上下文里，也不能通过工具获得，模型就只能依赖参数或猜测。
 
@@ -45,7 +45,7 @@ Context window 是工作记忆。长期记忆必须存在别处。Karpathy 提�
 - browser session；
 - workflow engine 中的结构化状态。
 
-模型在需要时读取这份记忆的切片。它不应该被要求把所有状态都背在 prompt 里。
+模型在需要时读取这份记忆的切片，而不应该被要求把所有状态都背在 prompt 里。
 
 ## Context Selection
 
@@ -60,7 +60,7 @@ Harness 需要 context-selection policy。每次模型调用，它都要选择�
 - 示例；
 - 输出约束。
 
-选择通常比压缩更重要。一个只包含正确 file diff 和 failing test 的短 prompt，可能胜过包含整个项目历史的长 prompt。
+选择通常比压缩更重要。一个只包含正确 file diff 和 failing test 的短 prompt，可能胜过一个包含整个项目历史的长 prompt。
 
 ## Context Rot
 
@@ -71,11 +71,11 @@ Harness 需要 context-selection policy。每次模型调用，它都要选择�
 - 把结构化任务状态放在模型外部；
 - 摘要时显式保留约束和开放问题；
 - 从工具输出抽取持久事实后丢掉原始输出；
-- 大 artifact 用 handle 存储；
+- 大型对象用 handle 存储；
 - 每次调用只 rehydrate 相关切片；
 - 把用户内容和系统指令分开。
 
-另一个实用规则：工具原始输出的信息被抽取后，就不要继续留在上下文里。5000 行日志应该变成“测试 `x` 在调用 `z` 后因为断言 `y` 失败”，再加一个指向完整日志的 handle。模型之后需要时再请求完整日志。
+另一个实用规则是：工具原始输出中的信息被抽取后，就不要继续把原始输出留在上下文里。5000 行日志应该变成“测试 `x` 在调用 `z` 后因为断言 `y` 失败”，再加一个指向完整日志的 handle。模型之后需要时再请求完整日志。
 
 ## Context 也是安全边界
 
@@ -93,6 +93,10 @@ Harness 应该对进入 context 的内容做权限和标记：
 
 Long-context model 降低压力，但不能取消 context engineering。更大的窗口能支持更大文档、更丰富 trace、更少 compaction；也会鼓励粗心堆料。
 
+长上下文也不意味着每个 token 都被均匀使用。*Lost in the Middle* 发现，模型使用输入开头或结尾附近的相关信息时，可能明显好于使用中间位置的信息 ([Lost in the Middle](https://arxiv.org/abs/2307.03172))。不同模型和上下文长度会有差异，但稳定结论是：“放进窗口某处”不等于“模型可靠可用”。
+
+对 harness 来说，evidence placement 是设计问题。当前任务、关键约束和决定性证据应该放在模型更可能使用的位置。如果必须放入长文档，应考虑 section summaries、targeted retrieval、citations 和 follow-up search，而不是假设整个窗口都会被同等可靠地阅读。
+
 用真实任务衡量 long-context workflow。问清楚：额外上下文是否提高成功率、减少重试，还是只是增加成本？有时 search tool 加小上下文会胜过巨大 prompt。
 
 ## 要点
@@ -101,4 +105,3 @@ Long-context model 降低压力，但不能取消 context engineering。更大�
 - KV cache 加速 inference，但不解决语义状态。
 - Context rot 是长运行 workflow 的主要失败模式。
 - Harness 应外部化状态，并给模型相关切片。
-

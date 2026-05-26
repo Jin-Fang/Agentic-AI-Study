@@ -2,6 +2,20 @@
 
 Most modern LLMs are based on the Transformer architecture introduced in *Attention Is All You Need* ([Vaswani et al., 2017](https://arxiv.org/abs/1706.03762)). Karpathy's intro names the Transformer as the neural network architecture behind these models ([Intro to LLMs, around 00:11:40](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=700s)). For harness engineers, the architecture matters because it explains why context is powerful, expensive, and imperfect.
 
+## Original Transformer vs Decoder-Only LLMs
+
+The original Transformer was an encoder-decoder architecture for sequence-to-sequence tasks such as machine translation. Many modern autoregressive LLMs use a decoder-only variant: they process a prefix and predict the next token under a causal mask.
+
+This distinction matters because "Transformer" is a family pattern, not one exact product shape. A causal language model cannot attend to future tokens during training or generation. Its attention is constrained so each position can use earlier positions, which matches the next-token objective.
+
+Modern LLMs also use details that are easy to skip in a high-level explanation:
+
+- **Multi-head attention** lets different heads attend to different relationships in parallel.
+- **Position information** tells the model where tokens occur. Modern systems may use learned positions, sinusoidal positions, rotary position embeddings, or other variants.
+- **Causal masking** prevents the model from seeing the answer token while learning to predict it.
+
+For harness work, the takeaway is not to memorize architecture variants. It is to remember that context is made usable by a specific sequence-processing computation, and that model families can differ in how they represent position, length, and attention.
+
 ## From Tokens to Vectors
 
 The model begins by mapping token IDs to vectors called embeddings. A token such as `hello`, a newline, or a code fragment becomes a point in a high-dimensional space. Position information is added so the model can distinguish the same token appearing in different places.

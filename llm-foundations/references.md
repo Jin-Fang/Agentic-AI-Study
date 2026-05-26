@@ -28,6 +28,9 @@ This book is primarily based on the two source lectures below, with paper refere
 - Jordan Hoffmann et al., *Training Compute-Optimal Large Language Models*, 2022.  
   https://arxiv.org/abs/2203.15556
 
+- Rylan Schaeffer, Brando Miranda, and Sanmi Koyejo, *Are Emergent Abilities of Large Language Models a Mirage?*, 2023.
+  https://arxiv.org/abs/2304.15004
+
 ---
 
 ## Tokenization
@@ -55,8 +58,14 @@ This book is primarily based on the two source lectures below, with paper refere
 - Jason Wei et al., *Chain-of-Thought Prompting Elicits Reasoning in Large Language Models*, 2022.  
   https://arxiv.org/abs/2201.11903
 
+- Xuezhi Wang et al., *Self-Consistency Improves Chain of Thought Reasoning in Language Models*, 2022.
+  https://arxiv.org/abs/2203.11171
+
 - Patrick Lewis et al., *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks*, 2020.  
   https://arxiv.org/abs/2005.11401
+
+- Nelson F. Liu et al., *Lost in the Middle: How Language Models Use Long Contexts*, 2023.
+  https://arxiv.org/abs/2307.03172
 
 - Shunyu Yao et al., *ReAct: Synergizing Reasoning and Acting in Language Models*, 2022.  
   https://arxiv.org/abs/2210.03629
@@ -70,6 +79,21 @@ This book is primarily based on the two source lectures below, with paper refere
 
 - Ari Holtzman et al., *The Curious Case of Neural Text Degeneration*, 2019.  
   https://arxiv.org/abs/1904.09751
+
+- Stephanie Lin, Jacob Hilton, and Owain Evans, *TruthfulQA: Measuring How Models Mimic Human Falsehoods*, 2021.
+  https://arxiv.org/abs/2109.07958
+
+- Stephanie Kadavath et al., *Language Models (Mostly) Know What They Know*, 2022.
+  https://arxiv.org/abs/2207.05221
+
+- Dan Hendrycks et al., *Measuring Massive Multitask Language Understanding*, 2020.
+  https://arxiv.org/abs/2009.03300
+
+- Mark Chen et al., *Evaluating Large Language Models Trained on Code*, 2021.
+  https://arxiv.org/abs/2107.03374
+
+- Jacob Austin et al., *Program Synthesis with Large Language Models*, 2021.
+  https://arxiv.org/abs/2108.07732
 
 - Aarohi Srivastava et al., *Beyond the Imitation Game: Quantifying and extrapolating the capabilities of language models*, 2022.  
   https://arxiv.org/abs/2206.04615

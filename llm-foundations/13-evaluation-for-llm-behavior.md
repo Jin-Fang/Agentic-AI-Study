@@ -4,6 +4,14 @@ LLM systems are probabilistic, context-sensitive, and often embedded in workflow
 
 A benchmark score can be useful, but it does not tell you whether your harness can handle your repository, documents, permissions, users, and failure modes. Harness engineers need task-specific evals.
 
+## Benchmark Families and Limits
+
+Different public benchmarks test different slices of behavior. MMLU measures broad academic and professional knowledge across many multiple-choice subjects ([Measuring Massive Multitask Language Understanding](https://arxiv.org/abs/2009.03300)). TruthfulQA targets truthful answering under questions that invite common false beliefs ([TruthfulQA](https://arxiv.org/abs/2109.07958)). HumanEval and MBPP test code generation through executable programming problems ([Evaluating Large Language Models Trained on Code](https://arxiv.org/abs/2107.03374), [Program Synthesis with Large Language Models](https://arxiv.org/abs/2108.07732)).
+
+These benchmarks are useful, but they are not product evals. They can be contaminated by training data, too narrow for a real workflow, or insensitive to permissions, retrieval, tool side effects, latency, and recovery behavior. A model can improve on MMLU while regressing on your tool schema. It can do well on HumanEval while failing inside your repository because local conventions, dependencies, or hidden tests differ.
+
+Use broad benchmarks as background signal. Use workload evals as release signal.
+
 ## What to Evaluate
 
 Evaluate the unit that matters. For a simple extraction prompt, the unit may be one model call. For an agent, the unit is the loop: prompt, tool calls, observations, retries, final answer, and side effects.

@@ -8,9 +8,9 @@ English version: [LLM Foundations for Harness Engineering](../llm-foundations/)
 
 ## 为什么需要这本书
 
-Harness engineering 的起点，是看清楚原始模型在哪里停止工作。模型预测 token；harness 给模型提供工具、记忆、状态、权限、检索、评估，以及通往真实世界效果的受控路径。要把这套外围系统设计好，工程师需要对模型本身有一个足够准确的心智模型。
+Harness engineering 的起点，是看清原始模型在哪里停止工作。模型预测 token；harness 则提供工具、记忆、状态、权限、检索、评估，以及通往真实世界效果的受控路径。要把这套外围系统设计好，工程师需要对模型本身建立足够准确的心智模型。
 
-这本书不是机器学习理论课。它服务于这样的工程问题：prompt 为什么会失效？context window 为什么不是长期记忆？RAG 为什么有时减少幻觉、有时制造噪声？工具调用为什么必须由 harness 管？为什么一个模型升级可能让已有 workflow 退化？
+这本书不是机器学习理论课。它服务的是这些工程问题：prompt 为什么会失效？context window 为什么不是长期记忆？RAG 为什么有时减少幻觉、有时制造噪声？工具调用为什么必须由 harness 管？为什么一次模型升级可能让已有 workflow 退化？
 
 主要素材来自 Andrej Karpathy 的两期 YouTube 讲座：
 
@@ -51,4 +51,3 @@ Harness engineering 的起点，是看清楚原始模型在哪里停止工作。
 第 1-7 章先建立“模型是什么”的基础心智模型。第 8-14 章再讨论这些基础如何影响 harness 设计。
 
 如果你已经在做 agent 或 coding assistant，最应该优先读第 6、9、10、11、12、13 章。
-

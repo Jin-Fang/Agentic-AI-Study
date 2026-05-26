@@ -47,6 +47,10 @@ The broad empirical lesson of the last several years is that larger models train
 
 Later work showed that compute-optimal training requires balancing parameters and tokens. The Chinchilla paper argued that many earlier large models were undertrained relative to their size, and that using more data for a smaller model can outperform a much larger undertrained model at the same compute budget ([Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556)).
 
+Scaling laws are strongest as statements about aggregate loss and average trends. They are not a guarantee that every benchmark, workflow, or capability improves smoothly. Some apparent "emergent" jumps can be partly caused by metric choice or thresholded scoring rather than a sharp new internal mechanism ([Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004)).
+
+This matters for model selection. A larger model may reduce pretraining loss while still being worse for a workflow because of post-training behavior, latency, context handling, tool calling, safety policy, or data freshness. Scaling is a powerful trend, not a substitute for task-specific evaluation.
+
 The harness-level consequence is straightforward: model selection is not just "bigger is better." A smaller, well-trained, well-post-trained model may be better for a specific workflow than a larger model with poor tool-use behavior, weak instruction following, or worse latency.
 
 ## Compute Is an Operational Constraint

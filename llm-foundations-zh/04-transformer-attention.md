@@ -1,6 +1,20 @@
 # 第 4 章：Transformer 与 Attention
 
-现代大多数 LLM 都基于 Transformer 架构。Transformer 最初由 *Attention Is All You Need* 提出 ([Vaswani et al., 2017](https://arxiv.org/abs/1706.03762))。Karpathy 在 intro 里也明确指出，这类模型背后的神经网络架构就是 Transformer ([Intro to LLMs, around 00:11:40](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=700s))。对 harness engineer 来说，架构重要是因为它解释了 context 为什么强大、昂贵且不完美。
+现代大多数 LLM 都基于 Transformer 架构。Transformer 最初由 *Attention Is All You Need* 提出 ([Vaswani et al., 2017](https://arxiv.org/abs/1706.03762))。Karpathy 在 intro 里也明确指出，这类模型背后的神经网络架构就是 Transformer ([Intro to LLMs, around 00:11:40](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=700s))。对 harness engineer 来说，架构之所以重要，是因为它解释了 context 为什么强大、昂贵，而且并不完美。
+
+## 原始 Transformer vs Decoder-Only LLM
+
+原始 Transformer 是用于机器翻译等 sequence-to-sequence 任务的 encoder-decoder 架构。许多现代 autoregressive LLM 使用 decoder-only 变体：它们处理一个前缀，并在 causal mask 约束下预测下一个 token。
+
+这个区别很重要，因为 “Transformer” 是一族计算模式，不是单一产品形态。Causal language model 在训练和生成时不能 attend 到未来 token。它的 attention 被约束为每个位置只能使用更早的位置，这与 next-token objective 对齐。
+
+现代 LLM 还包含一些高层解释容易跳过的细节：
+
+- **Multi-head attention** 让不同 head 并行关注不同关系。
+- **位置信息** 告诉模型 token 出现在哪里。现代系统可能使用 learned positions、sinusoidal positions、rotary position embeddings 或其他变体。
+- **Causal masking** 防止模型在学习预测时看到答案 token。
+
+对 harness 来说，重点不是背诵架构变体，而是记住：context 之所以可用，来自一套具体的 sequence-processing computation；不同模型家族在位置、长度和 attention 表示上可能不同。
 
 ## 从 Token 到向量
 
@@ -10,11 +24,11 @@
 
 Karpathy 在 deep dive 中把 Transformer 讲成这类场景使用的具体神经网络：token 经过一连串 block，最后网络产生下一个 token 的预测 ([Deep Dive, around 00:23:24](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=1404s))。对 harness 来说，重点是：模型不是把文档读进显式变量，而是在转换一串向量状态。
 
-每个 token 位置都携带一个逐层 refined 的表示。早期层可能表示局部语法或 token 身份，后面层可能表示对预测更有用的抽象关系。内部特征未必完全可解释，但过程仍然是机械的：基于上下文做向量变换。
+每个 token 位置都携带一个逐层精炼的表示。早期层可能表示局部语法或 token 身份，后面层可能表示对预测更有用的抽象关系。内部特征未必完全可解释，但过程仍然是机械的：基于上下文做向量变换。
 
 ## Attention：在上下文中回看
 
-Self-attention 让每个 token 表示可以从上下文中的其他 token 收集信息。在 causal language model 里，某个位置可以 attend 到更早位置，但不能看到未来位置。这就是模型能根据 prompt、历史对话、检索段落、工具结果和示例来预测下一个 token 的原因。
+Self-attention 让每个 token 表示都能从上下文中的其他 token 收集信息。在 causal language model 里，某个位置可以 attend 到更早的位置，但不能看到未来位置。这就是模型能根据 prompt、历史对话、检索段落、工具结果和示例来预测下一个 token 的原因。
 
 基本直觉是：
 
@@ -27,13 +41,13 @@ Self-attention 让每个 token 表示可以从上下文中的其他 token 收集
 
 Karpathy 指向 attention block 来解释 Transformer 内部位置如何交流 ([Deep Dive, around 00:24:29](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=1469s))。从 harness 角度看，attention 是把证据放进 prompt 后可能有效的原因；也是证据位置、分隔符和噪声控制重要的原因。
 
-一个直接回答问题的检索段落，给 attention 提供了有用目标。一个只是主题相关的段落，会和答案竞争注意力。一个包含几千行成功测试输出的工具日志，可能让模型注意到无关模式。Attention 很强，但并不足以支撑随意堆上下文。
+一个直接回答问题的检索段落，会给 attention 提供有用目标。一个只是主题相关的段落，则会和答案竞争注意力。一个包含几千行成功测试输出的工具日志，可能让模型注意到无关模式。Attention 很强，但不足以支撑随意堆上下文。
 
 ## MLP 和层结构
 
 Attention 在位置之间移动信息。Feed-forward 或 MLP block 在每个位置内部转换信息。Residual connection 让表示跨层传递。Layer normalization 稳定训练。
 
-对 harness 工作来说，细节不如形状重要：模型反复混合上下文并转换表示。它不会把 prompt 解析成一张清晰事实表。它会构建一个受整段 token 序列条件化的分布式激活状态。
+对 harness 工作来说，细节不如整体形状重要：模型会反复混合上下文并转换表示。它不会把 prompt 解析成一张清晰的事实表，而是构建一个受整段 token 序列影响的分布式激活状态。
 
 这解释了为什么指令位置重要。靠近回答点的清晰指令可能占优势。顶部的高优先级指令也可能被几千个噪声 token 稀释。检索段落相关且紧凑时能帮助模型；包含干扰替代说法时也会伤害模型。
 
@@ -73,4 +87,3 @@ Transformer 架构定义计算；训练设定参数。随机初始化的 Transfo
 - Attention 让 token 能依赖早期上下文，但它是柔性的、会犯错的。
 - 长上下文既强大又昂贵。
 - Harness 应该通过减少噪声、突出相关证据来帮助 attention。
-

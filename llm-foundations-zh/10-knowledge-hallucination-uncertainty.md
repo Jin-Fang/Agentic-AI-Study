@@ -1,12 +1,12 @@
 # 第 10 章：知识、幻觉与不确定性
 
-LLM 经常显得知识丰富，因为预训练把大量文本压缩进了模型参数。但参数化知识不是数据库。它可能过期、不完整、混合多个来源，或者直接错误。
+LLM 经常显得知识丰富，因为预训练把大量文本压缩进了模型参数。但参数化知识不是数据库：它可能过期、不完整、混合多个来源，或者直接错误。
 
-Karpathy 在 intro 中把 hallucination 作为核心失败模式提出：模型可以生成流畅可信、但并不 grounded in reality 的文本 ([Intro to LLMs, around 00:10:04](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=604s))。对 harness 来说，幻觉不是神秘人格缺陷，而是没有内置真理 oracle 的 next-token generator 在缺少 grounding 时产生的可预期结果。
+Karpathy 在 intro 中把 hallucination 作为核心失败模式提出：模型可以生成流畅可信、但并不 grounded in reality 的文本 ([Intro to LLMs, around 00:10:04](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=604s))。对 harness 来说，幻觉不是神秘的人格缺陷，而是一个没有内置真理 oracle 的 next-token generator 在缺少 grounding 时产生的可预期结果。
 
 ## 幻觉为什么发生
 
-模型优化目标是预测 token，post-training 又让 token 更有帮助、更流畅。两者都不保证事实性。如果 context 要求引用但没有可用引用，模型仍可能继续生成看起来像引用的文本。如果 prompt 要求回答一个不存在答案的问题，模型可能推断最像答案的文字。
+模型优化目标是预测 token，post-training 又让输出更有帮助、更流畅。两者都不保证事实性。如果 context 要求引用但没有可用引用，模型仍可能继续生成看起来像引用的文本。如果 prompt 要求回答一个不存在答案的问题，模型可能推断出最像答案的文字。
 
 幻觉风险在以下场景上升：
 
@@ -19,11 +19,19 @@ Karpathy 在 intro 中把 hallucination 作为核心失败模式提出：模型�
 
 Karpathy 的例子说明，模型可以在缺少可靠知识时继续生成 answer-shaped text ([Intro to LLMs, around 00:10:04](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=604s))。流畅输出不是事实存在的证据，只是文本在模型分布和当前 prompt 下看起来合理。
 
-这对 harness 很重要，因为 harness 常要求模型生成看起来权威的 artifact：引用、代码、changelog、诊断、政策解释、测试计划或数据库说明。流畅性会掩盖 grounding 的缺失。
+这对 harness 很重要，因为 harness 常要求模型生成看起来权威的产物：引用、代码、changelog、诊断、政策解释、测试计划或数据库说明。流畅性很容易掩盖 grounding 的缺失。
+
+## 模仿性错误
+
+有些错误答案不是随机编造。模型可能模仿常见人类误解、过期说法、迷思或互联网上的错误模式，因为这些模式存在于训练分布中。TruthfulQA 就是为了衡量这种失败：模型是否给出真实回答，而不是模仿貌似合理的人类错误 ([TruthfulQA](https://arxiv.org/abs/2109.07958))。
+
+这也是为什么“模型看过很多文本”还不够。更大规模可能让模型更擅长模仿数据分布，包括其中错误的部分。只要真相重要，就需要 post-training、retrieval 和显式 truthfulness evaluation。
 
 ## 不确定性不总是校准的
 
 模型表达信心的能力不稳定。它可能正确时犹豫，错误时自信。校准会随领域、模型、prompt 和 post-training 变化。
+
+一些研究显示，模型可以在一定程度上预测自己是否知道答案，但这种能力不会完美泛化到所有任务和 prompt ([Language Models Mostly Know What They Know](https://arxiv.org/abs/2207.05221))。因此，自报信心只能当成弱信号，不能当成验证。
 
 不要只依赖自报信心。Harness 应把不确定性控制内置进 workflow：
 
@@ -41,13 +49,13 @@ Task: Determine whether X happened. If not supported, say so.
 Evidence: ...
 ```
 
-这个小变化把 continuation 从解释转向验证。
+这个小变化会把 continuation 从解释转向验证。
 
 ## Grounding
 
 Grounding 是把生成绑定到提供的 evidence 或外部状态上。RAG 是一种 grounding 模式，工具使用也是。代码执行工具可以 ground 算术。浏览器可以 ground 当前网页事实。数据库查询可以 ground 账户状态。
 
-Grounding 不意味着模型不能幻觉。它意味着 harness 给模型更好的证据，并且可以验证输出是否由证据支持。
+Grounding 不意味着模型不会幻觉。它意味着 harness 给模型更好的证据，并且可以验证输出是否由证据支持。
 
 Grounding 质量取决于整条链：
 
@@ -73,7 +81,7 @@ Harness 应区分：
 - 来源本身错误；
 - 最终答案没有正确引用来源。
 
-Trace log 是实际区分这些情况的唯一可靠办法。
+Trace log 是实际区分这些情况时最可靠的办法。
 
 ## Safety、Refusal 和 Jailbreak
 
@@ -92,7 +100,7 @@ Trace log 是实际区分这些情况的唯一可靠办法。
 
 ## 引用纪律
 
-引用应该指向系统实际使用过的来源。如果模型编造 source title，答案比没有引用更糟，因为它创造了虚假的可审计性。
+引用应该指向系统实际使用过的来源。如果模型编造 source title，答案会比没有引用更糟，因为它创造了虚假的可审计性。
 
 Harness 可以强制 source discipline：
 
@@ -110,4 +118,3 @@ Harness 可以强制 source discipline：
 - 幻觉是缺少足够 grounding 时的合理 continuation。
 - 自报信心不是可靠 verifier。
 - Harness 应 grounding、引用、验证，并允许 “not found”。
-

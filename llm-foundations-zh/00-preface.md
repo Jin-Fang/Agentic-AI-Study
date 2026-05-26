@@ -1,12 +1,12 @@
 # 前言
 
-大语言模型很容易上手，却很难可靠地运行。一个聊天框把很多机制藏在了后面：tokenization、预训练、Transformer inference、采样、post-training、context window、检索和工具调用。对 harness engineer 来说，这些机制都不是背景知识，而是直接影响系统行为的工程表面。
+大语言模型很容易上手，却很难可靠运行。聊天框背后藏着许多机制：tokenization、预训练、Transformer inference、采样、post-training、context window、检索和工具调用。对 harness engineer 来说，这些不是背景知识，而是会直接影响系统行为的工程接口。
 
 这本书就是写给这个角色的。
 
-目标不是从数学上推导 Transformer，也不是教你训练 frontier model。目标是建立一个能用于工程判断的心智模型。当 agent 忘记约束、编造引用、选错工具、被无关检索内容带偏，或者一次小小的 prompt 修改导致输出退化时，工程师应该能判断问题大概出在模型、上下文、检索、工具、采样、状态还是评估。
+本书的目标不是从数学上推导 Transformer，也不是教你训练 frontier model，而是建立一个能支持工程判断的心智模型。当 agent 忘记约束、编造引用、选错工具、被无关检索内容带偏，或者一次很小的 prompt 修改导致输出退化时，工程师应该能判断问题大致出在模型、上下文、检索、工具、采样、状态还是评估。
 
-本书主要整理自 Andrej Karpathy 的 [Intro to Large Language Models](https://www.youtube.com/watch?v=zjkBMFhNj_g) 和 [Deep Dive into LLMs like ChatGPT](https://www.youtube.com/watch?v=7xTGNNLPyMI)。第一期讲座用“两个文件”来拆解 LLM：参数文件和运行参数的代码。第二期讲座进一步展开数据、tokenization、训练、inference、post-training、工具和 agent。本书把这些内容组织成一条面向 harness engineering 的学习路线，并在必要处补充基础论文引用。
+本书主要整理自 Andrej Karpathy 的 [Intro to Large Language Models](https://www.youtube.com/watch?v=zjkBMFhNj_g) 和 [Deep Dive into LLMs like ChatGPT](https://www.youtube.com/watch?v=7xTGNNLPyMI)。第一期讲座用“两个文件”拆解 LLM：参数文件，以及运行这些参数的代码。第二期讲座进一步展开数据、tokenization、训练、inference、post-training、工具和 agent。本书把这些内容组织成一条面向 harness engineering 的学习路线，并在必要处补充基础论文引用。
 
 ## 读者需要什么背景
 
@@ -29,5 +29,4 @@
 
 配套教材 [Agent Harness：实践者教材](../agent-harness-zh/) 从模型外部开始：上下文管理、工具、沙箱、工作流模式和评估。本书从模型内部边界开始：harness 调用模型时，模型到底在做什么。
 
-这两本书应该放在一起读。只有 harness engineering 而没有 LLM 基础，容易变成经验主义 prompt 调参。只有 LLM 基础而没有 harness engineering，则停留在一个会说话、但不能安全做事的模型。
-
+这两本书应该配合阅读。只有 harness engineering 而没有 LLM 基础，容易变成经验主义的 prompt 调参；只有 LLM 基础而没有 harness engineering，则会停留在一个能说话、但不能安全做事的模型上。

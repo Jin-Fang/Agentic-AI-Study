@@ -21,9 +21,17 @@ Karpathy's intro makes this practical with examples where the model produces ans
 
 This is especially important for harness engineering because harnesses often ask models to produce artifacts that look authoritative: citations, code, changelogs, diagnoses, policy interpretations, test plans, or database explanations. Fluency can hide missing grounding.
 
+## Imitative Falsehoods
+
+Some false answers are not random inventions. A model can imitate common human misconceptions, outdated claims, myths, or false internet patterns because those patterns appear in the training distribution. TruthfulQA was designed to measure this kind of failure: whether a model gives truthful answers rather than mimicking plausible human falsehoods ([TruthfulQA](https://arxiv.org/abs/2109.07958)).
+
+This is one reason "the model has seen a lot of text" is not enough. More scale can make a model better at imitating the data distribution, including parts of that distribution that are false. Post-training, retrieval, and explicit truthfulness evaluation are needed when truth matters.
+
 ## Uncertainty Is Not Always Calibrated
 
 Models can express confidence poorly. They may hedge when they are correct and sound certain when they are wrong. Calibration varies by domain, model, prompt, and post-training.
+
+Some research suggests models can partially predict whether they know an answer, but this ability does not generalize perfectly across tasks and prompts ([Language Models Mostly Know What They Know](https://arxiv.org/abs/2207.05221)). Self-reported confidence should therefore be treated as one weak signal, not as verification.
 
 Do not rely on self-reported confidence alone. A harness should build uncertainty controls into the workflow:
 

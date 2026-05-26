@@ -53,6 +53,10 @@ Treat examples as data dependencies. Version them, review them, and test them.
 
 Chain-of-thought prompting shows that large models can improve on multi-step reasoning tasks when prompted to generate intermediate reasoning steps ([Chain-of-Thought Prompting Elicits Reasoning in Large Language Models](https://arxiv.org/abs/2201.11903)). The harness-level lesson is not simply "ask the model to think step by step." The deeper lesson is that task decomposition can help.
 
+The limits matter. Chain-of-thought gains depend on model scale, task type, prompt design, and decoding. Smaller or poorly post-trained models may not benefit. Visible reasoning text is also not guaranteed to be faithful to the model's actual internal computation; it is an output artifact that may help, mislead, or rationalize.
+
+One related technique is self-consistency: sample several reasoning paths and choose the most consistent answer rather than trusting the first greedy path ([Self-Consistency Improves Chain of Thought Reasoning in Language Models](https://arxiv.org/abs/2203.11171)). This can improve reasoning benchmarks, but it multiplies cost and still needs a reliable way to select or verify answers.
+
 In production systems, visible reasoning may be inappropriate, too verbose, or unavailable. A harness can still support decomposition through:
 
 - Planning fields.

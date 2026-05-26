@@ -6,7 +6,7 @@
 
 ## Base Model
 
-大规模预训练之后、assistant-oriented post-training 之前的模型。Base model 是强大的文本补全器，但不一定是有帮助的 assistant。
+大规模预训练之后、面向 assistant 的 post-training 之前的模型。Base model 是强大的文本补全器，但不一定是有帮助的 assistant。
 
 ## Byte Pair Encoding
 
@@ -18,11 +18,11 @@
 
 ## Chat Template
 
-把包含 system、user、assistant、tool 等角色的聊天对话序列化成模型实际接收 token 序列的格式。
+把包含 system、user、assistant、tool 等角色的聊天对话，序列化成模型实际接收的 token 序列的格式。
 
 ## Context Window
 
-模型单次调用中能条件化的最大 token 数。它是输入上下文，不是持久记忆。
+模型单次调用中最多能利用的 token 数。它是输入上下文，不是持久记忆。
 
 ## Embedding
 
@@ -46,7 +46,7 @@
 
 ## KV Cache
 
-Transformer inference 中缓存的 key/value 张量，用于避免重复计算之前上下文。它提升效率，但不是语义记忆。
+Transformer inference 中缓存的 key/value 张量，用于避免重复计算之前的上下文。它能提升效率，但不是语义记忆。
 
 ## Logits
 
@@ -66,7 +66,7 @@ Transformer inference 中缓存的 key/value 张量，用于避免重复计算�
 
 ## Prompt Injection
 
-不可信内容包含类似指令的文本，并以 harness 未预期方式影响模型的失败模式。
+不可信内容包含类似指令的文本，并以 harness 未预期的方式影响模型行为的失败模式。
 
 ## RAG
 
@@ -74,7 +74,7 @@ Retrieval-augmented generation。Harness 检索外部信息，并把它作为上
 
 ## Reward Hacking
 
-过度优化一个不完美 reward 或 grading signal，使分数提高但真实目标没有改善。
+过度优化一个不完美的 reward 或 grading signal，使分数提高，但真实目标没有改善。
 
 ## Reward Model
 
@@ -106,5 +106,4 @@ Decoding 参数，用来改变下一个 token 概率分布的尖锐程度。低 
 
 ## Transformer
 
-现代大多数 LLM 的基础神经网络架构，核心依赖 attention mechanism，而不是 recurrence。
-
+现代大多数 LLM 使用的基础神经网络架构，核心依赖 attention mechanism，而不是 recurrence。

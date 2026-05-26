@@ -41,6 +41,20 @@ Query time:
 
 Each step can fail. RAG quality is not only model quality.
 
+## Retrieval Evaluation
+
+A RAG system should evaluate retrieval separately from generation. Otherwise, every failure becomes "the model hallucinated," even when the real problem was that the evidence never reached the model.
+
+Useful retrieval metrics include:
+
+- **Recall@k**: whether the needed chunk appears in the top k results.
+- **Precision@k**: how many retrieved chunks are actually useful.
+- **MRR or NDCG**: whether better evidence is ranked earlier.
+- **Citation support rate**: whether final cited chunks actually support the answer.
+- **Answer faithfulness**: whether generated claims stay inside retrieved evidence.
+
+Metrics should be paired with trace review. A high similarity score is not enough if the retriever misses exact policy clauses, version constraints, permissions, or negations.
+
 ## Chunking
 
 Documents are too large to retrieve whole. They are split into chunks. Chunking determines what evidence the model sees.

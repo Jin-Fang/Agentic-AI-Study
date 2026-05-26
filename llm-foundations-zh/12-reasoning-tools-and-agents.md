@@ -1,12 +1,12 @@
 # 第 12 章：推理、工具与 Agent
 
-LLM 可以生成类似推理的文本，但不能直接观察或改变世界。工具弥补这个缺口。工具让 harness 暴露搜索、文件读取、代码执行、数据库查询、浏览器动作或消息发送等操作。
+LLM 可以生成类似推理的文本，但不能直接观察或改变世界。工具弥补了这个缺口。工具让 harness 能暴露搜索、文件读取、代码执行、数据库查询、浏览器动作或消息发送等操作。
 
-Karpathy 的 intro 把 tool use 和 retrieval 作为增强模型能力的方式来讨论 ([Intro to LLMs, around 00:41:33](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2493s))。ReAct 这类研究系统展示了语言模型如何交替产生 reasoning trace、action 和 observation ([ReAct](https://arxiv.org/abs/2210.03629))。Toolformer 则探索了模型如何学习何时、如何调用 API ([Toolformer](https://arxiv.org/abs/2302.04761))。
+Karpathy 的 intro 把 tool use 和 retrieval 作为增强模型能力的方式来讨论 ([Intro to LLMs, around 00:41:33](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2493s))。ReAct 这类研究系统展示了语言模型如何交替产生 reasoning trace、action 和 observation ([ReAct](https://arxiv.org/abs/2210.03629))。Toolformer 则探索模型如何学习何时调用 API、如何调用 API ([Toolformer](https://arxiv.org/abs/2302.04761))。
 
 ## 工具使用是一种协议
 
-模型不会自己调用工具。它输出一个调用表示。Harness 解析、验证、执行，然后返回 observation。这个协议定义了 agent loop：
+模型不会自己调用工具。它只会输出一个调用表示。Harness 负责解析、验证、执行，然后返回 observation。这个协议定义了 agent loop：
 
 1. Harness 发送任务上下文和可用工具。
 2. 模型选择输出文本或工具调用。
@@ -14,9 +14,9 @@ Karpathy 的 intro 把 tool use 和 retrieval 作为增强模型能力的方式�
 4. Harness 返回 observation。
 5. 循环继续，直到满足停止条件。
 
-每一步都是设计表面。
+每一步都是设计面。
 
-Karpathy 用人类解题来说明这一点：人们面对任务时，不只是内部思考，也会用浏览器、计算器、笔记本、图像工具和其他辅助工具 ([Intro to LLMs, around 00:32:11](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1931s))。现代 assistant 也是如此。模型的 token generation 变成了外部能力的 controller。
+Karpathy 用人类解题来说明这一点：人们面对任务时，不只是内部思考，也会使用浏览器、计算器、笔记本、图像工具和其他辅助工具 ([Intro to LLMs, around 00:32:11](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1931s))。现代 assistant 也是如此。模型的 token generation 变成了外部能力的控制器。
 
 所以“模型能浏览”只是简写。模型不能单独浏览。产品给它 browser-like tool，决定它能打开哪些页面，把 observation 转成 context，并处理失败。
 
@@ -36,9 +36,9 @@ Karpathy 的例子包括 browser-like lookup 和 image generation 作为语言�
 
 ## 推理 vs 行动
 
-推理文本可以帮助模型规划、分解和跟踪状态。行动让模型获取新信息或改变外部状态。ReAct 的核心洞见是 reasoning 和 acting 会相互增强：thought 指导 action，observation 更新 thought。
+推理文本可以帮助模型规划、分解和跟踪状态。行动则让模型获取新信息或改变外部状态。ReAct 的核心洞见是 reasoning 和 acting 会相互增强：thought 指导 action，observation 更新 thought。
 
-复杂任务不能假设一次 final answer 就够。许多任务需要：
+复杂任务不能假设一次 final answer 就够。很多任务需要：
 
 - 检查本地状态；
 - 尝试命令；
@@ -63,7 +63,7 @@ Harness 让这个迭代过程成为可能。
 
 ## 工具设计很重要
 
-坏工具会产生坏 agent。给模型几百个含糊工具，它就必须花上下文和概率质量理解每个工具。给模型少数高 affordance 工具，它通常更可靠。
+坏工具会产生坏 agent。给模型几百个含糊工具，它就必须花上下文和概率质量去理解每个工具。给模型少数 affordance 清晰的工具，通常会更可靠。
 
 好工具设计包括：
 
@@ -74,7 +74,7 @@ Harness 让这个迭代过程成为可能。
 - 简洁输出；
 - 权限边界；
 - 适当的 idempotent dry-run 模式；
-- 大 artifact 的稳定 handle。
+- 大型对象的稳定 handle。
 
 工具输出应该告诉模型发生了什么变化，以及失败时下一步该怎么做。
 
@@ -84,7 +84,7 @@ Harness 让这个迭代过程成为可能。
 
 ## 长运行 Agent
 
-Deep dive 结尾，Karpathy 指向 long-running agents：能随着时间完成任务、由人类监督的系统 ([Deep Dive, around 03:11:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11518s))。长运行 agent 不是更长 prompt，而是需要持久状态和运行纪律。
+Deep dive 结尾，Karpathy 指向 long-running agents：这些系统能随着时间推进任务，并由人类监督 ([Deep Dive, around 03:11:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11518s))。长运行 agent 不是更长的 prompt，而是需要持久状态和运行纪律。
 
 长运行 harness 需要：
 
@@ -97,7 +97,7 @@ Deep dive 结尾，Karpathy 指向 long-running agents：能随着时间完成�
 - cost budget；
 - final verification。
 
-模型在调用之间可能是无状态的。Agent 不应该无状态。
+模型在调用之间可能是无状态的，但 agent 不应该无状态。
 
 ## 安全与副作用
 
@@ -133,4 +133,3 @@ Human-in-the-loop 是 harness 设计的一部分，不是事后补丁。
 - 推理和行动形成复杂任务的迭代 loop。
 - 工具 schema、命名、输出大小和错误会塑造 agent 行为。
 - 安全控制属于 harness，不能只靠模型意图。
-

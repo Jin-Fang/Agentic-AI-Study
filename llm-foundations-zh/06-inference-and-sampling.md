@@ -1,18 +1,18 @@
 # 第 6 章：Inference 与 Sampling
 
-Inference 是训练好的模型被使用时发生的事情。给定上下文，模型会计算下一个 token 的概率分布。这个分布在归一化之前通常表示为 logits。系统随后选择一个 token，把它追加到上下文里，然后重复。
+Inference 指的是训练好的模型被实际使用时发生的过程。给定上下文，模型会计算下一个 token 的概率分布。这个分布在归一化之前通常表示为 logits。系统随后选择一个 token，把它追加到上下文里，然后重复这个过程。
 
-这就是为什么生成看起来是一词一词发生的。也是为什么生成对 decoding 设置敏感。
+这就是为什么生成看起来像是一词一词发生的，也解释了为什么生成对 decoding 设置很敏感。
 
 ## Greedy Decoding 和 Sampling
 
-最简单的策略是 greedy decoding：总是选择概率最高的下一个 token。Greedy decoding 稳定，但可能无聊、重复，或被局部选择困住。
+最简单的策略是 greedy decoding：总是选择概率最高的下一个 token。Greedy decoding 比较稳定，但可能无聊、重复，或者被局部选择困住。
 
-Sampling 则从分布中抽样。Temperature 调整分布尖锐程度。低 temperature 让高概率 token 更占优势；高 temperature 给低概率 token 更多机会。Top-p，也叫 nucleus sampling，会选择累计概率超过阈值的最小 token 集合，然后在其中抽样；Holtzman 等人提出 nucleus sampling，是为了缓解神经文本生成中的重复退化问题 ([The Curious Case of Neural Text Degeneration](https://arxiv.org/abs/1904.09751))。
+Sampling 则是从分布中抽样。Temperature 调整分布的尖锐程度：低 temperature 让高概率 token 更占优势，高 temperature 给低概率 token 更多机会。Top-p，也叫 nucleus sampling，会选择累计概率超过阈值的最小 token 集合，然后在其中抽样；Holtzman 等人提出 nucleus sampling，是为了缓解神经文本生成中的重复退化问题 ([The Curious Case of Neural Text Degeneration](https://arxiv.org/abs/1904.09751))。
 
 创意写作需要变化。代码修改、数据抽取、合规 workflow 或 eval 往往不希望变化。Harness 应该按任务明确设置 decoding 参数，而不是沿用默认值。
 
-Karpathy 多次区分训练和 inference：神经网络训练好以后，inference 就是向前运行模型来产生预测 ([Deep Dive, around 00:26:12](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=1572s))。普通 inference 不会更新参数。模型不是在权重更新意义上从用户消息中“学习”；它是在 context-window 意义上根据用户消息条件化。
+Karpathy 多次区分训练和 inference：神经网络训练好以后，inference 就是向前运行模型来产生预测 ([Deep Dive, around 00:26:12](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=1572s))。普通 inference 不会更新参数。模型不是在权重更新意义上从用户消息中“学习”，而是在 context-window 意义上根据用户消息进行条件化。
 
 这个区别会影响用户预期。模型可能因为当前对话还在上下文里而“记得”某件事，但这不等于它更新了参数或写入了长期记忆。
 
@@ -46,7 +46,7 @@ Inference 时的循环是：
 对 harness 来说，这带来几个控制点：
 
 - 下游只需要结构时，使用简洁输出 contract。
-- 需要的 artifact 完成后立刻停止生成。
+- 需要的产物完成后立刻停止生成。
 - 不要要求无用的隐藏 scratch work。
 - 把长工作拆成工具支持的步骤，而不是要求一次性长答案。
 - 精确循环交给代码执行，而不是让模型在文本里模拟多轮计算。
@@ -88,7 +88,7 @@ Inference 成本取决于模型大小、prompt 长度、输出长度、batching�
 
 ## 多样本与选择
 
-有些 workflow 可以从多个样本和 grader 中获益。这对规划、测试生成、总结、重构方案等有多个合理路径的任务有帮助。但 pass@k 式提升可能掩盖操作成本。如果 harness 采样五个输出再评分，延迟和 token 成本可能乘以五。
+有些 workflow 可以从多个样本和 grader 中获益。规划、测试生成、总结、重构方案这类任务往往有多个合理路径，多样本策略可能有帮助。但 pass@k 式提升也可能掩盖操作成本。如果 harness 采样五个输出再评分，延迟和 token 成本可能接近乘以五。
 
 只有在任务价值足以抵消成本，并且 grader 可靠时，才使用多样本策略。
 
@@ -98,4 +98,3 @@ Inference 成本取决于模型大小、prompt 长度、输出长度、batching�
 - Temperature、top-p、max tokens 和 stop conditions 都是行为控制。
 - 确定性提高可重复性，但不保证真实。
 - Harness 应按 workflow 设置 decoding，并验证输出。
-

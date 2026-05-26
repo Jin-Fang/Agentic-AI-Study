@@ -1,14 +1,14 @@
 # 第 3 章：Next-Token Prediction
 
-自回归语言模型的预训练目标非常简单：给定前面的 token，预测下一个 token。训练时，模型看到大量文本窗口，并学习给真实后续 token 更高概率。Karpathy 用从大数据集中取 token window 的方式解释这个过程：模型不断被训练去预测接下来出现什么 ([Deep Dive, around 00:15:36](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=936s))。
+自回归语言模型的预训练目标非常简单：给定前面的 token，预测下一个 token。训练时，模型会看到大量文本窗口，并学习给真实的后续 token 更高概率。Karpathy 用从大数据集中抽取 token window 的方式解释这个过程：模型不断被训练去预测接下来会出现什么 ([Deep Dive, around 00:15:36](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=936s))。
 
-这个目标简单到可以规模化，又宽泛到能吸收语言、代码、事实、对话、推理痕迹、文档和许多其他文本形式中的结构。
+这个目标简单到可以大规模训练，又宽泛到能吸收语言、代码、事实、对话、推理痕迹、文档以及许多其他文本形式中的结构。
 
 ## 预测不是简单记忆
 
 模型不是把每个文档逐字存下来。它在学习能帮助压缩和预测文本的统计结构。某些记忆确实可能发生，尤其是重复或独特字符串，但真正有用的能力来自泛化：语法、事实、风格、流程、API、类比和推理模式。
 
-GPT-3 论文展示了足够大的自回归模型可以通过 prompt 完成很多任务，不需要为每个任务做专门 fine-tuning；模型可以根据上下文里的指令或例子调整行为 ([Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165))。Harness engineer 每天使用的能力正是这个现象：给模型任务描述、示例、工具结果和输出格式，它就能在上下文中适配。
+GPT-3 论文展示了一个现象：足够大的自回归模型可以通过 prompt 完成很多任务，不需要为每个任务做专门 fine-tuning；模型可以根据上下文里的指令或例子调整行为 ([Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165))。Harness engineer 每天使用的正是这种能力：给模型任务描述、示例、工具结果和输出格式，它就能在当前上下文中适配。
 
 ## 为什么简单目标会产生广泛能力
 
@@ -34,7 +34,7 @@ The capital of France is
 
 ## Loss 和参数更新
 
-训练使用 loss function：一个数字，模型给正确下一个 token 的概率越高，这个数字越低。Karpathy 明确把 loss 讲成训练过程试图降低的单一数字 ([Deep Dive, around 00:35:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2158s))。优化器会更新模型参数，让未来预测更符合数据。
+训练使用 loss function：这是一个数字，模型给正确下一个 token 的概率越高，这个数字越低。Karpathy 明确把 loss 讲成训练过程试图降低的单一数字 ([Deep Dive, around 00:35:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2158s))。优化器会据此更新模型参数，让未来预测更符合数据。
 
 训练循环大致是：
 
@@ -56,13 +56,13 @@ Karpathy 使用 compression 作为直觉：一个能很好预测文本的模型�
 
 ## 能力来自预测，不来自显式意图
 
-因为目标是预测，模型先学会行为，再被赋予显式目标。Base model 能模仿有帮助的回答，因为有帮助的回答出现在文本中。它也能模仿不安全文本，因为不安全文本也出现过。它能写代码，因为代码出现过。它能沿着推理例子继续，因为推理痕迹也出现过。
+因为目标是预测，模型会先学会各种行为模式，而不是先拥有显式目标。Base model 能模仿有帮助的回答，因为有帮助的回答出现在文本中；它也能模仿不安全文本，因为不安全文本也出现过；它能写代码，因为代码出现过；它能沿着推理例子继续，因为推理痕迹也出现过。
 
-Post-training 后来会改变哪些 continuation 更被偏好，但基础能力来自预测训练。这就是为什么 prompt 设计有力：prompt 把模型放进一个模式里。也正因为如此，prompt 设计脆弱：如果上下文暗示了错误模式，模型可能继续那个错误模式。
+Post-training 后来会改变哪些 continuation 更受偏好，但基础能力来自预测训练。这就是为什么 prompt 设计有效：prompt 把模型放进一个模式里。也正因为如此，prompt 设计很脆弱：如果上下文暗示了错误模式，模型也可能继续那个错误模式。
 
 ## 预训练产生 Base Model
 
-Next-token pretraining 的结果是 base model。Base model 可以补全文本、模仿格式、回答一些问题、遵循模式。它不一定是安全或有帮助的 assistant。它可能继续有害指令，产生任意 completion，或者突然切换风格，因为它被训练的是预测文本，而不是满足用户意图。
+Next-token pretraining 的结果是 base model。Base model 可以补全文本、模仿格式、回答一些问题、遵循模式。它不一定是安全或有帮助的 assistant。它可能继续有害指令，生成任意 completion，或者突然切换风格，因为它被训练来预测文本，而不是满足用户意图。
 
 这个区别很重要。很多人和 “ChatGPT” 关联起来的行为，不是预训练单独产生的。它们来自 post-training：模型被进一步塑造成遵循指令、对话有帮助、执行拒绝策略、偏好人类喜欢的输出。
 
@@ -85,4 +85,3 @@ Next-token pretraining 的结果是 base model。Base model 可以补全文本�
 - 这个目标简单、可规模化，并且产生了意外广泛的能力。
 - Base model 不等于 assistant model。
 - Harness 通过塑造模型要继续的上下文来工作。
-

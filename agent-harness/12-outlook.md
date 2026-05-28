@@ -12,10 +12,15 @@ Several recur across the literature:
 
 - **Behavioral harnesses for functional correctness**. Maintainability and architecture-fitness harnesses have decades of pre-existing tooling. Behavior harnesses — does the application functionally do what the user wants? — do not. Today most teams rely on AI-generated tests, and the consensus is that this is not yet good enough ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
 - **Harness coherence at scale**. As guides and sensors multiply, how do they stay consistent? How do we know when sensors that never fire indicate quality versus inadequate detection? There is no equivalent of code coverage or mutation testing for harness coverage yet.
+- **Cross-layer governance coherence**. The OpenReview survey highlights that policy, permission prompts, audit logs, constitutional instructions, and runtime hooks often live in separate layers and may interfere rather than compose. Portable policy and audit languages are still missing ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
+- **Standardized readiness reporting**. If model scores depend on execution environment, tool surface, context policy, retry rules, and governance gates, benchmark reports need a harness bill of materials. Today there is no widely adopted format for publishing that configuration.
+- **Cost-quality-speed trilemma**. Stronger sandboxes, richer observability, deeper verification, and stricter governance usually increase cost and latency. Mature harnesses need explicit policy for which checks run synchronously, which run offline, and which risks justify expensive controls ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
+- **Capability-control tradeoff**. More tools, memory, autonomy, and network reach increase task coverage, but also increase selection errors, prompt-injection surface, provenance risk, and audit burden. Capability and control are one design axis, not separate concerns.
 - **Multi-agent coordination beyond synchronous orchestration**. Anthropic's research system runs sub-agents synchronously; asynchronous coordination would unlock more parallelism but adds challenges in result coordination, state consistency, and error propagation ([Anthropic — How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system)).
 - **Continual learning at the harness level**. Memory primitives that let agents accumulate knowledge of a codebase or domain over many sessions, rather than starting fresh each time, are an active research area ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
 - **Just-in-time tool assembly**. Harnesses that dynamically assemble the right tools and context for a given task, rather than pre-configuring everything, are explored by LangChain among others.
 - **Tracing as documentation**. LangChain's observation that "in software, the code documents the app; in AI, the traces do" hints at a different model of system documentation that the field has not fully worked out.
+- **End-to-end supply-chain governance**. Tool integrity is only one piece. Agents also depend on MCP servers, external packages, datasets, retrieval sources, and generated dependency names. Provenance across that full chain is still underdeveloped.
 
 ### 12.3 The Standing Advice
 
@@ -40,6 +45,14 @@ mindmap
       Behavioral harnesses for functional correctness
       AI-generated tests not yet good enough
       No mutation testing equivalent for harnesses
+    Governance
+      Cross-layer policy coherence
+      Portable audit and policy languages
+      Human approval interfaces
+      Supply-chain provenance
+    Tradeoffs
+      Cost-quality-speed trilemma
+      Capability-control tradeoff
     Coordination
       Multi-agent async orchestration
       Result coordination across parallel agents
@@ -55,6 +68,7 @@ mindmap
     Documentation
       Traces as system documentation
       Harness coverage metrics
+      Harness bill of materials
       Sensor effectiveness measurement
 ```
 
@@ -64,7 +78,7 @@ mindmap
 
 - **The shared vocabulary is young**: many terms became common in 2025–2026, even when the underlying ideas are older.
 - **Models absorb harness, but harness moves**: as models improve and take on more native capabilities, the interesting harness work moves to harder problems, not away.
-- **Six open problems dominate the research agenda**: behavioral correctness, harness coherence at scale, async multi-agent coordination, continual learning, just-in-time tool assembly, and traces-as-documentation.
+- **Open problems now span the full ETCLOVG stack**: behavioral correctness, harness coherence, governance coherence, readiness reporting, cost-quality-speed, capability-control, async coordination, continual learning, just-in-time tool assembly, and traces-as-documentation.
 - **Five standing principles cut across all contexts**: finite context, simplest-that-works, read-the-transcripts, iterate-load-bearing, tailor-to-model.
 - **Harness engineering is permanent work**: not scaffolding to discard once models improve, but the ongoing craft of building effective systems around increasingly capable cores.
 
@@ -76,3 +90,4 @@ mindmap
 - Jeremy Hadfield et al., *How We Built Our Multi-Agent Research System*, Anthropic, Jun 2025. https://www.anthropic.com/engineering/multi-agent-research-system
 - Vivek Trivedy, *Improving Deep Agents with Harness Engineering*, LangChain, Feb 2026. https://blog.langchain.com/improving-deep-agents-with-harness-engineering/
 - *Awesome Harness Engineering* reading list: https://github.com/walkinglabs/awesome-harness-engineering
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

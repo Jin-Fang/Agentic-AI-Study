@@ -20,19 +20,33 @@
 
 两层会互相增强。只有运行时信号，没有过程工件，你知道发生了什么，却不知道是否满足原定范围。只有过程工件，没有运行时信号，又容易变成围绕坏行为写出的漂亮文档。生产级 harness 应让两者都可检查：任务轨迹、验收标准，以及环境确实达到目标状态的证据。
 
-### 11.3 压力测试负载组件
+OpenReview 综述补充了一个有用的实现细节：agent trace 应组织成 span tree，而不是平铺日志 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。至少应覆盖 model calls、tool invocations、retrieval steps、context-assembly operations、latency、token usage、cost、retries、permission decisions 和最终 outcome state。OpenTelemetry 与新兴 GenAI semantic conventions 很重要，因为它们让 agent trace 能进入普通分布式系统的同一套可观测栈。
+
+### 11.3 从生产 Trace 到 Regression Case
+
+可观测性应反哺验证。暴露真实生产失败的 trace 太有价值，不能只停留在 debug artifact。成熟循环是：
+
+1. 捕获失败或异常的生产轨迹。
+2. 脱敏敏感数据，并冻结相关环境或 fixture。
+3. 抽取用户意图、工具序列、中间状态和最终 outcome。
+4. 为修正后的行为写确定性断言或 model-graded assertion。
+5. 把 case 加入 regression suite，并保留原始 trace 作为证据。
+
+这会把 traces 变成 eval task 的来源，也能防止团队只优化合成 benchmark，却错过自己用户真正触发的失败。它与 governance 的边界很重要：trace-to-eval pipeline 必须保留 privacy、provenance 和 permission metadata，否则会生成技术上有用但运营上不安全的测试。
+
+### 11.4 压力测试负载组件
 
 Anthropic 的 harness-design 后续文章增加了互补纪律 ([Anthropic - Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps))。Harness 中每个组件都编码了一个关于“模型无法独立完成什么”的假设。随着模型改进，这些假设会过期。推荐做法是：一次移除一个组件，跑 eval，然后观察结果。
 
 当 Opus 4.6 推出并带来更强长上下文检索和长周期 coding 行为后，Anthropic 在一个 harness 版本中移除了 sprint construct。Generator 可以不经 sprint decomposition 连续运行两个多小时。Evaluator 在早期模型上更 load-bearing，但在 4.6 上变得更情境化：对处在当前模型 solo 能力边缘的任务有用，在能力范围内则可能是不必要开销。团队总结的原则是：“evaluator 不是固定的 yes/no 决策。任务超出当前模型 solo 可靠边界时，它才值得成本。”
 
-### 11.4 Model-Harness 共同演化
+### 11.5 Model-Harness 共同演化
 
 今天的 frontier coding models 往往在其 harness 中一起 post-train ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。有用 primitive 被发现、加入 harness，并用于训练下一代模型；下一代模型在该 harness 中表现更强。这形成反馈回路，也带来副作用：改变 harness 逻辑可能让模型表现更差，即使改动看起来中性。
 
 Codex 的 `apply_patch` 工具是典型例子。Codex 模型在这种具体 patch 格式上 post-train。OpenCode 作为 Claude Code 的开源替代，为 GPT/Codex 模型专门添加了 `apply_patch` 工具，以模拟 Codex harness；Claude 和其他模型仍使用普通 `edit` 与 `write` 工具 ([HumanLayer - Skill Issue](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents))。
 
-### 11.5 最佳 Harness 不一定是模型训练时的 Harness
+### 11.6 最佳 Harness 不一定是模型训练时的 Harness
 
 对应推论，也是实践中可以大胆迭代的理由：模型训练时的 harness 通常不自动等于某个任务上的最优 harness。Terminal-Bench 2.0 是实践讨论中的常见数据点：HumanLayer 引用 Opus 4.6 在 Claude Code 中排名 33，而同一模型在另一 harness 中排名 5，leaderboard noise 大约为 4 个名次 ([HumanLayer - Skill Issue](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents); [LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。应把具体名次视为 leaderboard 快照，而不是永久模型事实。
 
@@ -40,7 +54,7 @@ LangChain 的案例研究也实验性地得出同结论。他们用早期 harnes
 
 实用规则是：换模型时，重新审查 harness。调优仍然 load-bearing 的部分，移除不再承担负载的部分。
 
-### 11.6 实践要点
+### 11.7 实践要点
 
 LangChain 总结的 harness 迭代原则 ([LangChain - Improving Deep Agents](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/))：
 
@@ -56,7 +70,7 @@ HumanLayer 的平行经验 ([HumanLayer - Skill Issue](https://www.humanlayer.de
 
 无效的是：预先设计理想 harness；“以防万一”安装几十个 skills 和 MCP servers；每次 session 末尾跑完整测试套件；微调每个 sub-agent 可访问哪些工具。
 
-### 11.7 关于 AGENTS.md 的误导性数据
+### 11.8 关于 AGENTS.md 的误导性数据
 
 一个值得阅读的细节：ETH Zurich 研究测试了多个 repo 中的 138 个 agentfile（agentfile 是 AGENTS.md、CLAUDE.md 这类指令文件的统称），发现 LLM 生成的 agentfile 会损害性能并增加 20% 成本；人类写的只提升约 4%；agent 处理 context-file 指令时多花 14-22% reasoning tokens；代码库概览和目录列表在该 benchmark 中没有帮助，因为 agent 自己可以发现 repo 结构 ([HumanLayer - Skill Issue](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) citing the ETH Zurich paper)。
 
@@ -66,11 +80,35 @@ HumanLayer 将其解读为支持自己的 AGENTS.md 建议：文件要简短，�
 
 通用原则是：更多配置不等于更好。每条无关指令都是 agent 必须处理但没有收益的指令；*instruction budget* 与 token budget 同样重要。
 
-### 11.8 可复用 Harness 包与 Skills
+### 11.9 可复用 Harness 包与 Skills
 
 一个 harness 模式经过真实使用验证后，不应该只停留在某个仓库里的隐性经验。应该把它打包。实践中的单位可以是 skill、模板包、小型脚手架生成器，或一组 repo 检查。关键是它同时携带指令和可工作的工件：不只是“记得维护状态”，而是包含 progress log 模板、feature list schema、启动脚本和验证命令。
 
 Learn Harness Engineering 课程用 `harness-creator` 展示了这种打包形态：它是一个用于创建、评估和改进五个 harness 子系统的 skill，覆盖指令、状态、验证、范围和会话生命周期 ([Learn Harness Engineering - Skills](https://walkinglabs.github.io/learn-harness-engineering/zh/skills/))。这是一个有用的工程边界。可复用 harness 包不应把某个理想 workflow 永久冻结，而应让经过验证的默认做法容易安装、容易检查，并在 trace 证明组件不再 load-bearing 时容易移除。
+
+### 11.10 Meta-Harness：优化 Harness 本身
+
+一旦有 evals 和 traces，harness 本身就成为优化对象。OpenReview 综述提到 *meta-harness* 方向：不再把 harness 固定住后只比较模型，而是搜索 harness structure、prompting strategy、tool interface 和 control loop 选择 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
+
+务实版本不是完全自动化架构搜索，而是有纪律的实验：
+
+- 用同一 task suite A/B test 工具 schema 或 prompt 改动。
+- 消融某个组件，例如 planner、context reset、memory layer 或 evaluator。
+- 调整 cost controls、retry policy 和 tool-response truncation，观察质量在哪里下降。
+- 衡量完整闭环，而不只是模型输出：success rate、pass^k reliability、latency、cost、human escalations 和 security false positives。
+
+这扩展了 load-bearing 的思想。Harness 组件应持续证明自己值得保留。如果某组件只对少数高价值任务提升可靠性，就选择性路由；如果模型升级后它不再有用，就移除。
+
+### 11.11 跨层耦合
+
+ETCLOVG 也是调试地图。Trace 中看起来像模型决策差，可能只是另一层问题的症状 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))：
+
+- 工具选择错误可能来自 **Tool** 层：动作空间太大，或 schema 没有暴露关键 affordance。
+- 过早宣称完成可能来自 **Lifecycle** 层：退出条件没有被表示成持久状态机。
+- 成本调优后的回归可能来自 **Observability** 与 **Execution** 层：资源限制改变了延迟、timeout 或 benchmark fidelity。
+- 安全失败可能来自 **Governance** 层：训练时 alignment、部署配置和运行时 enforcement 之间的 policy、permission、audit hook 不一致。
+
+实际做法是：在 trace review 中先标注层级假设，再改 prompt。好的 harness 迭代会先问：是哪一层让错误行为变得容易、不可见或便宜？然后再决定修复是 prompt、工具重设计、沙箱变更、新指标、更强 grader，还是 governance hook。
 
 ---
 
@@ -97,11 +135,15 @@ flowchart LR
 
 - **Traces 是主要调试表面**：模型内部不可见，但文本 I/O 可见；系统化 trace 分析驱动 harness 改进。
 - **可观测性有两层**：运行时 trace 说明发生了什么；过程工件说明为什么这项工作应被接受。
+- **Trace span 应结构化**：model call、tool call、retrieval、context assembly、permission、cost 与 outcome state 都需要机器可读 telemetry。
+- **生产 trace 应转成 regression case**：真实失败是最高信号 eval 任务，前提是保留 privacy 和 provenance。
 - **训练时 harness 不自动最优**：leaderboard 快照显示，同一模型在不同 harness 下可能大幅移动。
 - **模型变化时压力测试组件**：每个 harness 组件都编码了可能过期的假设。
 - **Model-harness 共同演化真实存在**：post-training 将 harness 纳入训练回路，改变任一侧都可能破坏耦合。
 - **臃肿的 AGENTS.md ROI 有限**：保持简短、人写，再通过渐进披露进入 repo-local 文档和机械检查。
 - **可复用 harness 包保留来之不易的实践**：当 traces 证明某些模式有效，就把它们提升为 skills、模板、脚手架和检查。
+- **Meta-harness 把 eval 变成设计搜索**：prompts、tools、retries、context policies 和 evaluators 都可像系统组件一样消融和优化。
+- **层级归因避免只改 prompt**：先用 ETCLOVG 判断是哪一层让失败成为可能，再改指令。
 - **迭代速度胜过前置设计**：从简单开始，只在真实失败后添加，并积极修剪。
 
 ## 延伸阅读
@@ -112,3 +154,4 @@ flowchart LR
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 - OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/
 - Walking Labs, *Learn Harness Engineering - Skills*. https://walkinglabs.github.io/learn-harness-engineering/zh/skills/
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

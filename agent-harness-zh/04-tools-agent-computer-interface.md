@@ -24,29 +24,40 @@ Anthropic 后续的 “Writing Effective Tools for Agents” 进一步说明核�
 
 代价是 MCP 让工具供给过剩变得轻而易举。正如第 2 章指出的，MCP 让用户能轻易接入数百个工具，而一个装满数百条工具定义的上下文，正是第 2 章“mask，而不是删除”原则和上面的合并建议所要对抗的膨胀。MCP 是管道，不是工具设计的替代品：一个设计糟糕的 MCP server 只会把设计糟糕的工具规模化地送来。本章的纪律——合并经常串联的操作、用命名空间、限制响应大小、像写入职文档一样写描述——无论工具是手写的还是经 MCP 送达，都同样适用。
 
-### 4.4 命名空间
+### 4.4 四类集成边界
+
+OpenReview 综述认为，比较工具与协议标准时，按它们跨越的边界来分，比按厂商或发布时间更有用 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))：
+
+- **Model -> Function**：function calling 这类结构化调用，模型输出机器可读请求，由确定性代码执行。
+- **Agent -> External capability**：MCP 式解耦，agent runtime 发现外部 server 暴露的 tools、resources 和 prompts。
+- **Agent -> Agent**：A2A 式委托，一个 agentic application 把工作交给另一个有自己状态和工具的不透明 agent。
+- **Agent -> Repo/environment**：版本控制下的 policy 与 affordance，例如 AGENTS.md、本地 skills、仓库命令和环境特定工具规则。
+
+这个边界视角说明了为什么 MCP、A2A、OpenAPI、function calling 和 AGENTS.md 不应被当成直接替代品。它们解决的是不同集成问题。Harness 设计者要先判断当前跨的是哪条边界，再选择能在边界上保留 provenance、permission、cost 和 failure evidence 的协议与治理模型。
+
+### 4.5 命名空间
 
 当 agent 能访问几十个 MCP server 和数百个工具时，命名冲突和目的模糊会成为关键失败模式。Anthropic 建议把相关工具放在共同前缀下，例如服务前缀 `asana_*`、`jira_*`，以及服务内部资源前缀 `asana_projects_*`、`asana_users_*`。他们发现前缀与后缀命名方案会对工具使用评估产生非平凡影响，且最佳方案依赖 workload ([Anthropic - Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents))。
 
 Manus 也用相同模式控制动作空间：所有浏览器工具用 `browser_` 前缀，shell 工具用 `shell_` 前缀，从而用简单 logit 约束 mask 整组工具 ([Manus - Context Engineering for AI Agents](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus))。
 
-### 4.5 返回有意义的上下文
+### 4.6 返回有意义的上下文
 
 工具响应应优先考虑相关性，而不是最大灵活性；应优先使用自然语言标识符，而不是技术 ID。Anthropic 发现，把字母数字 UUID 解析成语义标签，甚至 0-indexed ID，可以显著提升 Claude 的精度并减少幻觉 ([Anthropic - Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents))。如果两者都需要，可以让自然名称供 agent 使用、技术 ID 供下游调用，也可以用 `response_format` enum 提供 `concise` 与 `detailed` 两种模式；他们的 Slack 示例中，concise 响应体积可以只有 detailed 的三分之一。
 
-### 4.6 Token 高效响应
+### 4.7 Token 高效响应
 
 工具响应是上下文膨胀的主要来源。Anthropic 默认将 Claude Code 的工具响应限制为 25,000 token，并建议结合分页、范围选择、过滤和带合理默认值的截断 ([Anthropic - Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents))。被截断的响应应包含引导，建议 agent 采取更高效策略，例如小而精准的搜索，而不是一次宽泛搜索；错误响应也应有帮助，而不是不透明 traceback。
 
 HumanLayer 在自己代码库中的 “back-pressure” 实践就是直接应用：build 和 test hook 在成功时吞掉输出，只暴露错误。早期他们让 agent 每次改动后跑完整测试套件，4,000 行通过测试输出会灌满上下文，导致 agent 忘记真实任务并开始对测试文件产生幻觉 ([HumanLayer - Skill Issue](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents))。
 
-### 4.7 对工具描述做 Prompt Engineering
+### 4.8 对工具描述做 Prompt Engineering
 
 Anthropic 认为这是最有效的杠杆之一，并报告称 Claude Sonnet 3.5 在 SWE-bench Verified 达到 SOTA 需要对工具描述做精细改写 ([Anthropic - Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents))。建议是：像给刚入职的初级工程师写说明一样写工具描述。把隐含上下文显式化，例如专门查询格式、领域术语、资源之间关系。参数名要明确，如 `user_id` 而不是 `user`。在 workbench 中跑大量例子，观察错误并迭代。
 
 一个具体调试例子：Claude 的 web search 工具刚推出时，trace 显示 Claude 会不必要地把 `2025` 附加到 `query` 参数中，偏置搜索结果。修复无需重新训练模型，只需要更清楚的工具描述。
 
-### 4.8 代码执行作为元工具
+### 4.9 代码执行作为元工具
 
 近期一个转变是：不要把 MCP 工具直接呈现为调用，而是呈现为 agent 通过写代码调用的代码 API。Anthropic 的 “Code Execution with MCP” 认为，当 agent 面对几十个 MCP server、数百个工具时，预先把每个工具定义加载进上下文，并让每个中间结果都经过模型，非常浪费 ([Anthropic - Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp))。
 
@@ -64,7 +75,7 @@ Cloudflare 以 “Code Mode” 为名报告了相似发现，强化了同一个�
 
 代价是：代码执行需要沙箱基础设施，带来运营和安全成本。
 
-### 4.9 用 Eval 迭代工具
+### 4.10 用 Eval 迭代工具
 
 Anthropic 推荐的工具开发流程有四阶段 ([Anthropic - Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents))：
 
@@ -105,6 +116,7 @@ flowchart LR
 - **工具设计与提示设计同样重要**：ACI 类比 HCI 是恰当的。
 - **更多工具会伤害而非帮助**：把常串联操作合并成专用工具。
 - **MCP 标准化了工具的来源**：它让工具能跨独立 server 组合，但也让工具供给过剩变得容易——无论如何，工具设计纪律都适用。
+- **工具协议跨越不同边界**：function calling、MCP、A2A 和 repo-local policy 互补，不是互相替代。
 - **命名空间不是表面美化**：它支持工具组 masking，也减少大型 MCP 环境中的冲突。
 - **工具响应是上下文膨胀主因**：默认 cap、分页、过滤和截断。
 - **代码执行作为元工具是阶段性跃迁**：Anthropic 示例中，把 MCP 暴露成类型化代码 API 节省 98.7% token。
@@ -117,3 +129,4 @@ flowchart LR
 - Erik Schluntz and Barry Zhang, *Building Effective Agents*, Anthropic, Dec 2024. https://www.anthropic.com/engineering/building-effective-agents
 - Yichao 'Peak' Ji, *Context Engineering for AI Agents: Lessons from Building Manus*, Manus, Jul 2025. https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

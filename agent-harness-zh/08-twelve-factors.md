@@ -4,6 +4,8 @@
 
 本章里有两个软件概念很关键。*状态* 是继续执行所需的信息：当前步骤、重试次数、审批、用户消息、工具结果，以及目前已经触及的业务对象。*事件日志* 是可以用来重建这些状态的追加式记录。把 agent 建模为对事件的 reducer 后，暂停/恢复、重放、调试和测试就会变成普通软件问题，而不是隐藏在对话里的状态问题。
 
+### 8.1 作为软件架构的十二要素
+
 这十二条原则来自许多生产部署 ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：
 
 1. **Natural Language to Tool Calls**：原子模式是把用户自然语言转换成结构化 JSON call，再由确定性代码执行。
@@ -20,6 +22,14 @@
 12. **Make Your Agent a Stateless Reducer**：agent 是对 events 的 fold。纯、可序列化、可重放。
 
 贯穿这些要素的深层主张是：“好的 agent 至少不是‘给你一个 prompt、一袋工具，循环直到目标完成’这种模式。它们大多只是软件” ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))。这些要素基本是在把软件工程卫生应用到一个有状态、非确定性的组件上。它们不应被当成普遍法则：研究原型、本地 coding assistant、受监管客服 agent 会需要不同权衡。真正有用的方向是：让状态显式、让控制流可检查、把人类交互放在结构化接口后面。
+
+### 8.2 从 Agent Program 到 Agent Platform
+
+OpenReview 综述认为，生态正在从 agent framework 走向 agent platform ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。Framework 打包的是本地抽象：agents、tools、memory stores 和 loops。Platform 额外提供跨多次运行、多用户的 durable workspace、managed sandbox、identity、billing、observability、evaluation、governance 和 human handoff。
+
+这不会替代十二要素，而是扩大它们的范围。Launch / pause / resume 变成平台 API。Unify execution state and business state 变成带 tenancy 和 migration 语义的 event-log storage。Contact humans with tool calls 变成带 audit 和 permission state 的 handoff interface。Own your control flow 变成明确决定哪些检查同步运行、哪些离线运行、哪些失败值得触发昂贵恢复。
+
+平台边界也改变责任。本地 agent 可以用临时 state files；共享平台需要状态所有权、保留策略、billing attribution、credential scoping 和可重放 audit trail。Harness 不再只是包住一次模型调用的东西，而是围绕许多 agents、许多 environments 和许多人类利益相关者的控制系统。
 
 ---
 
@@ -53,6 +63,7 @@ mindmap
 - **“大多只是软件”**：好的 agent 是带有非确定性 LLM 组件的确定性程序，而不是一袋工具循环到完成。
 - **Own your prompts**：framework 会隐藏 prompt；prompt 应作为一等代码纳入版本控制。
 - **Stateless reducer 模式**：把 agent 看作对 event log 的 fold，使其可序列化、可重放、可测试。
+- **平台范围会改变十二要素**：lifecycle、state、identity、billing、observability 和 human handoff 会变成共享基础设施问题。
 - **小而聚焦的 agent**：每个 agent 3-20 步；上下文越长，性能越差。
 - **用工具联系人类**：结构化 `request_human_input` 工具优于依赖模型自由文本选择。
 - **压缩错误，不要隐藏错误**：可见错误 trace 支持 self-healing，连续错误计数器提供安全升级路径。
@@ -62,3 +73,4 @@ mindmap
 - Dex Horthy, *12-Factor Agents*, HumanLayer, Apr 2025. https://www.humanlayer.dev/blog/12-factor-agents
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 - Erik Schluntz and Barry Zhang, *Building Effective Agents*, Anthropic, Dec 2024. https://www.anthropic.com/engineering/building-effective-agents
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

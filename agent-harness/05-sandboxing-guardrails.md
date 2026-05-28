@@ -19,7 +19,17 @@ Coding agents that run with no oversight are dangerous; coding agents that ask p
 
 In their internal usage, sandboxing safely reduces permission prompts by 84%.
 
-### 5.3 Filesystem and Network Isolation Must Be Paired
+### 5.3 Sandbox as Cage, Reset Button, and License
+
+The OpenReview survey makes the sandbox's role broader than security. In agent systems, a sandbox has three simultaneous purposes ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)):
+
+- **Security**: it bounds the blast radius of unpredictable model-generated actions and prompt-injection-driven behavior.
+- **Reproducibility**: it gives evals, training trajectories, and long-running sessions a resettable baseline. A container or microVM can be destroyed and rebuilt; a developer workstation cannot.
+- **Liveness**: it defines a region where the agent is allowed to act without asking a human on every file write, package install, or network call.
+
+That third purpose is specific to the agent era. A sandbox is not just a cage; it is also a license. By moving permission from a per-action question to a session configuration, it makes long-horizon autonomy usable without collapsing into approval fatigue.
+
+### 5.4 Filesystem and Network Isolation Must Be Paired
 
 Claude Code's sandbox enforces two boundaries simultaneously, and Anthropic argues both are required. Filesystem isolation prevents a prompt-injected agent from modifying sensitive files; network isolation prevents it from leaking data or downloading malware. Without network isolation, a compromised agent could exfiltrate SSH keys; without filesystem isolation, a compromised agent could escape the sandbox and reach the network ([Anthropic — Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing)).
 
@@ -27,7 +37,19 @@ The implementation builds on OS-level primitives — Linux bubblewrap and macOS 
 
 Claude Code on the web extends this to a cloud sandbox where sensitive credentials (git credentials, signing keys) are never inside the sandbox with the agent at all. A custom proxy handles git interactions, attaching scoped credentials only after validating that the operation is permitted (e.g., pushing only to the configured branch).
 
-### 5.4 Hooks and Middleware as Programmatic Enforcement
+### 5.5 Governance: Identity, Policy, and Audit
+
+Sandbox boundaries are necessary but not sufficient. The Governance layer asks who the agent is acting for, what authority it has, how authority changes with task context, and what evidence remains after the action ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
+
+Three design moves matter in production:
+
+- **Identity and delegated auth**: the agent should act under scoped credentials or delegated identity, not under a user's full ambient authority. Credential vaults and proxies should attach secrets only at the boundary where the operation is authorized.
+- **Context-dependent permission policy**: static allow/deny lists are inspectable but blunt. Task-aware policies can evaluate tool name, arguments, session state, target repo, network domain, and user role before each invocation, while a deterministic checker enforces the result.
+- **Audit-grade traces**: logs must capture not only the tool call, but the identity, permission decision, policy version, arguments, output summary, and whether a human approved escalation.
+
+This is also where supply-chain attacks become harness concerns. MCP tool poisoning, tool squatting, rug-pull updates, hallucinated packages, and retrieval-source poisoning all cross the line between "tool interface" and "governance." A safe harness needs provenance and integrity checks for tools, packages, datasets, and retrieval sources, not only prompts that say "be careful."
+
+### 5.6 Hooks and Middleware as Programmatic Enforcement
 
 The sandbox is one form of programmatic guardrail; hooks and middleware are another, finer-grained one. Claude Code supports user-defined commands or scripts that run automatically on lifecycle events — at agent start, after a tool call, on stop, and so on ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)). LangChain's middleware concept is structurally similar. Some hooks are fully deterministic scripts; others are procedural checkpoints that inject context back into the model. The reliability comes from the harness executing them automatically, not from the model remembering a rule.
 
@@ -35,7 +57,9 @@ Common uses are notifications (sounds when an agent finishes), automated approva
 
 LangChain reports this kind of middleware was central to lifting their deepagents-cli from Top 30 to Top 5 on Terminal-Bench 2.0. Their `PreCompletionChecklistMiddleware` intercepts the agent before exit and reminds it to run a verification pass against the task spec; a `LocalContextMiddleware` runs at start to map the working directory and discover available tools; a `LoopDetectionMiddleware` tracks per-file edit counts and prompts the agent to reconsider after N edits to the same file, breaking "doom loops" of small variations on a broken approach ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
 
-### 5.5 Feedforward and Feedback: A Cybernetic View
+The survey's governance taxonomy makes those hooks part of a wider enforcement pipeline: pre-invocation checks can deny unsafe tool calls, post-invocation hooks can taint or redact untrusted outputs before they enter context, stop hooks can require verification or audit updates, and escalation hooks can route ambiguous cases to humans. The more consequential the action, the less it should depend on the model remembering an instruction.
+
+### 5.7 Feedforward and Feedback: A Cybernetic View
 
 Thoughtworks' Birgitta Böckeler offers a higher-level taxonomy ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)). Outer-harness controls fall into two directions:
 
@@ -51,7 +75,7 @@ Within each direction there is a second axis:
 
 The two axes are independent. Coding conventions in AGENTS.md are inferential feedforward. ArchUnit tests checking module boundaries on commit are computational feedback. A `/code-review` skill is inferential feedback. A pre-bootstrap script that sets up the project structure is computational feedforward. A well-engineered harness mixes all four.
 
-### 5.6 Three Regulation Categories
+### 5.8 Three Regulation Categories
 
 Böckeler further distinguishes harnesses by what they regulate ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)):
 
@@ -61,13 +85,13 @@ Böckeler further distinguishes harnesses by what they regulate ([Thoughtworks �
 
 The point of these categories is to make it possible to assess harness coverage. A harness that is strong on maintainability but weak on behavior gives a false sense of safety.
 
-### 5.7 Timing: Keep Quality Left
+### 5.9 Timing: Keep Quality Left
 
 Continuous integration teaches that the earlier you find issues the cheaper they are to fix, and the same holds for harness design. Fast computational sensors (linters, fast tests) should run before commit; expensive computational and inferential sensors (mutation testing, broader code review) run post-integration in the pipeline; continuous-drift sensors (dead-code detection, dependency scanners, log-anomaly judges) run outside the change lifecycle altogether ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
 
 The OpenAI Codex team's harness, as Böckeler notes, follows the same shape: layered architecture enforced by custom linters and structural tests, plus recurring "garbage collection" passes that scan for drift and have agents suggest fixes.
 
-### 5.8 Harnessability and Ambient Affordances
+### 5.10 Harnessability and Ambient Affordances
 
 Not every codebase is equally amenable to harnessing. A strongly-typed language brings type-checking sensors for free; clear module boundaries afford architectural constraint rules; opinionated frameworks like Spring abstract away details the agent does not have to worry about ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
 
@@ -105,7 +129,9 @@ quadrantChart
 
 - **The threat model comes first**: prompt injection, data exfiltration, destructive action, and supply-chain risk — the *lethal trifecta* of private data + untrusted content + external communication is the core danger every control targets.
 - **Sandboxing reduces permission prompts by 84%** while maintaining safety — structural boundaries beat approval dialogs.
+- **Sandboxing has three jobs**: security, reproducibility, and liveness.
 - **Filesystem and network isolation must be paired**: each addresses a different attack vector, and either alone is insufficient.
+- **Governance is more than approvals**: identity, scoped credentials, policy checks, provenance, and audit trails must compose across tools and sessions.
 - **Hooks and middleware are programmatic enforcement**: they run regardless of model memory, making them more reliable than prompt-only constraints.
 - **Feedforward and feedback are both required**: guides without sensors have no learning loop; sensors without guides react but don't prevent.
 - **Three categories of harness coverage**: maintainability (well-tooled), architecture fitness (achievable), and behavior (the unsolved problem).
@@ -117,3 +143,4 @@ quadrantChart
 - Birgitta Böckeler, *Harness Engineering for Coding Agent Users*, Thoughtworks / martinfowler.com, Apr 2026. https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 - Vivek Trivedy, *Improving Deep Agents with Harness Engineering*, LangChain, Feb 2026. https://blog.langchain.com/improving-deep-agents-with-harness-engineering/
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

@@ -40,25 +40,41 @@ flowchart LR
 
 The word "harness" is used loosely, and writers from Thoughtworks have noted that it covers different layers depending on whom you ask. Birgitta Böckeler proposes thinking of three concentric rings: the model at the core, the coding agent's *builder harness* in the middle (the system prompt and tools shipped by Anthropic, OpenAI, etc.), and the *user harness* on the outside (the AGENTS.md, hooks, skills, and review agents the team adds to fit their codebase) ([Thoughtworks / Martin Fowler — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)). Most working engineers operate primarily in the outer ring.
 
-### 1.4 Why Harnesses Exist: Working Backwards from Model Deficits
+The OpenReview survey *Agent Harness Engineering: A Survey* gives the same boundary a more formal name: a harness is the software and interface substrate that governs how foundation models perceive context, call tools, act over time, and remain auditable in a deployment environment ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)). Its binding-constraint thesis is stronger than "harnesses are useful": for long-horizon agents, reliability often depends on the surrounding substrate as much as on raw model quality.
+
+### 1.4 ETCLOVG: A Seven-Layer Map
+
+The survey organizes the harness design space with the acronym **ETCLOVG**: Execution environment, Tool interface, Context, Lifecycle, Observability, Verification, and Governance ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)). This is useful because it prevents "harness" from collapsing into only prompts or only tools.
+
+- **Execution environment**: the sandbox, browser, operating system, code runner, or managed cloud where actions become real effects.
+- **Tool interface**: protocols, schemas, registries, function calling, MCP/A2A-style boundaries, and tool-selection policies.
+- **Context**: prompt assembly, retrieval, memory, compaction, state compression, and what the model is allowed to see.
+- **Lifecycle**: task startup, planning, checkpoint/resume, failure recovery, handoff, session termination, and long-running state.
+- **Observability**: traces, telemetry, cost attribution, latency, token accounting, and failure forensics.
+- **Verification**: eval harnesses, graders, task suites, outcome checks, and readiness gates.
+- **Governance**: permissions, policy languages, audit trails, human approval, constitutional or rule-based controls, and cross-layer security.
+
+Most chapters in this book can be read as a pass over those seven layers. Context and memory dominate Chapters 2-3; tools and execution appear in Chapters 4-5; lifecycle appears in Chapters 7-8; verification, observability, and governance are developed in Chapters 9-11 and revisited in the outlook.
+
+### 1.5 Why Harnesses Exist: Working Backwards from Model Deficits
 
 LangChain offers a useful derivation: list the agent behaviors you want, then list what models cannot natively do, and the harness components fall out as necessary remediation ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). Filesystems exist because models can only operate on what is in the context window, and a filesystem provides durable storage, an offload surface, and a collaboration surface for multiple agents and humans. Bash and code execution exist because pre-defining every tool the agent might need is intractable, and giving the model a general-purpose execution channel lets it design its own tools on the fly. Sandboxes exist because that execution has to happen somewhere safe. Memory and search exist because models have no knowledge beyond their weights and current context, so any new information has to be injected. Compaction, tool-result offloading, and skills exist because the context window is finite and degrades as it fills.
 
 Each piece is a response to a specific limitation, and the harness as a whole is the sum of those responses.
 
-### 1.5 The Historical Arc: From Prompt Engineering to Harness Engineering
+### 1.6 The Historical Arc: From Prompt Engineering to Harness Engineering
 
 Anthropic frames the recent shift as a natural progression. In the early days of LLM applications, the dominant work was *prompt engineering*: writing and organizing instructions for one-shot tasks. As applications grew into multi-turn agents that operate over longer time horizons, the relevant work shifted to *context engineering* — strategies for curating and maintaining the optimal set of tokens (information) during LLM inference, including everything that lands in context outside of the prompts themselves ([Anthropic — Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)).
 
 Harness engineering sits one level up from context engineering. It is the practice, as Mitchell Hashimoto has put it, of taking the time to engineer a solution every time the agent makes a mistake, so that it never makes that mistake again ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) quoting Hashimoto). Where prompt engineering tunes a single prompt, harness engineering iterates on the entire system in which prompts run.
 
-### 1.6 Frameworks, Runtimes, and Harnesses
+### 1.7 Frameworks, Runtimes, and Harnesses
 
 These three terms are sometimes used interchangeably. LangChain's Harrison Chase distinguishes them as follows ([LangChain — Agent Frameworks, Runtimes, and Harnesses, Oh My!](https://blog.langchain.com/agent-frameworks-runtimes-and-harnesses-oh-my/)):
 
 A *framework* — like LangChain itself, Vercel's AI SDK, CrewAI, the OpenAI Agents SDK, or Google ADK — provides abstractions that make it easier to get started and standardize how applications are built. A *runtime* — like LangGraph, Temporal, or Inngest — provides infrastructure-level concerns: durable execution, streaming, human-in-the-loop support, thread-level and cross-thread persistence. A *harness* — like LangChain's DeepAgents or Anthropic's Claude Agent SDK — sits a level higher again: it ships with default prompts, opinionated tool handling, planning tools, filesystem access, and other "batteries included" features. Lines blur (LangGraph is reasonably described as both runtime and framework), but the distinction is useful when deciding what to adopt.
 
-### 1.7 The Skeptical Counter-Position
+### 1.8 The Skeptical Counter-Position
 
 The harness-engineering frame is not without dissent. HumanLayer's argument in "Skill Issue" is that most teams blame the model — "GPT-6 will fix it," "we just need better instruction-following" — when the actual issue is harness configuration ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)). As models improve, existing failure modes will disappear, but smarter models will be given harder problems and continue to fail in unexpected ways, because unexpected failures are a fundamental property of non-deterministic systems. The implication is that harness engineering is permanent work, not scaffolding to be discarded once models get good enough.
 
@@ -102,6 +118,7 @@ flowchart TB
 - **The agent loop is the foundation**: assemble context, the model emits a tool call, the harness executes it, the result is appended — and the cycle repeats, growing context every turn.
 - **Tool calls are structured requests**: the model proposes actions in text; the harness decides which requests become real effects.
 - **Three concentric layers**: the LLM core, the builder harness (shipped by the AI lab), and the user harness (built by the team).
+- **ETCLOVG gives a systems map**: execution, tools, context, lifecycle, observability, verification, and governance are all harness layers.
 - **Harness components derive from model deficits**: filesystem, sandbox, memory, compaction each address a specific limitation.
 - **Harness engineering is permanent work**: as models improve, harder problems are tackled and new failure modes emerge.
 - **Framework ≠ Runtime ≠ Harness**: understanding the distinction helps in making adoption decisions.
@@ -114,3 +131,4 @@ flowchart TB
 - Birgitta Böckeler, *Harness Engineering for Coding Agent Users*, Thoughtworks / martinfowler.com, Apr 2026. https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html
 - Anthropic Applied AI Team, *Effective Context Engineering for AI Agents*, Anthropic, Sep 2025. https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
 - Erik Schluntz and Barry Zhang, *Building Effective Agents*, Anthropic, Dec 2024. https://www.anthropic.com/engineering/building-effective-agents
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

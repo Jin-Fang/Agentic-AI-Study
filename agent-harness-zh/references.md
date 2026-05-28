@@ -9,6 +9,9 @@
 - OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026.
   https://openai.com/index/harness-engineering/
 
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026.
+  https://openreview.net/pdf?id=3hXEPbG0dh
+
 - Justin Young et al., *Effective Harnesses for Long-Running Agents*, Anthropic, Nov 2025.  
   https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 

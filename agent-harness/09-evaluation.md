@@ -92,6 +92,17 @@ Automated evals are not a complete picture. Anthropic compares the situation to 
 - **Manual transcript review** for building intuition about failure modes.
 - **Systematic human studies** for calibrating LLM graders or grading subjective output.
 
+### 9.11 Readiness Validation and Failure Attribution
+
+The OpenReview survey separates the **Verification** layer from generic evaluation because harnesses need more than scorekeeping. Verification asks whether a deployed agent-harness combination is ready for a specific task distribution, under a specific environment, budget, and governance regime ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
+
+That framing adds two practical requirements to ordinary eval suites:
+
+- **Readiness validation**: a release gate should bind tasks, environment reset rules, tool availability, context policy, budget limits, and governance checks together. A score measured under a different execution substrate or tool menu is not automatically portable.
+- **Failure attribution**: failures should be labeled by likely layer — execution, tool interface, context, lifecycle, observability, verification, or governance. Otherwise teams overfit prompts when the real defect is an unstable sandbox, oversized tool surface, missing checkpoint, or weak policy hook.
+
+This also explains why benchmark numbers are fragile. Infrastructure changes, cost optimizations, and altered tool boundaries can change the measured capability of the same model. A useful eval report should therefore record the harness configuration alongside the model name: environment image, resource limits, tool catalog, context assembly policy, retries, graders, and human-approval rules.
+
 ---
 
 ## Diagram: Eval Anatomy and pass@k vs pass^k
@@ -131,6 +142,7 @@ flowchart TD
 - **Three grader types form a pyramid**: code-based for speed, model-based for nuance, human for calibration.
 - **pass@k and pass^k serve different products**: multi-attempt generation can use pass@k; repeated customer-facing execution needs pass^k-style reliability.
 - **Reading transcripts is the skill**: scores plateau for two reasons — agent regression or eval unfairness — only transcripts distinguish them.
+- **Readiness is configuration-specific**: eval results should travel with the harness configuration that produced them.
 - **Evals are one layer of many**: automated evals + production monitoring + A/B testing + user feedback + human review.
 
 ## Further Reading
@@ -141,3 +153,4 @@ flowchart TD
 - Ken Aizawa, *Writing Effective Tools for Agents — with Agents*, Anthropic, Sep 2025. https://www.anthropic.com/engineering/writing-tools-for-agents
 - OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/
 - Justin Young et al., *Effective Harnesses for Long-Running Agents*, Anthropic, Nov 2025. https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

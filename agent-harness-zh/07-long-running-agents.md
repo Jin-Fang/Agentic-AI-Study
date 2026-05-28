@@ -77,7 +77,20 @@ Anthropic 的 harness-design 后续文章明确区分两者 ([Anthropic - Harnes
 
 当 Opus 4.5 基本自行修复 context-anxiety 行为后，Anthropic 能够完全从 harness 中删除 context reset。这是第 11 章 model-harness coupling 的明确例子。
 
-### 7.7 多代理研究系统
+### 7.7 Managed Agents：解耦 Brain、Hands 与 Session State
+
+OpenReview 综述强调了一个平台化方向，Anthropic 后续称为 managed agents：把模型侧的 **brain**、执行侧的 **hands**，以及持久 **session/event log** 分开 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。Brain 决定应该发生什么；hands 在可替换环境中运行 shell、编辑文件、浏览和调用外部服务；session log 记录足以重建任一侧的状态。
+
+这个拆分对长运行任务很重要：
+
+- 如果模型上下文耗尽，可以用 event log 和仓库工件启动新的 brain 继续。
+- 如果 sandbox 损坏、超时或被攻陷，可以从干净镜像重建 hands。
+- 如果操作需要凭据，proxy 和 vault 可以在边界处附加凭据，而不是把 secret 放进 sandbox。
+- 如果部署在 agent 运行中发生变化，平台可以在渐进 handoff 中同时保留新旧 worker 版本。
+
+这样看，context reset 只是恢复机制之一。生产级长运行 harness 还需要环境重置、凭据隔离、可恢复 event log，以及 in-flight session 的迁移规则。
+
+### 7.8 多代理研究系统
 
 对具有并行结构的任务，例如有许多独立线索要探索的研究，第 6 章的 orchestrator-worker 模式适用。Anthropic 的研究功能用 Claude Opus 4 做 lead agent，用 Claude Sonnet 4 做 sub-agents ([Anthropic - How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system))。Lead 分析查询、制定策略、派生并行 sub-agents；每个 sub-agent 搜索并返回浓缩发现；lead 综合；citation agent 再为论断标注来源。
 
@@ -92,7 +105,7 @@ Anthropic 的 harness-design 后续文章明确区分两者 ([Anthropic - Harnes
 7. **引导思考过程**：extended thinking 可作为可控 scratchpad；interleaved thinking 帮助 sub-agent 在工具调用之间评估质量和细化查询。
 8. **并行工具调用改变速度**：并行启动 sub-agents，并让 sub-agent 并行调用多个工具，在复杂查询中可将研究时间最多减少 90%。
 
-### 7.8 有状态 Agent 的生产可靠性
+### 7.9 有状态 Agent 的生产可靠性
 
 Anthropic 的研究系统文章记录了 agent 长时间运行后的工程挑战 ([Anthropic - How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system))：
 
@@ -143,6 +156,7 @@ sequenceDiagram
 - **Generator 与 evaluator 分离是强杠杆**：agent 对自己输出偏正面，独立 evaluator 更可靠。
 - **Sprint contracts 协调多 agent 工作**：构建前用文件沟通并约定成功标准。
 - **Context reset 可以缓解 context anxiety**：有时带结构化 handoff 的全新开始优于压缩。
+- **Managed agents 解耦 brain、hands 和状态**：模型上下文、沙箱执行、凭据和 event log 应能独立失败并恢复。
 - **自验证是头号杠杆**：退出前强制验证，在不换模型的情况下提升 13.7 分。
 
 ## 延伸阅读
@@ -153,3 +167,4 @@ sequenceDiagram
 - Jeremy Hadfield et al., *How We Built Our Multi-Agent Research System*, Anthropic, Jun 2025. https://www.anthropic.com/engineering/multi-agent-research-system
 - Vivek Trivedy, *The Anatomy of an Agent Harness*, LangChain, Mar 2026. https://blog.langchain.com/the-anatomy-of-an-agent-harness/
 - OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

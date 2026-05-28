@@ -4,6 +4,8 @@ The previous chapters described individual harness techniques: context managemen
 
 Two software concepts do a lot of work in this chapter. *State* is the information needed to continue execution: the current step, retry counts, approvals, user messages, tool results, and business objects touched so far. An *event log* is the append-only record from which that state can be reconstructed. When an agent is modeled as a reducer over events, pause/resume, replay, debugging, and testing become ordinary software problems rather than hidden conversation state.
 
+### 8.1 The Twelve Factors as Software Architecture
+
 The twelve principles, drawn from many production deployments ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)):
 
 1. **Natural Language to Tool Calls**: the atomic pattern is converting user phrasing into a structured JSON call that deterministic code executes.
@@ -20,6 +22,14 @@ The twelve principles, drawn from many production deployments ([HumanLayer — 1
 12. **Make Your Agent a Stateless Reducer**: a fold over events. Pure, serializable, replay-able.
 
 The deeper claim binding these together is that "agents, at least the good ones, don't follow the 'here's your prompt, here's a bag of tools, loop until you hit the goal' pattern. Rather, they are comprised of mostly just software" ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)). The factors are mostly software-engineering hygiene applied to a stateful, non-deterministic component. They should not be treated as universal laws: a research prototype, a local coding assistant, and a regulated customer-support agent will need different trade-offs. The useful lesson is the direction of travel — make state explicit, make control flow inspectable, and put human interaction behind structured interfaces.
+
+### 8.2 From Agent Programs to Agent Platforms
+
+The OpenReview survey describes the ecosystem moving from agent frameworks toward agent platforms ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)). A framework packages local abstractions — agents, tools, memory stores, and loops. A platform adds durable workspaces, managed sandboxes, identity, billing, observability, evaluation, governance, and human handoff across many runs and users.
+
+This does not replace the twelve factors; it raises their scope. "Launch / pause / resume" becomes a platform API. "Unify execution state and business state" becomes event-log storage with tenancy and migration semantics. "Contact humans with tool calls" becomes a handoff interface with audit and permission state. "Own your control flow" becomes explicit decisions about which checks run synchronously, which run offline, and which failures justify costly recovery.
+
+The platform boundary also changes responsibility. A local agent can get away with ad hoc state files; a shared platform needs state ownership, retention policy, billing attribution, credential scoping, and replayable audit trails. The harness is no longer just the thing around one model call. It becomes the control system around many agents, many environments, and many human stakeholders.
 
 ---
 
@@ -53,6 +63,7 @@ mindmap
 - **"Mostly just software"**: good agents are deterministic programs with a non-deterministic LLM component — not bags of tools looping until done.
 - **Own your prompts**: frameworks hide prompts; prompts should be first-class code under version control.
 - **Stateless reducer pattern**: treating the agent as a fold over an event log makes it serializable, replay-able, and testable.
+- **Platform scope changes the factors**: lifecycle, state, identity, billing, observability, and human handoff become shared infrastructure concerns.
 - **Small, focused agents**: 3–20 steps per agent; performance degrades with context length.
 - **Contact humans with tool calls**: structured `request_human_input` tools beat relying on the model's unstructured text choices.
 - **Compact errors, don't hide them**: visible error traces enable self-healing; a consecutive-error counter provides a safety escalation path.
@@ -62,3 +73,4 @@ mindmap
 - Dex Horthy, *12-Factor Agents*, HumanLayer, Apr 2025. https://www.humanlayer.dev/blog/12-factor-agents
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 - Erik Schluntz and Barry Zhang, *Building Effective Agents*, Anthropic, Dec 2024. https://www.anthropic.com/engineering/building-effective-agents
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

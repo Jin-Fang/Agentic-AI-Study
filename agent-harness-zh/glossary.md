@@ -22,9 +22,17 @@
 
 **Harness engineering** — 迭代模型周边的整个系统(而不只是单个提示),让每个观察到的失败被永久工程化掉(第 1 章)。
 
+**Binding-constraint thesis(约束瓶颈命题)** — 对长周期 agent 来说,可靠性常常受 harness 层限制,包括 execution、tools、context、lifecycle、observability、verification 和 governance,而不只是受模型能力限制(第 1、11 章)。
+
+**ETCLOVG** — Agent harness engineering 的七层分类:Execution environment、Tool interface、Context、Lifecycle、Observability、Verification、Governance(第 1 章)。
+
 **Context engineering(上下文工程)** — 在推理时策划上下文窗口中最小的一组高信号 token;比 harness engineering 低一层的实践(第 1、2 章)。
 
 **MCP(Model Context Protocol,模型上下文协议)** — 一个开放的客户端-服务器标准,用于把工具、资源和提示暴露给 agent,使任何兼容客户端都能发现并调用它们,无需定制集成(第 4 章)。
+
+**A2A(Agent-to-Agent protocol)** — 用于不透明 agentic applications 之间委托的协议边界;它与主要向单个 agent runtime 暴露工具和上下文的 MCP 互补(第 4 章)。
+
+**Protocol boundary(协议边界)** — 工具或 agent 标准跨越的集成线:model-to-function、agent-to-external-capability、agent-to-agent、agent-to-repo/environment(第 4 章)。
 
 **Tool call(工具调用)** — 模型发出的结构化输出(通常是 JSON),指明工具名和参数。由确定性的 harness 代码决定如何处理(第 4、8 章)。
 
@@ -90,6 +98,14 @@
 
 **Sandbox(沙箱)** — 带有文件系统和网络边界的隔离环境,agent 可在其中自由行动而无需逐动作审批(第 5 章)。
 
+**Sandbox liveness(沙箱活性)** — 沙箱作为授权区域的作用:agent 可在配置边界内行动而无需逐动作审批(第 5 章)。
+
+**Governance(治理)** — 管理身份、权限策略、scoped credentials、人类审批、审计日志和跨层安全问责的 harness 机制(第 5、12 章)。
+
+**Delegated auth(委托授权)** — Agent 通过 scoped credentials 或 proxy-authorized identity 行动,而不是继承用户完整环境权限的模式(第 5 章)。
+
+**Supply-chain provenance(供应链来源证据)** — 关于 agent 所依赖的 tools、packages、datasets、MCP servers 和 retrieval sources 的来源与完整性证据(第 5、12 章)。
+
 **Hook / middleware(中间件)** — 由 harness 在生命周期事件(启动、工具调用后、停止)自动执行的脚本或检查点,确定性地强制规则(第 5 章)。
 
 **Feedforward / feedback(前馈/反馈)** — 前馈控制(guides)在 agent 行动前引导它;反馈控制(sensors)在它行动后观察并帮助自我修正(第 5 章)。
@@ -111,6 +127,10 @@
 ## 评估
 
 **Eval harness(评估 harness)** — 端到端运行评估的基础设施;区别于被评估的 agent harness(第 9 章)。
+
+**Readiness validation(就绪验证)** — 验证某个具体 model + harness 配置是否适合特定任务分布、环境、预算和治理规则(第 9 章)。
+
+**Failure attribution(失败归因)** — 在选择修复方式前,先把 agent 失败标注到最可能的问题层:execution、tool interface、context、lifecycle、observability、verification 或 governance(第 9、11 章)。
 
 **Task / trial(任务/试验)** — *task* 有定义好的输入和成功标准;*trial* 是对它的一次尝试(第 9 章)。
 
@@ -134,14 +154,30 @@
 
 **Initializer agent** — 只运行一次、为后续 coding agent session 搭好项目(init 脚本、进度日志、feature list)的 agent(第 7 章)。
 
+**Managed agent** — 平台管理的 agent 架构,把模型侧 brain、执行侧 hands 和持久 session/event log 分开,使它们能独立失败、重置或迁移(第 7 章)。
+
+**Brain / hands split** — Managed-agent 中决策上下文(brain)与可替换执行环境(hands)的分离(第 7 章)。
+
 **Sprint contract** — generator 与 evaluator 两个 agent 之间基于文件的约定,在每个构建 sprint 前敲定要构建什么、如何验证成功(第 7 章)。
 
 **Event log(事件日志)** — 对消息、工具调用、结果、审批和错误的追加式记录。执行状态可以从中推导出来,因此 agent 更容易重放和调试(第 8 章)。
+
+**Agent platform** — 超出本地 framework 的基础设施:跨多次运行和多用户的 durable workspaces、managed sandboxes、identity、billing、observability、evaluation、governance 和 human handoff(第 8、12 章)。
 
 **Checkpoint / resume(检查点/恢复)** — 一种可靠性模式:agent 定期保存足够状态,以便在失败或上下文重置后继续工作而不丢进度(第 7、8 章)。
 
 **Stateless reducer(无状态归约器)** — 把 agent 建模为对 event log 的纯 fold,使其可序列化、可重放、可测试(第 8 章)。
 
 **Model-harness co-evolution(模型与 harness 共同演化)** — frontier 模型在其 harness 一起参与的情况下 post-train 所形成的耦合,因此改变任一侧都可能损害性能(第 11 章)。
+
+**Span telemetry** — 以 span tree 表示的结构化 trace 数据,覆盖 model calls、tool calls、retrieval、context assembly、permissions、costs 和 outcomes(第 11 章)。
+
+**Trace-to-eval loop** — 把真实生产失败转换成脱敏、可复现、带 outcome assertion 的 regression case(第 11 章)。
+
+**Meta-harness** — 把 harness 设计本身当作优化对象:用 eval feedback 消融或搜索 prompts、tools、retries、context policies、evaluators 和 control loops(第 11 章)。
+
+**Cost-quality-speed trilemma(成本-质量-速度三难)** — 更强 execution environment、observability、verification 和 governance 会提高可靠性,但也增加成本和延迟(第 12 章)。
+
+**Capability-control tradeoff(能力-控制权衡)** — 更多权限、工具、记忆和自治会提升能力,同时扩大控制、provenance 和审计问题(第 12 章)。
 
 **Ralph Wiggum loop** — 一个 hook,拦截 agent 的退出尝试,并在干净的上下文窗口中重新注入原始 prompt,迫使它继续对照目标工作(第 7 章)。

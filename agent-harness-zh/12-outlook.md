@@ -12,10 +12,15 @@ LangChain 对演进轨迹的描述很诚实：随着模型改进，今天 harnes
 
 - **面向功能正确性的 behavior harness**。Maintainability 和 architecture-fitness harness 有几十年现成工具。Behavior harness，即应用功能行为是否满足用户意图，没有这样的成熟工具。今天多数团队依赖 AI 生成测试，普遍共识是这还不够好 ([Thoughtworks - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。
 - **规模化 harness 的一致性**。当 guides 和 sensors 增多，它们如何保持一致？sensor 从不触发意味着质量好，还是检测不足？今天还没有类似 code coverage 或 mutation testing 的 harness coverage 指标。
+- **跨层 governance 一致性**。OpenReview 综述强调，policy、permission prompt、audit log、constitutional instruction 和 runtime hook 往往分布在不同层，可能彼此干扰而不是自然组合。可迁移的 policy 与 audit language 仍然缺位 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
+- **标准化 readiness reporting**。如果模型分数依赖 execution environment、tool surface、context policy、retry 规则和治理门槛，benchmark 报告就需要一份 harness bill of materials。今天还没有广泛采用的配置披露格式。
+- **Cost-quality-speed 三难**。更强沙箱、更丰富可观测性、更深验证和更严格治理，通常会增加成本和延迟。成熟 harness 需要明确哪些检查同步运行、哪些离线运行、哪些风险值得昂贵控制 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
+- **Capability-control 权衡**。更多工具、记忆、自治和网络触达会提高任务覆盖，但也提高选择错误、prompt-injection surface、provenance 风险和审计负担。能力与控制是一条设计轴，而不是两个独立问题。
 - **超越同步编排的多 agent 协调**。Anthropic 的研究系统同步运行 sub-agents；异步协调会释放更多并行性，但带来结果协调、状态一致性、错误传播挑战 ([Anthropic - How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system))。
 - **Harness 层的持续学习**。让 agent 在多个 session 中积累代码库或领域知识，而不是每次从零开始的 memory primitive，仍是活跃研究方向 ([LangChain - Improving Deep Agents](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/))。
 - **Just-in-time tool assembly**。根据任务动态组装合适工具与上下文，而不是预配置一切，是 LangChain 等探索的方向。
 - **Trace 作为文档**。LangChain 观察到“在软件中，代码记录 app；在 AI 中，traces 记录系统”，这暗示了一种新文档模型，但领域尚未完全解决。
+- **端到端供应链治理**。工具完整性只是其中一块。Agent 还依赖 MCP servers、外部 packages、datasets、retrieval sources 和生成出的依赖名。覆盖整条链路的 provenance 仍然不足。
 
 ### 12.3 长期建议
 
@@ -40,6 +45,14 @@ mindmap
       Behavioral harnesses for functional correctness
       AI-generated tests not yet good enough
       No mutation testing equivalent for harnesses
+    Governance
+      Cross-layer policy coherence
+      Portable audit and policy languages
+      Human approval interfaces
+      Supply-chain provenance
+    Tradeoffs
+      Cost-quality-speed trilemma
+      Capability-control tradeoff
     Coordination
       Multi-agent async orchestration
       Result coordination across parallel agents
@@ -55,6 +68,7 @@ mindmap
     Documentation
       Traces as system documentation
       Harness coverage metrics
+      Harness bill of materials
       Sensor effectiveness measurement
 ```
 
@@ -64,7 +78,7 @@ mindmap
 
 - **共享词汇仍很年轻**：许多术语在 2025-2026 年才变得常见，尽管底层思想更早。
 - **模型吸收 harness，但 harness 会移动**：模型原生能力增强后，有趣 harness 工作会转向更难问题，而不是消失。
-- **六类开放问题主导议程**：behavioral correctness、规模化一致性、异步多 agent 协调、持续学习、just-in-time tool assembly、traces-as-documentation。
+- **开放问题已经横跨完整 ETCLOVG 栈**：behavioral correctness、规模化一致性、governance 一致性、readiness reporting、cost-quality-speed、capability-control、异步协调、持续学习、just-in-time tool assembly、traces-as-documentation。
 - **五条长期原则跨场景成立**：有限上下文、最简单可行、读 transcript、迭代 load-bearing、按模型定制。
 - **Harness engineering 是长期工作**：不是模型变强后丢弃的脚手架，而是围绕越来越强核心构建有效系统的持续工艺。
 
@@ -76,3 +90,4 @@ mindmap
 - Jeremy Hadfield et al., *How We Built Our Multi-Agent Research System*, Anthropic, Jun 2025. https://www.anthropic.com/engineering/multi-agent-research-system
 - Vivek Trivedy, *Improving Deep Agents with Harness Engineering*, LangChain, Feb 2026. https://blog.langchain.com/improving-deep-agents-with-harness-engineering/
 - *Awesome Harness Engineering* reading list: https://github.com/walkinglabs/awesome-harness-engineering
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

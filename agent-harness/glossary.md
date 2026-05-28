@@ -22,9 +22,17 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Harness engineering** — Iterating on the whole system around the model — not just one prompt — so that each observed failure is permanently engineered out (Ch 1).
 
+**Binding-constraint thesis** — The claim that long-horizon agent reliability is often limited by harness layers — execution, tools, context, lifecycle, observability, verification, and governance — rather than by model capability alone (Ch 1, 11).
+
+**ETCLOVG** — A seven-layer taxonomy for agent harness engineering: Execution environment, Tool interface, Context, Lifecycle, Observability, Verification, and Governance (Ch 1).
+
 **Context engineering** — Curating the smallest set of high-signal tokens in the context window during inference; the practice one level below harness engineering (Ch 1, 2).
 
 **MCP (Model Context Protocol)** — An open client–server standard for exposing tools, resources, and prompts to agents, so any compatible client can discover and call them without bespoke integration (Ch 4).
+
+**A2A (Agent-to-Agent protocol)** — A protocol boundary for delegation among opaque agentic applications; complementary to MCP, which primarily exposes tools and context to one agent runtime (Ch 4).
+
+**Protocol boundary** — The integration line a tool or agent standard crosses: model-to-function, agent-to-external-capability, agent-to-agent, or agent-to-repo/environment (Ch 4).
 
 **Tool call** — Structured output (typically JSON) in which the model names a tool and its arguments. Deterministic harness code decides what to do with it (Ch 4, 8).
 
@@ -90,6 +98,14 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Sandbox** — An isolated environment, with filesystem and network boundaries, within which an agent can act freely without per-action approval prompts (Ch 5).
 
+**Sandbox liveness** — The sandbox's role as an authorization region: it lets an agent act without per-action approval prompts while staying inside configured boundaries (Ch 5).
+
+**Governance** — Harness mechanisms for identity, permission policy, scoped credentials, human approval, audit logs, and cross-layer security accountability (Ch 5, 12).
+
+**Delegated auth** — A pattern where the agent acts through scoped credentials or a proxy-authorized identity rather than inheriting the user's full ambient authority (Ch 5).
+
+**Supply-chain provenance** — Evidence about the origin and integrity of tools, packages, datasets, MCP servers, and retrieval sources the agent depends on (Ch 5, 12).
+
 **Hook / middleware** — Harness-executed scripts or checkpoints that run automatically on lifecycle events (start, post-tool-call, stop), enforcing rules deterministically (Ch 5).
 
 **Feedforward / feedback** — Feedforward controls (guides) steer the agent before it acts; feedback controls (sensors) observe after it acts and help it self-correct (Ch 5).
@@ -111,6 +127,10 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 ## Evaluation
 
 **Eval harness** — The infrastructure that runs an evaluation end-to-end; distinct from the agent harness being evaluated (Ch 9).
+
+**Readiness validation** — Verification that a specific model-plus-harness configuration is ready for a specific task distribution, environment, budget, and governance regime (Ch 9).
+
+**Failure attribution** — Labeling an agent failure by likely harness layer — for example execution, tool interface, context, lifecycle, observability, verification, or governance — before choosing a fix (Ch 9, 11).
 
 **Task / trial** — A *task* has defined inputs and success criteria; a *trial* is a single attempt at it (Ch 9).
 
@@ -134,14 +154,30 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Initializer agent** — An agent that runs once to set up a project (init script, progress log, feature list) for the later coding-agent sessions to build on (Ch 7).
 
+**Managed agent** — A platform-managed agent architecture that separates the model-side brain, execution-side hands, and durable session/event log so each can fail, reset, or migrate independently (Ch 7).
+
+**Brain / hands split** — The managed-agent separation between decision-making context (brain) and replaceable execution environment (hands) (Ch 7).
+
 **Sprint contract** — A file-based agreement between a generator and an evaluator agent on what will be built and how success is verified, settled before each build sprint (Ch 7).
 
 **Event log** — An append-only record of messages, tool calls, results, approvals, and errors. Execution state can be derived from it, making agents easier to replay and debug (Ch 8).
+
+**Agent platform** — Infrastructure beyond a local framework: durable workspaces, managed sandboxes, identity, billing, observability, evaluation, governance, and human handoff across many runs and users (Ch 8, 12).
 
 **Checkpoint / resume** — A reliability pattern where an agent periodically saves enough state to restart after failure or context reset without losing work (Ch 7, 8).
 
 **Stateless reducer** — Modeling an agent as a pure fold over an event log, making it serializable, replayable, and testable (Ch 8).
 
 **Model–harness co-evolution** — The coupling created when frontier models are post-trained with their harnesses in the loop, so that changing either side can degrade performance (Ch 11).
+
+**Span telemetry** — Structured trace data represented as a tree of spans for model calls, tool calls, retrieval, context assembly, permissions, costs, and outcomes (Ch 11).
+
+**Trace-to-eval loop** — Converting real production failures into redacted, reproducible regression cases with outcome assertions (Ch 11).
+
+**Meta-harness** — Treating harness design itself as an optimization object: prompts, tools, retries, context policies, evaluators, and control loops are ablated or searched using eval feedback (Ch 11).
+
+**Cost-quality-speed trilemma** — The tradeoff that stronger execution environments, observability, verification, and governance improve reliability but increase cost and latency (Ch 12).
+
+**Capability-control tradeoff** — The design axis where more authority, tools, memory, and autonomy improve capability while expanding the control, provenance, and audit problem (Ch 12).
 
 **Ralph Wiggum loop** — A hook that intercepts an agent's exit attempt and reinjects the original prompt in a clean context window, forcing it to continue against its goal (Ch 7).

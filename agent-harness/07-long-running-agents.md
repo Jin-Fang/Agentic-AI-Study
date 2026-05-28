@@ -76,7 +76,20 @@ The two address different problems. Compaction preserves continuity. Resets cure
 
 When Opus 4.5 largely fixed the context-anxiety behavior on its own, Anthropic was able to drop context resets from the harness entirely. This is an explicit example of the model-harness coupling discussed in chapter 11.
 
-### 7.7 Multi-Agent Research Systems
+### 7.7 Managed Agents: Decoupling Brain, Hands, and Session State
+
+The OpenReview survey highlights a platform direction that Anthropic later calls managed agents: separate the model-side **brain**, the execution-side **hands**, and the durable **session/event log** ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)). The brain decides what should happen; the hands run shell commands, edit files, browse, and call external services inside a replaceable environment; the session log records enough state to rebuild either side.
+
+This split matters for long-running work:
+
+- If the model context is exhausted, a new brain can resume from the event log and repository artifacts.
+- If the sandbox is corrupted, timed out, or compromised, the hands can be rebuilt from a clean image.
+- If credentials are required, proxies and vaults can attach them at the boundary instead of placing secrets inside the sandbox.
+- If a deployment changes while agents are running, the platform can keep old and new worker versions alive during a gradual handoff.
+
+Seen this way, context reset is only one recovery mechanism. A production long-running harness also needs environment reset, credential isolation, resumable event logs, and migration rules for in-flight sessions.
+
+### 7.8 Multi-Agent Research Systems
 
 For tasks with parallel structure — research with many independent threads to explore — the orchestrator-worker pattern from chapter 6 applies. Anthropic's research feature uses Claude Opus 4 as the lead agent and Claude Sonnet 4 as sub-agents ([Anthropic — How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system)). The lead analyzes the query, develops a strategy, and spawns parallel sub-agents that each search and return condensed findings; the lead synthesizes; a citation agent then attributes claims to sources.
 
@@ -91,7 +104,7 @@ Eight prompt-engineering principles surface from their experience:
 7. **Guide the thinking process**: extended thinking serves as a controllable scratchpad for planning; interleaved thinking helps sub-agents evaluate quality and refine queries between tool calls.
 8. **Parallel tool calling transforms speed**: spinning up sub-agents in parallel and having sub-agents call multiple tools in parallel cut research time by up to 90% on complex queries.
 
-### 7.8 Production Reliability for Stateful Agents
+### 7.9 Production Reliability for Stateful Agents
 
 Anthropic's research-system post documents engineering challenges that emerge once agents run for long periods ([Anthropic — How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system)):
 
@@ -142,6 +155,7 @@ sequenceDiagram
 - **Separating generator from evaluator is a strong lever**: agents skew positive about their own output; an independent evaluator is more reliable.
 - **Sprint contracts coordinate multi-agent work**: file-based communication with agreed success criteria before each build sprint.
 - **Context resets cure "context anxiety"**: sometimes a fresh start with a structured handoff outperforms compaction.
+- **Managed agents decouple brain, hands, and state**: model context, sandbox execution, credentials, and event logs should fail and recover independently.
 - **Self-verification is the headline lever**: forcing a verification pass before exit improved scores by 13.7 points with no model change.
 
 ## Further Reading
@@ -152,3 +166,4 @@ sequenceDiagram
 - Jeremy Hadfield et al., *How We Built Our Multi-Agent Research System*, Anthropic, Jun 2025. https://www.anthropic.com/engineering/multi-agent-research-system
 - Vivek Trivedy, *The Anatomy of an Agent Harness*, LangChain, Mar 2026. https://blog.langchain.com/the-anatomy-of-an-agent-harness/
 - OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

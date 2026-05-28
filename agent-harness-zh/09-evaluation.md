@@ -92,6 +92,17 @@ Anthropic 将从无 eval 到可信 eval 的路线概括为 ([Anthropic - Demysti
 - **人工 transcript review**：建立对失败模式的直觉。
 - **系统性人类研究**：校准 LLM grader 或主观输出评分。
 
+### 9.11 Readiness Validation 与失败归因
+
+OpenReview 综述把 **Verification** 单独列为一层，是因为 harness 需要的不只是打分。Verification 问的是：某个 model + harness 组合，在特定任务分布、特定环境、预算和治理规则下，是否已经可以投入使用 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
+
+这个框架给普通 eval suite 增加了两个实践要求：
+
+- **Readiness validation**：发布门槛应把任务、环境重置规则、工具可用性、上下文策略、预算限制和治理检查绑定在一起。换了 execution substrate 或 tool menu 后，原来的分数不自动可迁移。
+- **失败归因**：失败应标注最可能出问题的层：execution、tool interface、context、lifecycle、observability、verification 或 governance。否则团队很容易反复调 prompt，但真正缺陷可能是沙箱不稳定、工具面过大、缺 checkpoint，或 policy hook 太弱。
+
+这也解释了为什么 benchmark 数字很脆弱。基础设施变化、成本优化、工具边界改变，都可能改变同一模型测出来的能力。好的 eval report 因此应和模型名一起记录 harness 配置：环境镜像、资源限制、工具目录、上下文组装策略、retry、grader 和 human-approval 规则。
+
 ---
 
 ## 图：Eval 结构与 pass@k / pass^k
@@ -131,6 +142,7 @@ flowchart TD
 - **三类 grader 形成金字塔**：code-based 负责速度，model-based 负责细微判断，human 负责校准。
 - **pass@k 与 pass^k 服务不同产品**：多候选生成可用 pass@k，重复面向客户执行需要 pass^k 式可靠性。
 - **阅读 transcript 是核心技能**：分数平台期可能是 agent 回归，也可能是 eval 不公平；只有 transcript 能区分。
+- **Readiness 绑定配置**：eval 结果应带着产生它的 harness 配置一起解释。
 - **Evals 是多层之一**：自动 eval + 生产监控 + A/B testing + 用户反馈 + 人工 review。
 
 ## 延伸阅读
@@ -141,3 +153,4 @@ flowchart TD
 - Ken Aizawa, *Writing Effective Tools for Agents - with Agents*, Anthropic, Sep 2025. https://www.anthropic.com/engineering/writing-tools-for-agents
 - OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/
 - Justin Young et al., *Effective Harnesses for Long-Running Agents*, Anthropic, Nov 2025. https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
+- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

@@ -52,6 +52,10 @@ Transformer inference 中缓存的 key/value 张量，用于避免重复计算�
 
 模型在转换成概率之前，对可能下一个 token 给出的原始分数。
 
+## Mixture-of-Experts (MoE)
+
+一种架构：router 对每个 token 只激活少数 expert 子网络，因此总参数量可以增长而每 token 计算量不必同比上升。预测 inference 成本要看激活参数，而不是总参数。
+
 ## Next-Token Prediction
 
 模型根据之前 token 预测下一个 token 的训练目标。
@@ -68,9 +72,17 @@ Transformer inference 中缓存的 key/value 张量，用于避免重复计算�
 
 不可信内容包含类似指令的文本，并以 harness 未预期的方式影响模型行为的失败模式。
 
+## Quantization
+
+量化。用更低数值精度（例如 8 位或 4 位）提供模型服务，以减少内存、加快 inference，代价是一些精度损失。精度变化应当成行为变化重新评测。
+
 ## RAG
 
 Retrieval-augmented generation。Harness 检索外部信息，并把它作为上下文提供给模型生成。
+
+## Reasoning Model
+
+推理模型。经过 post-training（通常是在可验证奖励上做 reinforcement learning），学会在回答前生成很长内部推理的模型。用额外的 inference token（test-time compute）换取困难任务上更好的表现。
 
 ## Reward Hacking
 
@@ -95,6 +107,10 @@ Supervised fine-tuning。用期望 input-output 行为样例训练模型。
 ## Temperature
 
 Decoding 参数，用来改变下一个 token 概率分布的尖锐程度。低 temperature 更确定，高 temperature 更多样。
+
+## Test-Time Compute
+
+在 inference 时花更多 token、时间和金钱来改进困难答案，区别于训练期 scaling。推理模型是最常见的例子。
 
 ## Token
 

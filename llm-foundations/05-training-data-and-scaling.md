@@ -68,6 +68,18 @@ Expensive inference encourages:
 
 The best harness is often not "call the largest model for everything." It is a system that spends model capacity where it changes the outcome.
 
+## Quantization and Numerical Precision
+
+[Chapter 1](./01-llm-as-token-machine.md) estimated model size by multiplying parameter count by bytes per parameter. Quantization changes that second factor. Instead of storing and computing weights at 16-bit precision, a model can be served at 8-bit, 4-bit, or lower, trading some numerical fidelity for a smaller memory footprint and faster inference. Methods such as LLM.int8() and GPTQ showed that large models can be quantized with limited quality loss ([LLM.int8()](https://arxiv.org/abs/2208.07339), [GPTQ](https://arxiv.org/abs/2210.17323)).
+
+For harness engineers, quantization is an operational lever, not a model-internal detail:
+
+- The same model at lower precision is cheaper and faster but may behave slightly differently, especially on edge cases, long outputs, or precise formatting.
+- A provider may quantize silently. A model can change behavior without changing its name if its serving precision changes.
+- Local deployment often depends on quantization to fit a model into available memory.
+
+The rule is the same as for any model change: treat a precision change as a behavior change and re-run evals (see [Chapter 13](./13-evaluation-for-llm-behavior.md)). A quantized model that passes your golden tasks is fine; assuming it matches the full-precision model without checking is not.
+
 ## Data Freshness and Training Cutoffs
 
 Training is episodic. A model is trained on a corpus collected before some point in time, then deployed. Post-training and retrieval can add behavior and information, but the parameters themselves do not automatically update with the world.

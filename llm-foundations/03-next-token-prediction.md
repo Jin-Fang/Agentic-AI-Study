@@ -64,7 +64,7 @@ Post-training later changes which continuations are preferred, but the base capa
 
 The result of next-token pretraining is a base model. A base model can complete text, imitate formats, answer some questions, and follow patterns. It is not necessarily a safe or helpful assistant. It may continue a harmful instruction, produce arbitrary completions, or switch styles unexpectedly because it was trained to predict text, not to satisfy a user's intent.
 
-This distinction matters. Many behaviors people associate with "ChatGPT" are not produced by pretraining alone. They come from post-training, which changes the model's behavior toward instruction following, conversational helpfulness, refusal policies, and preference alignment.
+This distinction matters. Many behaviors people associate with "ChatGPT" are not produced by pretraining alone. They come from [post-training](./07-post-training.md), which changes the model's behavior toward instruction following, conversational helpfulness, refusal policies, and preference alignment.
 
 ## Harness Implications
 

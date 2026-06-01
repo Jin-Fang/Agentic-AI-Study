@@ -119,7 +119,7 @@ Harness 控制包括：
 
 ## RAG vs Fine-Tuning
 
-信息庞大、变化、私有或需要引用时，用 retrieval。行为或风格需要跨大量调用内化时，用 fine-tuning。许多系统两者都需要：fine-tuned behavior 加 retrieved knowledge。
+信息庞大、变化、私有或需要引用时，用 retrieval。行为或风格需要跨大量调用内化时，用 [fine-tuning](./07-post-training.md)。许多系统两者都需要：fine-tuned behavior 加 retrieved knowledge。
 
 Harness 应拥有 retrieval path，因为它拥有权限、索引、新鲜度和可审计性。
 

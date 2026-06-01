@@ -79,6 +79,8 @@ Some tasks have clear rewards. A unit test passes. A JSON schema validates. A ch
 
 Karpathy distinguishes reinforcement learning in verifiable settings from reinforcement learning in unverifiable or preference-based settings ([Deep Dive, around 02:51:33](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10293s)). Harnesses should do the same. When an objective can be made verifiable, make it verifiable. Do not ask the model to merely sound right when a tool can check the result.
 
+This verifiable-reward setting is also the engine behind modern *reasoning models*. When a task has a checkable answer, a model can be trained with reinforcement learning to produce long internal reasoning before committing to a result. [Chapter 8](./08-prompting-and-in-context-learning.md) covers what that means for prompting and harness design; the point here is that it is a post-training technique built on verifiable rewards, not a new architecture.
+
 ## Behavior Is Not Capability
 
 Post-training can reveal, suppress, or redirect capabilities learned during pretraining. A model may know how to write exploit code but refuse to provide it. It may be able to solve a math problem but fail because the assistant behavior encourages a quick fluent answer instead of careful computation. It may be trained to use tools in a particular format but fail with a slightly different schema.

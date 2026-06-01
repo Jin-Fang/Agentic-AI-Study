@@ -53,7 +53,7 @@ Evidence: ...
 
 ## Grounding
 
-Grounding 是把生成绑定到提供的 evidence 或外部状态上。RAG 是一种 grounding 模式，工具使用也是。代码执行工具可以 ground 算术。浏览器可以 ground 当前网页事实。数据库查询可以 ground 账户状态。
+Grounding 是把生成绑定到提供的 evidence 或外部状态上。[RAG](./11-embeddings-and-retrieval.md) 是一种 grounding 模式，工具使用也是。代码执行工具可以 ground 算术。浏览器可以 ground 当前网页事实。数据库查询可以 ground 账户状态。
 
 Grounding 不意味着模型不会幻觉。它意味着 harness 给模型更好的证据，并且可以验证输出是否由证据支持。
 

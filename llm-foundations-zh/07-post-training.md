@@ -77,6 +77,8 @@ Harness engineer 应该在 RLHF 之外也识别同一模式：
 
 Karpathy 区分 verifiable setting 里的 reinforcement learning 和不可验证或偏好型 setting 里的 reinforcement learning ([Deep Dive, around 02:51:33](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10293s))。Harness 也应该这样区分。目标能做成可验证时，就不要只让模型“听起来对”。
 
+这种可验证奖励的 setting，也是现代*推理模型（reasoning model）*背后的引擎。当任务有可检查的答案时，模型可以用 reinforcement learning 训练成在给出结果前先生成很长的内部推理。[第 8 章](./08-prompting-and-in-context-learning.md)会讲这对 prompting 和 harness 设计意味着什么；这里的重点是：它是一种建立在可验证奖励之上的 post-training 技术，而不是新架构。
+
 ## 行为不等于能力
 
 Post-training 可以显露、压制或重定向预训练中学到的能力。模型可能知道如何写 exploit code，但拒绝提供。它可能能解决数学题，却因为 assistant 行为鼓励快速流畅回答而没认真计算。它可能学过某种工具格式，却在略有不同的 schema 上失败。

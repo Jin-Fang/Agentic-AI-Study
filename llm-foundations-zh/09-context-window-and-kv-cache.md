@@ -24,7 +24,7 @@ Context window 让这些问题不可避免。
 
 ## KV Cache
 
-Inference 过程中，Transformer attention 会为 token 产生 key 和 value 向量。系统会缓存这些向量，让生成时复用已有前缀的计算，而不用每次重算整段上下文。这就是 KV cache。
+Inference 过程中，[Transformer attention](./04-transformer-attention.md) 会为 token 产生 key 和 value 向量。系统会缓存这些向量，让生成时复用已有前缀的计算，而不用每次重算整段上下文。这就是 KV cache。
 
 KV cache 是 inference 优化，不是语义记忆。它帮助模型高效继续当前序列。它不会决定哪些事实重要，不会更新长期状态，也不会解决 context pollution。
 

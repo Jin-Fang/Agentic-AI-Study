@@ -51,6 +51,17 @@ Attention 在位置之间移动信息。Feed-forward 或 MLP block 在每个位�
 
 这解释了为什么指令位置重要。靠近回答点的清晰指令可能占优势。顶部的高优先级指令也可能被几千个噪声 token 稀释。检索段落相关且紧凑时能帮助模型；包含干扰替代说法时也会伤害模型。
 
+## Dense 模型与 Mixture-of-Experts 模型
+
+上面的 MLP block 承载了模型大部分参数和计算，也是不同模型家族差异最大的地方。*Dense* 模型对每个 token 都跑全部参数。*Mixture-of-Experts*（MoE）模型则把部分 MLP block 换成许多并行的 expert 子网络，外加一个 router，每个 token 只激活其中几个 expert。Switch Transformer 表明，这种稀疏路由能让总参数量增长，而每 token 计算量不必同比上升 ([Switch Transformers](https://arxiv.org/abs/2101.03961))。
+
+对 harness engineer 来说，MoE 打破了一个方便的假设：模型对外宣称的大小能预测它的成本和延迟。一个 MoE 模型的*总*参数量可能很大，但每 token 的*激活*参数量却小得多。由此有两个后果：
+
+- 仅凭模型大小不再能预测 inference 成本。推断延迟和价格时，要问激活参数，而不只是总参数。
+- 路由本身也是行为的一部分。不同输入激活不同 expert，这会让性能在不同领域之间不均匀，并以 dense 模型没有的方式与 batching 和吞吐量相互作用。
+
+这不改变 harness 的职责，但改变模型选型。一个“更小”的 dense 模型和一个“更大”的 MoE 模型，成本可能接近，而在你的工作负载上表现不同。一如既往，要在真实任务上评测（见[第 13 章](./13-evaluation-for-llm-behavior.md)），而不是凭参数量推断可靠性。
+
 ## 参数分布在整个网络中
 
 模型知识和行为不在一个显眼位置。Karpathy 强调，数十亿参数分散在网络各处，以我们尚未完全理解的方式协同工作 ([Intro to LLMs, around 00:11:57](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=717s))。所以“这个事实存在模型哪里？”通常没有简单答案。

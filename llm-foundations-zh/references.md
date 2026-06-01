@@ -31,6 +31,19 @@
 - Rylan Schaeffer, Brando Miranda, and Sanmi Koyejo, *Are Emergent Abilities of Large Language Models a Mirage?*, 2023.
   https://arxiv.org/abs/2304.15004
 
+- William Fedus, Barret Zoph, and Noam Shazeer, *Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity*, 2021.
+  https://arxiv.org/abs/2101.03961
+
+---
+
+## 效率与量化
+
+- Tim Dettmers et al., *LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale*, 2022.
+  https://arxiv.org/abs/2208.07339
+
+- Elias Frantar et al., *GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers*, 2022.
+  https://arxiv.org/abs/2210.17323
+
 ---
 
 ## Tokenization
@@ -50,6 +63,9 @@
 
 - Rafael Rafailov et al., *Direct Preference Optimization: Your Language Model is Secretly a Reward Model*, 2023.  
   https://arxiv.org/abs/2305.18290
+
+- DeepSeek-AI, *DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning*, 2025.
+  https://arxiv.org/abs/2501.12948
 
 ---
 

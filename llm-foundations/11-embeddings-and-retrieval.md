@@ -119,7 +119,7 @@ Harness controls:
 
 ## RAG vs Fine-Tuning
 
-Use retrieval when information is large, changing, private, or needs citation. Use fine-tuning when behavior or style must be internalized across many calls. Many systems need both: fine-tuned behavior plus retrieved knowledge.
+Use retrieval when information is large, changing, private, or needs citation. Use [fine-tuning](./07-post-training.md) when behavior or style must be internalized across many calls. Many systems need both: fine-tuned behavior plus retrieved knowledge.
 
 The harness should own the retrieval path because it owns permissions, indexing, freshness, and auditability.
 

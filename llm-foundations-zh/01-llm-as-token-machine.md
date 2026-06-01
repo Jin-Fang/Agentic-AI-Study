@@ -84,7 +84,7 @@ Fine-tuning 位于 base-model training 和 harnessing 之间。它能改变参�
 - 需要为真的输出必须验证。
 - 评估完整的 model-harness loop，而不是只评估单次回答。
 
-后面的章节会逐步展开这个框架。Tokenization 解释模型输入到底是什么；预训练解释广泛能力从哪里来；inference 和 sampling 解释行为为什么会变化；post-training 解释 assistant model 为什么不只是 raw completion；检索、工具和 evals 则解释为什么严肃系统必须有 harness。
+后面的章节会逐步展开这个框架。[Tokenization](./02-tokenization.md) 解释模型输入到底是什么；[预训练](./03-next-token-prediction.md)解释广泛能力从哪里来；[inference 和 sampling](./06-inference-and-sampling.md) 解释行为为什么会变化；[post-training](./07-post-training.md) 解释 assistant model 为什么不只是 raw completion；[检索](./11-embeddings-and-retrieval.md)、[工具](./12-reasoning-tools-and-agents.md)和 [evals](./13-evaluation-for-llm-behavior.md) 则解释为什么严肃系统必须有 harness。
 
 ## 要点
 

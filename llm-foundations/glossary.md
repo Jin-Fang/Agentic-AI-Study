@@ -52,6 +52,10 @@ Cached key and value tensors used during Transformer inference to avoid recomput
 
 Raw model scores for possible next tokens before conversion into probabilities.
 
+## Mixture-of-Experts (MoE)
+
+An architecture in which a router activates only a few expert sub-networks per token, so total parameter count can grow without a proportional rise in per-token compute. Active parameters, not total parameters, predict inference cost.
+
 ## Next-Token Prediction
 
 The training objective where the model learns to predict the next token from previous tokens.
@@ -68,9 +72,17 @@ Training after pretraining that shapes behavior, such as supervised fine-tuning,
 
 A failure mode where untrusted content contains instruction-like text that influences the model in a way the harness did not intend.
 
+## Quantization
+
+Serving a model at lower numerical precision (for example 8-bit or 4-bit) to reduce memory and speed up inference, at some cost in fidelity. A precision change should be treated as a behavior change and re-evaluated.
+
 ## RAG
 
 Retrieval-augmented generation. A harness retrieves external information and provides it to the model as context for generation.
+
+## Reasoning Model
+
+A model post-trained, often with reinforcement learning on verifiable rewards, to generate long internal reasoning before answering. Trades extra inference tokens (test-time compute) for better performance on hard tasks.
 
 ## Reward Hacking
 
@@ -95,6 +107,10 @@ Supervised fine-tuning. Training a model on examples of desired input-output beh
 ## Temperature
 
 A decoding parameter that changes the sharpness of the next-token probability distribution. Lower temperature is more deterministic; higher temperature is more varied.
+
+## Test-Time Compute
+
+Spending more tokens, time, and money at inference to improve hard answers, as distinct from training-time scaling. Reasoning models are the most common example.
 
 ## Token
 

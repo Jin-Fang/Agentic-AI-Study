@@ -68,6 +68,19 @@ Chain-of-thought prompting 说明，大模型在生成中间推理步骤时，�
 
 重点是给系统中间工作空间，同时不要把中间文本和最终输出混淆。
 
+## 推理模型与 Test-Time Compute
+
+Chain-of-thought 起初是一种 prompting 技巧，如今已变成训练目标。*推理模型（reasoning model）*经过 post-training——通常是在可验证奖励上做 reinforcement learning（见[第 7 章](./07-post-training.md)）——学会在回答前生成很长的内部推理。不再需要 harness 告诉模型“一步一步想”，模型已经学会在问题困难时主动多花 token 做中间工作。DeepSeek-R1 公开记录了这一模式，表明强推理行为可以主要通过在可检查问题上做 RL 激发出来 ([DeepSeek-R1](https://arxiv.org/abs/2501.12948))。
+
+背后的核心思想是 *test-time compute*：在 inference 时花更多 token、因而更多时间和金钱，来改进困难答案。这与[第 5 章](./05-training-data-and-scaling.md)的训练期 scaling 是不同的轴，它改变了若干 harness 假设：
+
+- **不要手动 prompt 模型已经会做的推理。** 强行给推理模型套上冗长 chain-of-thought 可能浪费 token，或与它训练出的行为冲突。按该模型供应商的指引来。
+- **推理 token 是真实的成本和延迟。** 推理模型在给出第一个可见词之前，可能已经生成了几千个隐藏 token。要为此做预算，并在模型提供时向用户暴露 reasoning-effort 控制。
+- **推理 trace 可能被隐藏、摘要或不忠实。** 有些供应商不返回原始推理链。把任何暴露出来的推理当成调试辅助，而不是已验证的解释——正如[第 10 章](./10-knowledge-hallucination-uncertainty.md)对自报信心的警告。
+- **让模型匹配任务。** 推理模型在数学、代码、规划和多步分析上有帮助。对简单的抽取、格式化或分类，非推理模型通常更快更便宜。据此路由（见[第 6 章](./06-inference-and-sampling.md)）。
+
+推理模型并不消除对工具、检索或验证的需要。更长的内部独白仍然是没有 grounding 的生成。它能更仔细地推理所提供的证据，但无法凭空制造从未给过它的事实。
+
 ## 为工具使用写 Prompt
 
 工具使用 prompt 不同于普通问答。模型必须判断是否需要外部信息，选择工具，填写参数，解释 observation，然后继续。Karpathy 的 intro 用浏览器和图像生成例子说明，现代 assistant 经常依赖工具，而不只是“在头脑里思考” ([Intro to LLMs, around 00:28:20](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1700s), [00:32:06](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1926s))。

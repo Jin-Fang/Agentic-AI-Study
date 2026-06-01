@@ -84,7 +84,7 @@ Treat the model as a powerful but bounded component:
 - Verify outputs that must be true.
 - Evaluate the full model-harness loop, not only isolated answers.
 
-The rest of this book adds detail to that frame. Tokenization explains what the model's input really looks like. Pretraining explains where broad competence comes from. Inference and sampling explain why behavior varies. Post-training explains why assistant models do more than raw completion. Retrieval, tools, and evals explain why serious systems require a harness.
+The rest of this book adds detail to that frame. [Tokenization](./02-tokenization.md) explains what the model's input really looks like. [Pretraining](./03-next-token-prediction.md) explains where broad competence comes from. [Inference and sampling](./06-inference-and-sampling.md) explain why behavior varies. [Post-training](./07-post-training.md) explains why assistant models do more than raw completion. [Retrieval](./11-embeddings-and-retrieval.md), [tools](./12-reasoning-tools-and-agents.md), and [evals](./13-evaluation-for-llm-behavior.md) explain why serious systems require a harness.
 
 ## Key Takeaways
 

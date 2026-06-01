@@ -53,7 +53,7 @@ This small change shifts the continuation from explanation to verification.
 
 ## Grounding
 
-Grounding means tying generation to supplied evidence or external state. Retrieval-augmented generation is one grounding pattern. Tool use is another. A code execution tool can ground arithmetic. A browser can ground current web facts. A database query can ground account state.
+Grounding means tying generation to supplied evidence or external state. [Retrieval-augmented generation](./11-embeddings-and-retrieval.md) is one grounding pattern. Tool use is another. A code execution tool can ground arithmetic. A browser can ground current web facts. A database query can ground account state.
 
 Grounding does not mean the model cannot hallucinate. It means the harness gives the model better evidence and can verify whether the output follows from that evidence.
 

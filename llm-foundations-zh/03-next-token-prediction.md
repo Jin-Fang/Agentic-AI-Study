@@ -64,7 +64,7 @@ Post-training 后来会改变哪些 continuation 更受偏好，但基础能力�
 
 Next-token pretraining 的结果是 base model。Base model 可以补全文本、模仿格式、回答一些问题、遵循模式。它不一定是安全或有帮助的 assistant。它可能继续有害指令，生成任意 completion，或者突然切换风格，因为它被训练来预测文本，而不是满足用户意图。
 
-这个区别很重要。很多人和 “ChatGPT” 关联起来的行为，不是预训练单独产生的。它们来自 post-training：模型被进一步塑造成遵循指令、对话有帮助、执行拒绝策略、偏好人类喜欢的输出。
+这个区别很重要。很多人和 “ChatGPT” 关联起来的行为，不是预训练单独产生的。它们来自 [post-training](./07-post-training.md)：模型被进一步塑造成遵循指令、对话有帮助、执行拒绝策略、偏好人类喜欢的输出。
 
 ## 对 Harness 的影响
 

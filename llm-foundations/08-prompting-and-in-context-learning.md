@@ -68,6 +68,19 @@ In production systems, visible reasoning may be inappropriate, too verbose, or u
 
 The point is to give the system room to do intermediate work without confusing intermediate text with final output.
 
+## Reasoning Models and Test-Time Compute
+
+Chain-of-thought began as a prompting trick. It has since become a training target. *Reasoning models* are post-trained, often with reinforcement learning on verifiable rewards (see [Chapter 7](./07-post-training.md)), to generate long internal reasoning before answering. Instead of the harness telling the model to "think step by step," the model has learned to spend extra tokens on intermediate work when a problem is hard. DeepSeek-R1 documented this pattern openly, showing that strong reasoning behavior can be elicited largely through RL on checkable problems ([DeepSeek-R1](https://arxiv.org/abs/2501.12948)).
+
+The underlying idea is *test-time compute*: spending more tokens, and therefore more time and money, at inference to improve hard answers. This is a different scaling axis from the training-time scaling of [Chapter 5](./05-training-data-and-scaling.md), and it changes several harness assumptions:
+
+- **Do not hand-prompt reasoning the model already does.** Forcing verbose chain-of-thought onto a reasoning model can waste tokens or conflict with its trained behavior. Follow the provider's guidance for that model.
+- **Reasoning tokens are real cost and latency.** A reasoning model can emit thousands of hidden tokens before its first visible word. Budget for it, and expose a reasoning-effort control to the user when the model offers one.
+- **The reasoning trace may be hidden, summarized, or unfaithful.** Some providers do not return the raw chain. Treat any exposed reasoning as a debugging aid, not a verified explanation, exactly as [Chapter 10](./10-knowledge-hallucination-uncertainty.md) warns about self-reported confidence.
+- **Match the model to the task.** Reasoning models help on math, code, planning, and multi-step analysis. For simple extraction, formatting, or classification, a non-reasoning model is usually faster and cheaper. Route accordingly (see [Chapter 6](./06-inference-and-sampling.md)).
+
+Reasoning models do not remove the need for tools, retrieval, or verification. A longer internal monologue is still ungrounded generation. It can reason more carefully over supplied evidence, but it cannot manufacture facts it was never given.
+
 ## Prompting for Tool Use
 
 Tool-use prompting is different from ordinary question answering. The model must decide whether it needs external information, choose the right tool, fill arguments, interpret the observation, and continue. Karpathy's intro uses browser and image-generation examples to show that modern assistants often rely on tools rather than only "thinking in their head" ([Intro to LLMs, around 00:28:20](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1700s), [00:32:06](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1926s)).

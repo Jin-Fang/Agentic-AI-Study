@@ -26,7 +26,7 @@ Context windows make these questions unavoidable.
 
 ## KV Cache
 
-During inference, Transformer attention produces key and value vectors for tokens. Systems cache these vectors so generation can reuse previous computation instead of recomputing the whole prefix every time. This is the KV cache.
+During inference, [Transformer attention](./04-transformer-attention.md) produces key and value vectors for tokens. Systems cache these vectors so generation can reuse previous computation instead of recomputing the whole prefix every time. This is the KV cache.
 
 The KV cache is an inference optimization, not semantic memory. It helps the model continue the current sequence efficiently. It does not decide what facts matter, does not update long-term state, and does not solve context pollution.
 

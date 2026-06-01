@@ -51,6 +51,17 @@ The details matter less for harness work than the shape: a model repeatedly mixe
 
 This helps explain why instruction placement matters. A late, clear instruction may dominate a nearby response. A high-priority instruction at the top may still be diluted by thousands of tokens of noisy context. A retrieved passage can help if it is relevant and compact, but it can hurt if it contains distracting alternatives.
 
+## Dense and Mixture-of-Experts Models
+
+The MLP blocks above hold much of a model's parameters and compute, and they are where model families diverge most. A *dense* model runs every parameter for every token. A *Mixture-of-Experts* (MoE) model replaces some MLP blocks with many parallel expert sub-networks plus a router that activates only a few experts per token. The Switch Transformer showed that this sparse routing lets total parameter count grow without a proportional rise in per-token compute ([Switch Transformers](https://arxiv.org/abs/2101.03961)).
+
+For harness engineers, MoE breaks a convenient assumption: that a model's advertised size predicts its cost and latency. An MoE model may have a very large *total* parameter count but a much smaller *active* parameter count per token. Two consequences follow:
+
+- Model size alone no longer predicts inference cost. When reasoning about latency and price, ask about active parameters, not just total parameters.
+- Routing is part of behavior. Different inputs activate different experts, which can make performance uneven across domains and interact with batching and throughput in ways a dense model does not.
+
+This does not change the harness's job, but it changes model selection. A "smaller" dense model and a "larger" MoE model can land at similar cost while behaving differently on your workload. As always, evaluate on the actual task (see [Chapter 13](./13-evaluation-for-llm-behavior.md)) instead of inferring reliability from a parameter count.
+
 ## Parameters Are Distributed Across the Network
 
 The model's knowledge and behavior are not located in one obvious place. Karpathy emphasizes that billions of parameters are dispersed throughout the network and collaborate in ways we do not fully understand mechanistically ([Intro to LLMs, around 00:11:57](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=717s)). This is why asking "where does the model store this fact?" usually has no simple answer.

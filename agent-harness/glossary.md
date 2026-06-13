@@ -34,27 +34,27 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Protocol boundary** — The integration line a tool or agent standard crosses: model-to-function, agent-to-external-capability, agent-to-agent, or agent-to-repo/environment (Ch 4).
 
-**Tool call** — Structured output (typically JSON) in which the model names a tool and its arguments. Deterministic harness code decides what to do with it (Ch 4, 8).
+**Tool call** — Structured output (typically JSON) in which the model names a tool and its arguments. Deterministic harness code decides what to do with it (see Foundations ch 12) (Ch 4, 8).
 
-**Structured output** — Model output constrained into a machine-readable shape, usually JSON or XML, so software can parse it reliably. Tool calls are the agent-specific case (Ch 1, 4, 8).
+**Structured output** — Model output constrained into a machine-readable shape, usually JSON or XML, so software can parse it reliably. Tool calls are the agent-specific case (see Foundations ch 12) (Ch 1, 4, 8).
 
 ---
 
 ## Context and Memory
 
-**Context window** — The finite span of tokens a model can attend to in a single inference call (Ch 2).
+**Context window** — The finite span of tokens a model can attend to in a single inference call (see Foundations ch 9). In a harness it is a budget every system prompt, tool result, and history turn competes for (Ch 2).
 
-**Context rot** — The degradation of a model's ability to recall and use information accurately as the context grows longer (Ch 2).
+**Context rot** — The degradation of a model's ability to recall and use information accurately as the context grows longer (see Foundations ch 9). The harness angle: it is the binding operating constraint, framed here as an attention budget (Ch 2).
 
 **Attention budget** — The framing of context as a finite resource that every added token spends (Ch 2).
 
-**KV-cache** — A cache of the key/value tensors for already-processed tokens. Identical context prefixes can be served from it, cutting time-to-first-token and cost roughly tenfold (Ch 2).
+**KV-cache** — A cache of the key/value tensors for already-processed tokens (see Foundations ch 9). Identical context prefixes can be served from it, cutting time-to-first-token and cost roughly tenfold; in a harness, prefix stability becomes a production cost lever (Ch 2).
 
-**Prefill / decode** — Prefill is processing the input prompt; decode is generating output tokens. Agentic workloads are heavily prefill-skewed (~100:1 input-to-output) (Ch 2).
+**Prefill / decode** — Prefill is processing the input prompt; decode is generating output tokens (see Foundations ch 9). Agentic workloads are heavily prefill-skewed (~100:1 input-to-output) (Ch 2).
 
-**Lost-in-the-middle** — The tendency of models to attend less reliably to information in the middle of a long context than to its start or end (Ch 2, 3).
+**Lost-in-the-middle** — The tendency of models to attend less reliably to information in the middle of a long context than to its start or end (see Foundations ch 9) (Ch 2, 3).
 
-**Compaction** — Summarizing a conversation near its context limit and reinitiating a fresh window with the summary. Lossy (Ch 3).
+**Compaction** — Summarizing a conversation near its context limit and reinitiating a fresh window with the summary. Lossy (see Foundations ch 9) (Ch 3).
 
 **Context reset** — Clearing the context entirely and starting a fresh agent with a structured handoff — distinct from in-place compaction (Ch 7).
 
@@ -118,7 +118,7 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Linter / type checker** — Deterministic tools that detect style, syntax, structural, or type errors before runtime. They are common computational sensors in an outer harness (Ch 5).
 
-**Prompt injection** — An attack in which instructions hidden in content the agent reads (a web page, a file, a tool result) are interpreted by the model as commands (Ch 5).
+**Prompt injection** — An attack in which instructions hidden in content the agent reads (a web page, a file, a tool result) are interpreted by the model as commands (see Foundations ch 8, ch 12) (Ch 5).
 
 **Lethal trifecta** — The dangerous combination, in one agent, of access to private data, exposure to untrusted content, and the ability to communicate externally (Ch 5).
 
@@ -142,7 +142,7 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Capability eval / regression eval** — Capability evals measure what an agent can newly do (low pass rates, climbing); regression evals protect what it already does reliably (near 100%) (Ch 9).
 
-**pass@k / pass^k** — pass@k is the probability of at least one success in k attempts (rises with k); pass^k is the probability that *all* k trials succeed (falls with k) (Ch 9).
+**pass@k / pass^k** — pass@k is the probability of at least one success in k attempts (rises with k); pass^k is the probability that *all* k trials succeed (falls with k) (see Foundations ch 13) (Ch 9).
 
 **Infrastructure noise** — Variation in benchmark scores caused by the runtime's resource configuration rather than by model capability (Ch 10).
 

@@ -4,7 +4,7 @@
 
 本章大部分内容讲的是*缓解手段*——沙箱、hooks、审批关卡。先把它们要缓解的东西说清楚是值得的。一个会读取不可信内容、又能对世界采取行动的 agent，有一份特定的风险画像 ([Anthropic - Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing))：
 
-- **Prompt injection（提示注入）** — 藏在 agent 所读内容（网页、issue 评论、源文件、工具结果）中的指令，被模型当作命令来执行。模型无法可靠地把数据和指令分开；任何进入上下文的东西都能操纵它。
+- **Prompt injection（提示注入）**（见《LLM Foundations》第 8 章 “Prompt Injection as Context Confusion” 与第 12 章）—— 模型无法可靠地把数据和指令分开，因此 agent 所读的不可信内容（网页、issue 评论、源文件、工具结果）可以像命令一样操纵它。
 - **数据外泄** — 被操纵且有网络访问权的 agent，可以把密钥（SSH key、API token、专有源码）发送到攻击者控制的目的地。
 - **破坏性操作** — 被操纵且有文件系统或 shell 访问权的 agent，可以删除或损坏文件，或提交并推送有问题的代码。
 - **工具与供应链风险** — 恶意或被攻陷的 MCP server、软件包或依赖，可以引入 agent 随后会信任的敌对工具或指令。
@@ -17,7 +17,7 @@
 
 完全无监督运行的 coding agent 很危险；每一步都请求批准的 coding agent 又不可用。Anthropic 将其称作 approval fatigue：不断点击 approve 会拖慢开发循环，并让用户不再认真看自己批准了什么，反而降低安全性 ([Anthropic - Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing))。解决方案是结构性的：定义 agent 可以自由行动的边界，只有越界时才请求权限。
 
-在 Anthropic 内部使用中，沙箱安全地减少了 84% 的权限提示。
+在 Anthropic 内部使用中，沙箱安全地减少了 84% 的权限提示 ([Anthropic - Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing))。
 
 ### 5.3 沙箱同时是笼子、重置按钮和许可证
 
@@ -43,7 +43,7 @@ Claude Code on the web 将其扩展为云沙箱，敏感凭据（git credentials
 
 生产中有三个关键设计动作：
 
-- **身份与 delegated auth**：agent 应使用 scoped credentials 或 delegated identity 行动，而不是继承用户的完整环境权限。Credential vault 和 proxy 应只在操作被授权的边界处附加 secret。
+- **身份与 delegated auth**：agent 应使用 scoped credentials 或 delegated identity 行动，而不是以用户的完整 ambient authority（默认隐式权限）行动。Credential vault 和 proxy 应只在操作被授权的边界处附加 secret。
 - **上下文相关权限策略**：静态 allow/deny list 可检查但粗糙。任务感知策略可以在每次调用前评估工具名、参数、session state、目标 repo、网络域名和用户角色，再由确定性 checker 执行结果。
 - **可审计 trace**：日志不仅要记录 tool call，还要记录身份、权限决策、policy 版本、参数、输出摘要，以及是否有人类批准升级。
 
@@ -55,7 +55,7 @@ Claude Code on the web 将其扩展为云沙箱，敏感凭据（git credentials
 
 常见用途包括通知（agent 完成时播放声音）、自动批准或拒绝（拒绝 migration 命令，让用户手动运行）、集成（发 Slack 消息、开 PR）、验证（停止时运行 typecheck 和 build，把错误暴露给 agent，迫使其修复后再结束）。HumanLayer 的示例 hook 会在每次 Claude stop 时并行运行 Biome 和 TypeScript；成功时静默退出，失败时只暴露错误并以 exit code 2 返回，告诉 harness 重新拉起 agent。
 
-LangChain 报告称，这类 middleware 是 deepagents-cli 从 Terminal-Bench 2.0 Top 30 提升到 Top 5 的关键。他们的 `PreCompletionChecklistMiddleware` 在 agent 退出前拦截并提醒它对任务 spec 做验证；`LocalContextMiddleware` 启动时映射工作目录和可用工具；`LoopDetectionMiddleware` 跟踪每个文件编辑次数，并在同一文件被编辑 N 次后提示 agent 重新考虑，从而打断“doom loop” ([LangChain - Improving Deep Agents](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/))。
+LangChain 报告称，这类 middleware 是 deepagents-cli 从 Terminal-Bench 2.0 Top 30 提升到 Top 5 的关键。他们的 `PreCompletionChecklistMiddleware` 在 agent 退出前拦截并提醒它对任务 spec 做验证；`LocalContextMiddleware` 启动时映射工作目录和可用工具；`LoopDetectionMiddleware` 跟踪每个文件编辑次数，并在同一文件被编辑 N 次后提示 agent 重新考虑，从而打断在一个已坏方法上做小幅变体的 “doom loop” ([LangChain - Improving Deep Agents](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/))。
 
 综述中的 governance 分类把这些 hook 放进更大的执行管线：pre-invocation check 可以拒绝危险工具调用，post-invocation hook 可以在不可信输出进入上下文前做 taint 或 redact，stop hook 可以要求验证或审计更新，escalation hook 可以把模糊情况交给人类。行动越有后果，就越不应该依赖模型记住指令。
 
@@ -95,9 +95,9 @@ Böckeler 注意到，OpenAI Codex 团队的 harness 也类似：用自定义 li
 
 不是每个代码库都同样容易 harness。强类型语言天然带来 type-checking sensor；清晰模块边界让架构约束规则可写；Spring 等 opinionated framework 抽象掉了 agent 无需操心的细节 ([Thoughtworks - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。
 
-Ned Letcher 的术语 *ambient affordances* 捕捉了这一点：环境本身会带有一些属性，使 agent 更容易理解、导航和处理。Greenfield 团队可以从第一天就设计这些 affordance；legacy 团队面对的是相反情况：越需要 harness 的地方，越难构建 harness。
+Böckeler 将 *ambient affordances* 这一术语归功于 Ned Letcher，它捕捉了这一点：环境本身会带有一些属性，使 agent 更容易理解、导航和处理 ([Thoughtworks - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。Greenfield 团队可以从第一天就设计这些 affordance；legacy 团队面对的是相反情况：越需要 harness 的地方，越难构建 harness。
 
-面向未来，Böckeler 提出 *harness templates*：按服务拓扑打包 guides 和 sensors，例如 JVM CRUD service、Go event processor、Node dashboard，并随现有 service template 一起分发。Ashby 的必要变异度定律给出形式化理由：调节器必须具有至少与被调节系统同样多的变异度。因此，约束服务拓扑本身就是降低变异度的动作，使完整 harness 更可达。
+面向未来，Böckeler 提出 *harness templates*：按服务拓扑打包 guides 和 sensors，例如 JVM CRUD service、Go event processor、Node dashboard，并随现有 service template 一起分发。Böckeler 援引 Ashby 的必要变异度定律给出形式化理由——调节器必须具有至少与被调节系统同样多的变异度——因此，约束服务拓扑本身就是降低变异度的动作，使完整 harness 更可达 ([Thoughtworks - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。
 
 ---
 

@@ -1,6 +1,6 @@
 # Agent Harness：实践者教材
 
-*这是一份基于事实的 agent harness 工程综述，主要整理自 [Awesome Harness Engineering](https://github.com/walkinglabs/awesome-harness-engineering) 阅读列表和 OpenReview 综述论文 [Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)。正文中的关键论断都会尽量在相关位置给出来源。*
+*这是一份基于事实的 agent harness 工程综述，主要整理自 [Awesome Harness Engineering](https://github.com/walkinglabs/awesome-harness-engineering) 阅读列表和 OpenReview 综述论文 [Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)。正文中的每个关键论断都在相应位置给出行内引用。*
 
 English version: [Agent Harness: A Practitioner's Textbook](../agent-harness/)
 
@@ -11,6 +11,14 @@ English version: [Agent Harness: A Practitioner's Textbook](../agent-harness/)
 这本书讨论的是语言模型真正被拿来做事时，围绕模型构建的那套系统。这套系统现在常被称为 *harness*。围绕如何构建它，业界已经形成了一套仍然年轻、但快速成熟的写作和实践体系。
 
 这个领域的基本前提很简单。LangChain 的 Vivek Trivedy 将其概括为：“Agent = Model + Harness。**如果你不是模型，那你就是 harness。**”系统提示、工具、沙箱、记忆、子代理、控制流、评估基础设施，都是 harness 的一部分。OpenReview 上的综述论文进一步把这个观点收紧为系统工程命题：对长周期 agent 来说，可靠性的瓶颈可能在 harness，而不只是模型能力。本书讨论的，就是如何把这层系统设计好。
+
+---
+
+## 如何阅读本书
+
+这是一个两卷本系列的第二卷。它假定读者已经掌握配套卷 [*LLM 基础：面向 Harness Engineering 的实践者教材*](../llm-foundations-zh/) 中讲解的模型基础知识——token、attention 与 KV-cache、context 窗口、采样、post-training、检索、agent 循环与 tool-call 协议、prompt injection，以及 pass@k 与 pass^k。本书在提到某个 Foundations 概念时，会指回原处（例如“见《LLM Foundations》第 9 章”），而不是重新推导。如果对这些术语还不熟悉，请先阅读那一卷。
+
+各章是对 ETCLOVG 分类的一次完整叙述，可以从头读到尾。如果你带着特定目标而来：context 预算见第 2-3 章；工具与 MCP 见第 4 章；安全与沙箱见第 5 章；评估与迭代见第 9-11 章；生产清单见第 8 章。
 
 ---
 

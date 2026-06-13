@@ -2,7 +2,7 @@
 
 ### 2.1 Context Rot 与注意力预算
 
-对 agent harness 来说，最重要的运行约束之一是：有用上下文不等于最大上下文长度。Anthropic 将相关失败模式称为 “context rot”，并把它与 needle-in-a-haystack benchmark 联系起来：随着 token 数增加，模型从上下文中准确回忆信息的能力可能下降 ([Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents))。这个效应取决于模型、任务和相关信息在上下文中的位置，所以应当把它理解成概率性工程约束，而不是每个 prompt 都严格成立的硬规律。
+对 agent harness 来说，最重要的运行约束之一是：有用上下文不等于最大上下文长度。底层失败模式——context rot，即模型输出随输入增长而退化——在配套卷中已经介绍（见《LLM Foundations》第 9 章），并给出了它的两层模型（长度诱发，加上无关材料累积）。这里我们把它当作本章的主导设计约束。Anthropic 把同一失败模式与 needle-in-a-haystack benchmark 联系起来：随着 token 数增加，模型从上下文中准确回忆信息的能力可能下降 ([Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents))。这个效应取决于模型、任务和相关信息在上下文中的位置，所以应当把它理解成概率性工程约束，而不是每个 prompt 都严格成立的硬规律。
 
 Anthropic 的机制解释并不是说 transformer 字面意义上“耗尽”了注意力，而是长上下文为模型带来了更多需要表示的 token 关系，而训练数据和位置机制通常更擅长较短、更局部的依赖。位置编码插值和其他长上下文技术可以让模型处理比原始训练更长的序列，但仍可能降低位置分辨率或检索可靠性 ([Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents))。
 
@@ -22,9 +22,9 @@ Few-shot 示例应该多样且典型，而不是把每个边界情况都列成�
 
 ### 2.3 KV-Cache：为什么稳定前缀有价值
 
-有一个实用杠杆，它在上下文工程的学术文献中几乎不被提及，却是生产级 agent 设计的核心，那就是 KV-cache。Manus 认为它是“生产阶段 AI agent 最重要的指标” ([Manus - Context Engineering for AI Agents](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus))。
+KV-cache 与前缀稳定规则——包括“改动一个早期 token（例如系统提示里的时间戳），其后每个 token 都要重新计算”这一机制——在配套卷中已有覆盖（见《LLM Foundations》第 9 章）；这里我们把 cache 当作一个生产成本杠杆。有一个实用杠杆，它在上下文工程的学术文献中几乎不被提及，却是生产级 agent 设计的核心，那就是 KV-cache。Manus 认为其命中率是“生产阶段 AI agent 最重要的指标” ([Manus - Context Engineering for AI Agents](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus))。
 
-机制是：典型 agent 接收输入，从工具空间中选择动作，执行动作，并把动作和观察结果追加进上下文供下一轮使用。上下文随每一步增长，而输出通常较短，使 prefilling 与 decoding 的比例极度倾斜。Manus 报告其平均输入/输出 token 比约为 100:1。相同前缀可以由 KV-cache 服务，从而降低首 token 延迟和推理成本。Manus 引用 Claude Sonnet 价格：缓存输入 token 每百万 $0.30，未缓存 $3，是 10 倍差距。
+它为什么主导成本模型：典型 agent 接收输入，从工具空间中选择动作，执行动作，并把动作和观察结果追加进上下文供下一轮使用。上下文随每一步增长，而输出通常较短，使 prefilling 与 decoding 的比例极度倾斜。Manus 报告其平均输入/输出 token 比约为 100:1。相同前缀可以由 KV-cache 服务，从而降低首 token 延迟和推理成本。Manus 引用 Claude Sonnet 价格：缓存输入 token 每百万 $0.30，未缓存 $3，是 10 倍差距。
 
 Manus 保持 cache 命中的三条规则是：保持 prompt 前缀稳定（一个 token 的差异都会从该点起使 cache 失效，所以把秒级时间戳放进系统提示代价很高）；上下文以追加方式增长，并使用确定性 JSON 序列化（某些库不保证 key 顺序，会悄悄破坏 cache）；当推理框架需要时，显式标记 cache 断点。
 
@@ -32,7 +32,7 @@ Manus 保持 cache 命中的三条规则是：保持 prompt 前缀稳定（一�
 
 Manus 的第二条原则关于动作空间。随着工具数量增长，MCP（Model Context Protocol，模型上下文协议——见第 4 章）让用户轻易接入数百个工具，常见冲动是运行中动态加载和卸载工具。Manus 的实验给出明确规则：避免这样做。工具定义位于上下文前部，任何变化都会使后续 cache 失效；前面轮次还可能引用已不存在的工具，导致 schema violation 或幻觉调用 ([Manus - Context Engineering for AI Agents](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus))。
 
-替代方案是 action masking：在上下文中保持稳定的工具界面，然后根据当前状态约束可选动作。不同 provider 和 harness 可能用 logit constraint、tool-choice 控制、response prefill，或运行时 validator 拒绝不允许的动作来实现。Manus 使用一致的动作名前缀，例如浏览器工具 `browser_*`、shell 工具 `shell_*`，这样就能用简单约束启用或排除整个工具组。
+替代方案是 action masking：在上下文中保持稳定的工具界面，然后根据当前状态约束可选动作。不同 provider 和 harness 可能用 logit constraint、tool-choice 控制、response prefill，或运行时 validator 拒绝不允许的动作来实现 ([Manus - Context Engineering for AI Agents](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus))。Manus 使用一致的动作名前缀，例如浏览器工具 `browser_*`、shell 工具 `shell_*`，这样就能用简单约束启用或排除整个工具组。
 
 ### 2.5 文件系统作为工作记忆
 
@@ -48,7 +48,7 @@ LangChain 称文件系统是“可能最基础的 harness primitive”，因为�
 
 ### 2.6 Just-in-Time Retrieval
 
-传统模式是：预先 embed 一切，检索 top-k chunk，再 prepend 到上下文。现在它正被 *just-in-time* 方法补充：与其预处理全部内容，agent 保留轻量标识符（文件路径、查询、链接），在需要时动态加载数据进上下文 ([Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents))。
+传统模式是：预先 embed 一切，检索 top-k chunk，再 prepend 到上下文（即 RAG 流水线，见《LLM Foundations》第 11 章）。现在它正被 *just-in-time* 方法补充：与其预处理全部内容，agent 保留轻量标识符（文件路径、查询、链接），在需要时动态加载数据进上下文 ([Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents))。
 
 Anthropic 的 Claude Code 在大型代码库工作中使用这个模式：模型编写目标查询、存储结果，并使用 `head`、`tail` 等工具分析大数据，而不是全部加载。文件路径元数据本身也有信息量：`tests/` 里的 `test_utils.py` 与 `src/core_logic/` 里的同名文件角色不同。目录层级、命名和时间戳都会成为 agent 导航信号。
 

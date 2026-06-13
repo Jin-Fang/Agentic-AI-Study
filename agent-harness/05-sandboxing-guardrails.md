@@ -4,7 +4,7 @@
 
 Most of this chapter is about *mitigations* — sandboxes, hooks, approval gates. It is worth first stating plainly what they mitigate. An agent that reads untrusted content and can act on the world has a specific risk profile ([Anthropic — Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing)):
 
-- **Prompt injection** — instructions hidden in content the agent reads (a web page, an issue comment, a source file, a tool result) are interpreted by the model as if they were commands. The model cannot reliably separate data from instructions; anything that reaches context can steer it.
+- **Prompt injection** (see Foundations ch 8, "Prompt Injection as Context Confusion," and ch 12) — the model cannot reliably separate data from instructions, so untrusted content the agent reads (a web page, an issue comment, a source file, a tool result) can steer it as if it were a command.
 - **Data exfiltration** — a steered agent with network access can send secrets — SSH keys, API tokens, proprietary source — to an attacker-controlled destination.
 - **Destructive action** — a steered agent with filesystem or shell access can delete or corrupt files, or commit and push bad code.
 - **Tool and supply-chain risk** — a malicious or compromised MCP server, package, or dependency can introduce hostile tools or instructions that the agent then trusts.
@@ -17,7 +17,7 @@ The framing to carry into the rest of the chapter: the model is not a trusted co
 
 Coding agents that run with no oversight are dangerous; coding agents that ask permission for every action are unusable. Anthropic frames this as approval fatigue: "Constantly clicking 'approve' slows down development cycles and can lead to 'approval fatigue,' where users might not pay close attention to what they're approving, and in turn making development less safe" ([Anthropic — Beyond Permission Prompts: Making Claude Code More Secure and Autonomous](https://www.anthropic.com/engineering/claude-code-sandboxing)). The solution is structural: define boundaries within which the agent can act freely, and only ask for permission when those boundaries are crossed.
 
-In their internal usage, sandboxing safely reduces permission prompts by 84%.
+In their internal usage, sandboxing safely reduces permission prompts by 84% ([Anthropic — Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing)).
 
 ### 5.3 Sandbox as Cage, Reset Button, and License
 
@@ -95,9 +95,9 @@ The OpenAI Codex team's harness, as Böckeler notes, follows the same shape: lay
 
 Not every codebase is equally amenable to harnessing. A strongly-typed language brings type-checking sensors for free; clear module boundaries afford architectural constraint rules; opinionated frameworks like Spring abstract away details the agent does not have to worry about ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
 
-Ned Letcher's term *ambient affordances* captures this: properties of the environment itself that make it legible, navigable, and tractable to agents. Greenfield teams can engineer affordances in from day one; legacy teams face the inverse — the harness is most needed where it is hardest to build.
+A term Böckeler credits to Ned Letcher, *ambient affordances*, captures this: properties of the environment itself that make it legible, navigable, and tractable to agents ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)). Greenfield teams can engineer affordances in from day one; legacy teams face the inverse — the harness is most needed where it is hardest to build.
 
-Anticipating the future, Böckeler suggests *harness templates* — bundled guides and sensors per service topology (CRUD service in JVM, event processor in Go, dashboard in Node) — that ride along with existing service templates. Ashby's Law of Requisite Variety makes the case formally: a regulator must have at least as much variety as the system it governs, so committing to a constrained topology is itself a variety-reduction move that makes a comprehensive harness more achievable.
+Anticipating the future, Böckeler suggests *harness templates* — bundled guides and sensors per service topology (CRUD service in JVM, event processor in Go, dashboard in Node) — that ride along with existing service templates. Böckeler invokes Ashby's Law of Requisite Variety to make the case formally — a regulator must have at least as much variety as the system it governs — so committing to a constrained topology is itself a variety-reduction move that makes a comprehensive harness more achievable ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
 
 ---
 

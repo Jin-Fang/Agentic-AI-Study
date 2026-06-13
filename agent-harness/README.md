@@ -14,6 +14,14 @@ The premise of the field is simple. As Vivek Trivedy of LangChain puts it: "Agen
 
 ---
 
+## How to Read This Book
+
+This is the second book in a two-part sequence. It assumes the model fundamentals covered in the companion volume, [*LLM Foundations for Harness Engineering*](../llm-foundations/) — tokens, attention and the KV-cache, the context window, sampling, post-training, retrieval, the agent loop and tool-call protocol, prompt injection, and pass@k vs pass^k. Where this book names a Foundations concept, it points back (e.g. "see Foundations ch 9") rather than re-deriving it. Read that volume first if those terms are unfamiliar.
+
+The chapters are a single narrative pass over the ETCLOVG taxonomy and can be read straight through. If you arrive with a specific goal: context budget is Ch 2–3; tools and MCP are Ch 4; safety and sandboxing are Ch 5; evaluation and iteration are Ch 9–11; and the production checklist is Ch 8.
+
+---
+
 ## Chapters
 
 | Chapter | Title | Description |

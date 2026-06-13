@@ -8,7 +8,7 @@ Anthropic 借用 HCI 的类比提出 *agent-computer interface*（ACI）：agent
 - 保持格式接近模型训练数据中常见形式。
 - 避免过高的格式开销，例如 diff header 中的精确行号，或 JSON 嵌套代码时的过度转义。
 
-Anthropic 构建 SWE-bench agent 时，在工具 schema 优化上花的时间比 prompt 本身更多。一个具体改进是：把工具路径从相对路径改为绝对路径后，agent 离开根目录后的路径错误几乎全部消失。
+Anthropic 构建 SWE-bench agent 时，在工具 schema 优化上花的时间比 prompt 本身更多。一个具体改进是：把工具路径从相对路径改为绝对路径后，agent 离开根目录后的路径错误几乎全部消失 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))。
 
 ### 4.2 选择正确工具与正确数量
 
@@ -18,7 +18,7 @@ Anthropic 后续的 “Writing Effective Tools for Agents” 进一步说明核�
 
 ### 4.3 工具从哪里来：Model Context Protocol
 
-本章前后几节都假设 agent 已经有了一组设计良好的工具。实践中，这些工具很多是通过一个标准接口送达的：*Model Context Protocol*（MCP，模型上下文协议）。MCP 是一个开放的客户端-服务器标准。一个 *MCP server* 通过统一协议暴露一组工具，以及可选的资源和可复用提示；任何兼容 MCP 的 *客户端*，例如 Claude Code、IDE 或自定义 agent，都能发现并调用它们，无需定制集成 ([Anthropic - Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp))。
+本章前后几节都假设 agent 已经有了一组设计良好的工具。实践中，这些工具很多是通过一个标准接口送达的：*Model Context Protocol*（MCP，模型上下文协议）。简要回顾一下，MCP 是一个开放的客户端-服务器标准：一个 *MCP server* 通过统一协议暴露一组工具，以及可选的资源和可复用提示，任何兼容 MCP 的 *客户端*（Claude Code、IDE、自定义 agent）都能发现并调用它们，无需定制集成。传输机制以及结果不可信这一点已在《LLM Foundations》第 12 章讲过；本章把 MCP 当作一个 harness 设计面来处理 ([Anthropic - Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp))。
 
 它的价值在于可组合性。一个团队可以把 Google Drive server、Salesforce server 和内部数据库 server 接到同一个 agent 上，每个 server 独立构建和维护，而 agent 看到的是一个合并后的工具界面。这就是 MCP 在本书中反复出现的原因：它是本章其余部分所讲的命名空间、masking 和代码执行模式的底座。
 
@@ -53,7 +53,7 @@ HumanLayer 在自己代码库中的 “back-pressure” 实践就是直接应用
 
 ### 4.8 对工具描述做 Prompt Engineering
 
-Anthropic 认为这是最有效的杠杆之一，并报告称 Claude Sonnet 3.5 在 SWE-bench Verified 达到 SOTA 需要对工具描述做精细改写 ([Anthropic - Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents))。建议是：像给刚入职的初级工程师写说明一样写工具描述。把隐含上下文显式化，例如专门查询格式、领域术语、资源之间关系。参数名要明确，如 `user_id` 而不是 `user`。在 workbench 中跑大量例子，观察错误并迭代。
+Anthropic 认为这是最有效的杠杆之一，并报告称对工具描述的精细改写是 Claude Sonnet 3.5 在 SWE-bench Verified 达到 SOTA 的关键杠杆之一 ([Anthropic - Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents))。建议是：像给刚入职的初级工程师写说明一样写工具描述。把隐含上下文显式化，例如专门查询格式、领域术语、资源之间关系。参数名要明确，如 `user_id` 而不是 `user`。在 workbench 中跑大量例子，观察错误并迭代。
 
 一个具体调试例子：Claude 的 web search 工具刚推出时，trace 显示 Claude 会不必要地把 `2025` 附加到 `query` 参数中，偏置搜索结果。修复无需重新训练模型，只需要更清楚的工具描述。
 

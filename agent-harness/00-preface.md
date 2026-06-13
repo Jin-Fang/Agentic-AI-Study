@@ -4,7 +4,13 @@ This book is about the system that surrounds a language model when it is asked t
 
 The premise of the field is simple. As Vivek Trivedy of LangChain puts it: "Agent = Model + Harness. **If you're not the model, you're the harness.**" ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). Everything else — system prompts, tools, sandboxes, memory, sub-agents, control flow, evaluation infrastructure — is the harness. The work of designing it well is what we will study.
 
-The necessary background is mostly software engineering, not model internals. Throughout the book, a model should be understood as a component that consumes tokens and emits tokens. It may emit text for a user, or structured text that requests an action, but the action itself is always carried out by surrounding software. That distinction — model output versus real-world effect — is the reason the later chapters spend so much time on context, tools, state, tests, sandboxes, and evaluation.
+Throughout the book, a model should be understood as a component that consumes tokens and emits tokens. It may emit text for a user, or structured text that requests an action, but the action itself is always carried out by surrounding software. That distinction — model output versus real-world effect — is the reason the later chapters spend so much time on context, tools, state, tests, sandboxes, and evaluation.
+
+The model internals this book relies on — tokens, attention and the KV-cache, the context window, sampling, retrieval, and the tool-call protocol — are covered in the companion stage-1 volume; here we name each concept in a line and build the harness-engineering layer on top of it. The genuinely new material is mostly software engineering: context, tools, state, sandboxes, and evaluation.
+
+## Before You Start
+
+This is the second book in a two-part sequence. It assumes you have read *[LLM Foundations for Harness Engineering](../llm-foundations/)* and are comfortable with tokens, attention and the KV-cache, the context window, sampling, post-training, retrieval, the agent loop, the tool-call protocol, prompt injection, and pass@k/pass^k. Where this book names a Foundations concept, it points back (for example, "Foundations ch 9") rather than re-deriving it. A reader arriving without the stage-1 material can still follow the narrative, but should treat the one-line recaps as pointers, not as the full teaching.
 
 ---
 

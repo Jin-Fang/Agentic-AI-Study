@@ -4,6 +4,13 @@
 
 ---
 
+## 基础（前置）
+
+- *LLM Foundations for Harness Engineering* —— 本书所依赖的前置 stage-1 卷。
+  [../llm-foundations-zh/](../llm-foundations-zh/)
+
+---
+
 ## 基础
 
 - OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026.
@@ -47,7 +54,7 @@
 
 ## 工具与约束
 
-- Ken Aizawa, *Writing Effective Tools for Agents - with Agents*, Anthropic, Sep 2025.  
+- Ken Aizawa, *Writing Effective Tools for Agents — with Agents*, Anthropic, Sep 2025.  
   https://www.anthropic.com/engineering/writing-tools-for-agents
 
 - Adam Jones and Conor Kelly, *Code Execution with MCP: Building More Efficient Agents*, Anthropic, Nov 2025.  
@@ -98,3 +105,6 @@
 
 - *Learn Harness Engineering*, Walking Labs.
   https://walkinglabs.github.io/learn-harness-engineering/zh/
+
+- *Learn Harness Engineering — Skills*, Walking Labs.
+  https://walkinglabs.github.io/learn-harness-engineering/zh/skills/

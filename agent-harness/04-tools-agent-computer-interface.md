@@ -8,7 +8,7 @@ Anthropic introduces the term *agent–computer interface* (ACI) by analogy with
 - Keep formats close to what the model has seen in training data.
 - Avoid formatting overhead like accurate line-counting in diff headers or excessive string-escaping in JSON-embedded code.
 
-When Anthropic built its SWE-bench agent, it spent more time optimizing tool schemas than the prompt itself. A specific improvement: switching tools from relative to absolute filepaths fixed nearly all path-related errors after the agent moved out of the root directory.
+When Anthropic built its SWE-bench agent, it spent more time optimizing tool schemas than the prompt itself. A specific improvement: switching tools from relative to absolute filepaths fixed nearly all path-related errors after the agent moved out of the root directory ([Anthropic — Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)).
 
 ### 4.2 Choosing the Right Tools — and the Right Number
 
@@ -18,7 +18,7 @@ Tools should consolidate frequently-chained operations. Rather than `list_users`
 
 ### 4.3 Where Tools Come From: The Model Context Protocol
 
-The sections around this one assume an agent with a set of well-designed tools. In practice, many of those tools arrive over a standard interface: the *Model Context Protocol* (MCP). MCP is an open client–server standard. An *MCP server* exposes a set of tools — and, optionally, resources and reusable prompts — over a uniform protocol; any MCP-compatible *client*, such as Claude Code, an IDE, or a custom agent, can discover and call them without bespoke integration ([Anthropic — Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)).
+The sections around this one assume an agent with a set of well-designed tools. In practice, many of those tools arrive over a standard interface: the *Model Context Protocol* (MCP). As a quick recap, MCP is an open client–server standard: an *MCP server* exposes tools — and, optionally, resources and reusable prompts — over a uniform protocol, and any compatible *client* (Claude Code, an IDE, a custom agent) can discover and call them without bespoke integration. The transport mechanics and the untrusted-result caveat are covered in Foundations ch 12; this chapter treats MCP as a harness design surface ([Anthropic — Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)).
 
 The value is composability. A team can connect a Google Drive server, a Salesforce server, and an internal database server to the same agent — each built and maintained independently — and the agent sees one combined tool surface. This is why MCP recurs throughout this book: it is the substrate for the namespacing, masking, and code-execution patterns described in the rest of this chapter.
 
@@ -53,7 +53,7 @@ HumanLayer's "back-pressure" practice in their own codebase is a direct applicat
 
 ### 4.8 Prompt-Engineering Tool Descriptions
 
-Anthropic positions this as one of the most effective levers, and reports that it took precise refinements to tool descriptions for Claude Sonnet 3.5 to achieve state-of-the-art on SWE-bench Verified ([Anthropic — Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents)). The advice: write the tool description as you would for a new junior engineer joining the team. Make implicit context explicit (specialized query formats, niche terminology, relationships between resources). Use unambiguous parameter names — `user_id` rather than `user`. Run many examples in a workbench, look at the mistakes, and iterate.
+Anthropic positions this as one of the most effective levers, and reports that tool-description refinements were a key lever in reaching state-of-the-art on SWE-bench Verified with Claude Sonnet 3.5 ([Anthropic — Writing Effective Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents)). The advice: write the tool description as you would for a new junior engineer joining the team. Make implicit context explicit (specialized query formats, niche terminology, relationships between resources). Use unambiguous parameter names — `user_id` rather than `user`. Run many examples in a workbench, look at the mistakes, and iterate.
 
 A concrete debugging example: when Anthropic launched Claude's web search tool, traces revealed that Claude was needlessly appending `2025` to the `query` parameter, biasing results. Fixing it required no model retraining — only a clearer tool description.
 
@@ -93,7 +93,7 @@ Anthropic ran this loop on their own internal Slack and Asana tools and found th
 ```mermaid
 flowchart LR
     A["1. Prototype<br/>Local MCP server<br/>Manual testing<br/>Build intuition"] --> B["2. Build Eval<br/>Realistic tasks<br/>Real data<br/>Verifiable criteria"]
-    B --> C["3. Run Eval<br/>Programmatic runs<br/>Chain-of-thought<br/>Track: accuracy,<br/>tokens, errors"]
+    B --> C["3. Run Eval<br/>Programmatic runs<br/>Capture traces<br/>Track: accuracy,<br/>tokens, errors"]
     C --> D["4. Analyze<br/>Read transcripts<br/>Note what agents<br/>don't say<br/>Identify patterns"]
     D --> E{Pass?}
     E -->|"No — refine tools"| A

@@ -16,10 +16,10 @@
 6. **Launch / Pause / Resume with Simple APIs**：agent 是程序，应支持标准 lifecycle，包括在工具选择和执行之间暂停。
 7. **Contact Humans with Tool Calls**：不要依赖模型选择普通文本还是结构化输出；给它明确的 `request_human_input` 工具，并带 urgency、format、choices 等结构化选项。
 8. **Own Your Control Flow**：接管 loop，用于审批中断、总结工具结果、对输出运行 LLM-as-judge、管理记忆、记录 trace、限流、durable sleep。
-9. **Compact Errors into Context Window**：让错误可见才能 self-heal；用连续错误计数器在阈值后升级给人类。
+9. **Compact Errors into Context Window**：让错误可见才能 self-heal；用连续错误计数器在阈值后升级给人类。之所以用 *compact* 这个动词，是因为不断堆积原始 stack trace 会撑爆 token 预算、加剧 context rot（见《LLM Foundations》第 9 章）——应在 context 中保留最新的或经过摘要的错误，把更早的重复 trace 丢弃或折叠，使错误历史不会挤占 working context。
 10. **Small, Focused Agents**：把单个 agent 范围控制在 3-10 步，最多也许 20 步。上下文越大，性能越差。
 11. **Trigger from Anywhere**：允许从 Slack、email、SMS、webhook、cron 启动。结合 factor 7，可以形成 *outer loop*：由事件启动的 agent，在关键点联系人类求助。
-12. **Make Your Agent a Stateless Reducer**：agent 是对 events 的 fold。纯、可序列化、可重放。
+12. **Make Your Agent a Stateless Reducer**：agent 是对 events 的 fold。纯、可序列化、可重放。只有当每一次 LLM 响应和工具结果都作为 event 被记录下来时，重放才是确定性的：恢复时你对已记录的结果做 fold，而不是重新调用模型、也不是重新执行有副作用的工具。
 
 贯穿这些要素的深层主张是：“好的 agent 至少不是‘给你一个 prompt、一袋工具，循环直到目标完成’这种模式。它们大多只是软件” ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))。这些要素基本是在把软件工程卫生应用到一个有状态、非确定性的组件上。它们不应被当成普遍法则：研究原型、本地 coding assistant、受监管客服 agent 会需要不同权衡。真正有用的方向是：让状态显式、让控制流可检查、把人类交互放在结构化接口后面。
 

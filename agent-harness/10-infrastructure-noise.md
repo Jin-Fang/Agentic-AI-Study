@@ -21,9 +21,9 @@ The data reveals two regimes:
 
 Tight resource limits inadvertently reward efficient strategies; generous limits reward agents that exploit available resources. Both are legitimate things to test, but collapsing them into a single score without specifying configuration makes interpretation difficult.
 
-Anthropic's `bn-fit-modify` example illustrates: under generous limits, some models default to installing the entire Python data-science stack (pandas, networkx, scikit-learn) before writing any solution code. Under tight limits, the pod runs out of memory during installation. A leaner strategy exists — implementing the math from scratch using only the standard library — and some models default to it. The resource configuration determines which default succeeds.
+Anthropic's `bn-fit-modify` example illustrates: under generous limits, some models default to installing the entire Python data-science stack (pandas, networkx, scikit-learn) before writing any solution code. Under tight limits, the pod runs out of memory during installation. A leaner strategy exists — implementing the math from scratch using only the standard library — and some models default to it. The resource configuration determines which default succeeds ([Anthropic — Quantifying Infrastructure Noise](https://www.anthropic.com/engineering/infrastructure-noise)).
 
-The same effect holds outside Terminal-Bench, though with smaller magnitude. Anthropic's SWE-bench experiment with 5× RAM showed scores 1.54 percentage points higher at 5× than 1× across 227 problems — smaller than Terminal-Bench because SWE-bench tasks are less resource-intensive, but non-neutral.
+The same effect holds outside Terminal-Bench, though with smaller magnitude. Anthropic's SWE-bench experiment with 5× RAM showed scores 1.54 percentage points higher at 5× than 1× across 227 problems — smaller than Terminal-Bench because SWE-bench tasks are less resource-intensive, but non-neutral ([Anthropic — Quantifying Infrastructure Noise](https://www.anthropic.com/engineering/infrastructure-noise)).
 
 ### 10.4 The Recommendation
 

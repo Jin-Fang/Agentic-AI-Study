@@ -34,27 +34,27 @@
 
 **Protocol boundary(协议边界)** — 工具或 agent 标准跨越的集成线:model-to-function、agent-to-external-capability、agent-to-agent、agent-to-repo/environment(第 4 章)。
 
-**Tool call(工具调用)** — 模型发出的结构化输出(通常是 JSON),指明工具名和参数。由确定性的 harness 代码决定如何处理(第 4、8 章)。
+**Tool call(工具调用)** — 模型发出的结构化输出(通常是 JSON),指明工具名和参数。由确定性的 harness 代码决定如何处理(见《LLM Foundations》第 12 章)(第 4、8 章)。
 
-**结构化输出(structured output)** — 被约束成机器可读形状的模型输出,通常是 JSON 或 XML,便于软件可靠解析。工具调用是它在 agent 系统中的典型形式(第 1、4、8 章)。
+**结构化输出(structured output)** — 被约束成机器可读形状的模型输出,通常是 JSON 或 XML,便于软件可靠解析。工具调用是它在 agent 系统中的典型形式(见《LLM Foundations》第 12 章)(第 1、4、8 章)。
 
 ---
 
 ## 上下文与记忆
 
-**Context window(上下文窗口)** — 模型在一次推理调用中能关注的有限 token 跨度(第 2 章)。
+**Context window(上下文窗口)** — 模型在一次推理调用中能关注的有限 token 跨度(见《LLM Foundations》第 9 章)。在 harness 中,它是每个系统提示、工具结果和历史轮次都要争抢的预算(第 2 章)。
 
-**Context rot** — 随着上下文变长,模型准确回忆和使用信息的能力下降(第 2 章)。
+**Context rot** — 随着上下文变长,模型准确回忆和使用信息的能力下降(见《LLM Foundations》第 9 章)。其 harness 视角:它是首要的运行约束,在本书中以 attention budget 来刻画(第 2 章)。
 
 **Attention budget(注意力预算)** — 把上下文视为有限资源、每个新增 token 都在花费它的视角(第 2 章)。
 
-**KV-cache** — 对已处理 token 的 key/value 张量的缓存。相同的上下文前缀可由它服务,把首 token 延迟和成本降低约十倍(第 2 章)。
+**KV-cache** — 对已处理 token 的 key/value 张量的缓存(见《LLM Foundations》第 9 章)。相同的上下文前缀可由它服务,把首 token 延迟和成本降低约十倍;在 harness 中,前缀稳定性成为一个生产成本杠杆(第 2 章)。
 
-**Prefill / decode(预填充/解码)** — prefill 是处理输入提示,decode 是生成输出 token。Agentic 工作负载严重偏向 prefill(输入输出比约 100:1)(第 2 章)。
+**Prefill / decode(预填充/解码)** — prefill 是处理输入提示,decode 是生成输出 token(见《LLM Foundations》第 9 章)。Agentic 工作负载严重偏向 prefill(输入输出比约 100:1)(第 2 章)。
 
-**Lost-in-the-middle** — 模型对长上下文中段信息的关注,不如对开头和结尾可靠的倾向(第 2、3 章)。
+**Lost-in-the-middle** — 模型对长上下文中段信息的关注,不如对开头和结尾可靠的倾向(见《LLM Foundations》第 9 章)(第 2、3 章)。
 
-**Compaction(压缩)** — 在对话接近上下文上限时将其总结,并用该总结重新开启一个新窗口。有损(第 3 章)。
+**Compaction(压缩)** — 在对话接近上下文上限时将其总结,并用该总结重新开启一个新窗口。有损(见《LLM Foundations》第 9 章)(第 3 章)。
 
 **Context reset(上下文重置)** — 完全清空上下文,用结构化 handoff 启动一个全新 agent——区别于原地压缩(第 7 章)。
 
@@ -118,7 +118,7 @@
 
 **Linter / type checker(linter / 类型检查器)** — 在运行前发现风格、语法、结构或类型错误的确定性工具。它们是外层 harness 中常见的计算型 sensor(第 5 章)。
 
-**Prompt injection(提示注入)** — 一种攻击:藏在 agent 所读内容(网页、文件、工具结果)中的指令被模型当作命令执行(第 5 章)。
+**Prompt injection(提示注入)** — 一种攻击:藏在 agent 所读内容(网页、文件、工具结果)中的指令被模型当作命令执行(见《LLM Foundations》第 8、12 章)(第 5 章)。
 
 **Lethal trifecta(致命三要素)** — 同一 agent 同时具备:访问私有数据、接触不可信内容、向外通信能力——这三者的危险组合(第 5 章)。
 
@@ -142,7 +142,7 @@
 
 **Capability eval / regression eval** — capability eval 衡量 agent 新近能做什么(通过率低、正在爬升);regression eval 保护它已能可靠做到的事(接近 100%)(第 9 章)。
 
-**pass@k / pass^k** — pass@k 是 k 次尝试中至少一次成功的概率(随 k 上升);pass^k 是 k 次试验*全部*成功的概率(随 k 下降)(第 9 章)。
+**pass@k / pass^k** — pass@k 是 k 次尝试中至少一次成功的概率(随 k 上升);pass^k 是 k 次试验*全部*成功的概率(随 k 下降)(见《LLM Foundations》第 13 章)(第 9 章)。
 
 **Infrastructure noise(基础设施噪声)** — 由运行时资源配置(而非模型能力)造成的 benchmark 分数波动(第 10 章)。
 

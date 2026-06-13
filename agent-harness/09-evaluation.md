@@ -4,11 +4,13 @@
 
 Without evals, debugging is reactive: wait for complaints, reproduce manually, fix, hope nothing else regressed ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). Teams cannot distinguish real regressions from noise, automate testing of changes against many scenarios, or measure improvements. They also adopt new models slowly — without evals, taking advantage of a new model means weeks of manual testing, while evaluated teams can verify strengths and tune prompts in days.
 
-An eval is broader than a unit test. Unit tests usually check one deterministic function or module. Agent evals run the whole model-plus-harness system in an environment, then judge whether the final state satisfies the task. That matters because an agent can pass an intermediate test, produce a fluent answer, or take an unusual path while still failing the user's real goal.
+Recall that an eval grades the unit that matters — for an agent, the unit is the loop, not one model call (see Foundations ch 13). Agent evals run the whole model-plus-harness system in an environment, then judge whether the final state satisfies the task. That matters because an agent can pass an intermediate test, produce a fluent answer, or take an unusual path while still failing the user's real goal.
 
 Anthropic positions evals as compounding infrastructure: the costs are visible up front, the benefits accumulate over the agent's lifecycle. Their advice: start early, even with 20–50 simple tasks. Effect sizes in early agent development are large, so small samples suffice; mature agents need larger evals to detect smaller effects.
 
 ### 9.2 The Anatomy of an Evaluation
+
+The eval vocabulary — graders (code/model/human), traces, regression vs capability, pass@k vs pass^k, reward hacking — is established in Foundations ch 13; this chapter recaps it briefly and builds the harness-specific apparatus on top.
 
 Anthropic's vocabulary ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)):
 
@@ -59,10 +61,12 @@ Anthropic's distilled roadmap to going from no evals to evals you trust ([Anthro
 4. **Build a robust eval harness with a stable environment** — isolate trials, no shared state. Anthropic observed Claude gaining unfair advantage from inspecting git history left over from previous trials.
 5. **Design graders thoughtfully** — deterministic where possible, partial credit for multi-component tasks, calibrated LLM-as-judge with structured rubrics, escape hatches for "Unknown" to avoid hallucination, anti-hacking design.
 6. **Read transcripts** — failures should look fair; if scores stop climbing, the question is whether the agent regressed or the eval itself is now unfair.
-7. **Monitor for capability eval saturation** — an eval at 100% provides no improvement signal. SWE-Bench Verified started at 30% and is now nearing 80%, with deceptive small score increases now hiding large capability gains.
+7. **Monitor for capability eval saturation** — an eval at 100% provides no improvement signal. SWE-bench Verified started at 30% and is now nearing 80%, with deceptive small score increases now hiding large capability gains.
 8. **Maintain through open contribution** — domain experts and product teams should contribute eval tasks; product managers, customer success, salespeople can use Claude Code to file evals as PRs.
 
 ### 9.7 What Real Evals Look Like for Different Agent Types
+
+These canonical examples per agent type follow Anthropic's survey ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)):
 
 - **Coding agents**: deterministic graders are natural — does the code run, do the tests pass? SWE-bench Verified runs the test suite from a fixed GitHub issue; Terminal-Bench tests end-to-end tasks like building a Linux kernel from source.
 - **Conversational agents**: success is multidimensional — ticket resolved (state check), conversation under 10 turns (transcript constraint), tone appropriate (LLM rubric). Often require a second LLM to simulate the user (τ-Bench, τ²-Bench).
@@ -77,7 +81,7 @@ End-to-end verification should also be treated as a done gate, not a ceremonial 
 
 ### 9.9 Reading Transcripts Is the Skill
 
-A repeated theme: do not take eval scores at face value until someone reads the transcripts. Anthropic recounts a case where Opus 4.5 initially scored 42% on CORE-Bench, but investigation revealed rigid grading penalizing "96.12" when the expected answer was "96.124991…", ambiguous task specs, and stochastic tasks that were impossible to reproduce exactly. After fixing the grading bugs and running with a less constrained scaffold, the score jumped to 95% ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). Similarly, METR found tasks in their time-horizon benchmark that asked agents to optimize to a stated score threshold, but where the grading required exceeding the threshold — penalizing models that followed instructions and rewarding ones that ignored them.
+A repeated theme: do not take eval scores at face value until someone reads the transcripts. Anthropic recounts a case where Opus 4.5 initially scored 42% on CORE-Bench, but investigation revealed rigid grading penalizing "96.12" when the expected answer was "96.124991…", ambiguous task specs, and stochastic tasks that were impossible to reproduce exactly. After fixing the grading bugs and running with a less constrained scaffold, the score jumped to 95% ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). Similarly, METR found tasks in their time-horizon benchmark that asked agents to optimize to a stated score threshold, but where the grading required exceeding the threshold — penalizing models that followed instructions and rewarding ones that ignored them ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)).
 
 The general rule: failures should seem fair. When scores plateau, the question to ask is whether the eval is measuring what it should.
 

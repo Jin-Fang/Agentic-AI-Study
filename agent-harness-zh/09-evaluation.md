@@ -4,11 +4,13 @@
 
 没有 evals，调试就是被动的：等投诉、手动复现、修复，然后祈祷别回归 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。团队无法区分真实回归与噪声，无法自动测试大量场景，也无法衡量改进。采用新模型也会很慢：没有 evals，新模型上线意味着数周手工测试；有 evals 的团队可以在数天内验证优势并调 prompt。
 
-Eval 比单元测试更宽。单元测试通常检查一个确定性的函数或模块；agent eval 运行的是整个 model + harness 系统，并在环境中判断最终状态是否满足任务。这一点很重要，因为 agent 可能通过了中间测试、回答得很流畅、甚至走了一条看似合理的路径，但仍然没有完成用户真正的目标。
+回顾一下：eval 评估的是真正重要的单元——对 agent 来说，这个单元是 loop，而不是单次模型调用（见《LLM Foundations》第 13 章）。Agent eval 运行的是整个 model + harness 系统，并在环境中判断最终状态是否满足任务。这一点很重要，因为 agent 可能通过了中间测试、回答得很流畅、甚至走了一条看似合理的路径，但仍然没有完成用户真正的目标。
 
 Anthropic 将 evals 视为复利型基础设施：成本在前期可见，收益在 agent 生命周期中累积。他们建议尽早开始，哪怕只有 20-50 个简单任务。Agent 早期开发中 effect size 很大，小样本也足以发现方向；成熟 agent 需要更大 eval 才能检测较小效果。
 
 ### 9.2 Evaluation 的结构
+
+eval 的基础词汇——grader（code/model/human）、trace、regression 与 capability、pass@k 与 pass^k、reward hacking——已在《LLM Foundations》第 13 章建立；本章只做简要回顾，并在其上构建 harness 专属的机制。
 
 Anthropic 的词汇 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
@@ -59,10 +61,12 @@ Anthropic 将从无 eval 到可信 eval 的路线概括为 ([Anthropic - Demysti
 4. **构建稳定 eval harness**：隔离 trial，避免共享状态。Anthropic 观察到 Claude 会因查看前一 trial 留下的 git history 而获得不公平优势。
 5. **谨慎设计 graders**：能确定性就确定性；多组件任务给部分分；校准 LLM-as-judge rubric；允许 “Unknown” 以避免幻觉；防 eval hacking。
 6. **阅读 transcripts**：失败应看起来公平；当分数不再上升，要判断是 agent 回归，还是 eval 本身不公平。
-7. **监控 capability eval 饱和**：100% 的 eval 不再提供改进信号。SWE-Bench Verified 从 30% 起步，现在接近 80%，小分数提升可能掩盖大能力提升。
+7. **监控 capability eval 饱和**：100% 的 eval 不再提供改进信号。SWE-bench Verified 从 30% 起步，现在接近 80%，小分数提升可能掩盖大能力提升。
 8. **开放维护**：领域专家和产品团队应贡献 eval task；PM、CS、sales 也可以用 Claude Code 把 eval 作为 PR 提交。
 
 ### 9.7 不同 Agent 类型的真实 Evals
+
+下面这些按 agent 类型给出的典型例子来自 Anthropic 的综述 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
 - **Coding agents**：确定性 grader 很自然，例如代码是否运行、测试是否通过。SWE-bench Verified 基于固定 GitHub issue 跑测试套件；Terminal-Bench 测试端到端任务，例如从源码构建 Linux kernel。
 - **Conversational agents**：成功是多维的，例如 ticket resolved（状态检查）、对话少于 10 轮（transcript constraint）、语气合适（LLM rubric）。常需要第二个 LLM 模拟用户（tau-Bench、tau2-Bench）。
@@ -77,7 +81,7 @@ Anthropic 将从无 eval 到可信 eval 的路线概括为 ([Anthropic - Demysti
 
 ### 9.9 阅读 Transcript 是核心技能
 
-反复出现的主题是：在有人阅读 transcripts 前，不要直接相信 eval 分数。Anthropic 提到 Opus 4.5 在 CORE-Bench 上初始得分 42%，但调查发现严格 grader 会惩罚把期望答案 `96.124991...` 写成 `96.12`，任务 spec 模糊，还有无法精确复现的随机任务。修复 grader bug 并使用限制更少的 scaffold 后，分数跳到 95% ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。类似地，METR 发现 time-horizon benchmark 中有任务要求 agent 优化到某个阈值，但评分要求超过阈值，于是惩罚遵循指令的模型，奖励忽略指令的模型。
+反复出现的主题是：在有人阅读 transcripts 前，不要直接相信 eval 分数。Anthropic 提到 Opus 4.5 在 CORE-Bench 上初始得分 42%，但调查发现严格 grader 会惩罚把期望答案 `96.124991...` 写成 `96.12`，任务 spec 模糊，还有无法精确复现的随机任务。修复 grader bug 并使用限制更少的 scaffold 后，分数跳到 95% ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。类似地，METR 发现 time-horizon benchmark 中有任务要求 agent 优化到某个阈值，但评分要求超过阈值，于是惩罚遵循指令的模型，奖励忽略指令的模型 ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。
 
 通用规则是：失败应显得公平。当分数平台期时，要问 eval 是否仍在测它应该测的东西。
 

@@ -20,7 +20,7 @@
 
 两层会互相增强。只有运行时信号，没有过程工件，你知道发生了什么，却不知道是否满足原定范围。只有过程工件，没有运行时信号，又容易变成围绕坏行为写出的漂亮文档。生产级 harness 应让两者都可检查：任务轨迹、验收标准，以及环境确实达到目标状态的证据。
 
-OpenReview 综述补充了一个有用的实现细节：agent trace 应组织成 span tree，而不是平铺日志 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。至少应覆盖 model calls、tool invocations、retrieval steps、context-assembly operations、latency、token usage、cost、retries、permission decisions 和最终 outcome state。OpenTelemetry 与新兴 GenAI semantic conventions 很重要，因为它们让 agent trace 能进入普通分布式系统的同一套可观测栈。
+OpenReview 综述补充了一个有用的实现细节：agent trace 应组织成 span tree，而不是平铺日志 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。至少应覆盖 model calls、tool invocations、retrieval steps、context-assembly operations、latency、token usage、cost、retries、permission decisions 和最终 outcome state。OpenTelemetry 与新兴 GenAI semantic conventions 很重要，因为它们让 agent trace 能进入普通分布式系统的同一套可观测栈 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
 
 ### 11.3 从生产 Trace 到 Regression Case
 
@@ -34,7 +34,7 @@ OpenReview 综述补充了一个有用的实现细节：agent trace 应组织成
 
 这会把 traces 变成 eval task 的来源，也能防止团队只优化合成 benchmark，却错过自己用户真正触发的失败。它与 governance 的边界很重要：trace-to-eval pipeline 必须保留 privacy、provenance 和 permission metadata，否则会生成技术上有用但运营上不安全的测试。
 
-### 11.4 压力测试负载组件
+### 11.4 压力测试 load-bearing 组件
 
 Anthropic 的 harness-design 后续文章增加了互补纪律 ([Anthropic - Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps))。Harness 中每个组件都编码了一个关于“模型无法独立完成什么”的假设。随着模型改进，这些假设会过期。推荐做法是：一次移除一个组件，跑 eval，然后观察结果。
 
@@ -84,7 +84,7 @@ HumanLayer 将其解读为支持自己的 AGENTS.md 建议：文件要简短，�
 
 一个 harness 模式经过真实使用验证后，不应该只停留在某个仓库里的隐性经验。应该把它打包。实践中的单位可以是 skill、模板包、小型脚手架生成器，或一组 repo 检查。关键是它同时携带指令和可工作的工件：不只是“记得维护状态”，而是包含 progress log 模板、feature list schema、启动脚本和验证命令。
 
-Learn Harness Engineering 课程用 `harness-creator` 展示了这种打包形态：它是一个用于创建、评估和改进五个 harness 子系统的 skill，覆盖指令、状态、验证、范围和会话生命周期 ([Learn Harness Engineering - Skills](https://walkinglabs.github.io/learn-harness-engineering/zh/skills/))。这是一个有用的工程边界。可复用 harness 包不应把某个理想 workflow 永久冻结，而应让经过验证的默认做法容易安装、容易检查，并在 trace 证明组件不再 load-bearing 时容易移除。
+Learn Harness Engineering 课程用 `harness-creator` 展示了这种打包形态：它是一个用于创建、评估和改进五个 harness 子系统的 skill，覆盖指令、状态、验证、范围和会话生命周期 ([Learn Harness Engineering — Skills](https://walkinglabs.github.io/learn-harness-engineering/zh/skills/))。这是一个有用的工程边界。可复用 harness 包不应把某个理想 workflow 永久冻结，而应让经过验证的默认做法容易安装、容易检查，并在 trace 证明组件不再 load-bearing 时容易移除。
 
 ### 11.10 Meta-Harness：优化 Harness 本身
 

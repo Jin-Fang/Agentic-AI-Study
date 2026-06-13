@@ -63,7 +63,7 @@ Prithvi Rajasekaran 的后续文章将这个模式扩展到更难的问题：从
 
 ### 7.5 自验证是头号杠杆
 
-LangChain 从另一条路得到相同结论 ([LangChain - Improving Deep Agents](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/))。通过 trace 分析，他们识别出最常见的失败模式：agent 写了方案，重读自己的代码，觉得看起来没问题，然后停止。他们在系统提示中加入结构化指导：Plan、Build with verification in mind、Verify by running tests and comparing output to spec、Fix；并加入 `PreCompletionChecklistMiddleware`，在 agent 退出前强制验证。
+LangChain 的 Top-30-to-Top-5 案例研究从另一条路得到相同结论 ([LangChain - Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/))。通过 trace 分析，他们识别出最常见的失败模式：agent 写了方案，重读自己的代码，觉得看起来没问题，然后停止。他们在系统提示中加入结构化指导：Plan、Build with verification in mind、Verify by running tests and comparing output to spec、Fix；并加入 `PreCompletionChecklistMiddleware`，在 agent 退出前强制验证。
 
 这个模式呼应社区流传的 “Ralph Wiggum loop”：一个 hook 拦截 agent 的退出尝试，并在干净上下文窗口中重新注入原始 prompt，迫使 agent 继续对照目标工作 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
 

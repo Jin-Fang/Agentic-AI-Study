@@ -2,7 +2,7 @@
 
 ### 1.1 Model + Harness 公式
 
-原始语言模型接收文本并输出文本。这就是它原生能力的全部。要把它变成 agent，也就是一个能浏览代码库、运行测试、写入数据库、与用户对话、从错误中恢复，并在数小时任务中持续推进的系统，额外能力都必须围绕模型构建出来。LangChain 将 harness 枚举为：系统提示、工具及其描述、内置基础设施（文件系统、沙箱、浏览器）、子代理派生和模型路由等编排逻辑，以及压缩、续跑、lint 检查等确定性执行的 hooks 或中间件 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
+原始语言模型接收文本并输出文本——它的原生能力与边界正是配套前置卷的主题（见《LLM Foundations》第 1 章）。要把它变成 agent，也就是一个能浏览代码库、运行测试、写入数据库、与用户对话、从错误中恢复，并在数小时任务中持续推进的系统，额外能力都必须围绕模型构建出来。LangChain 将 harness 枚举为：系统提示、工具及其描述、内置基础设施（文件系统、沙箱、浏览器）、子代理派生和模型路由等编排逻辑，以及压缩、续跑、lint 检查等确定性执行的 hooks 或中间件 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
 
 这个框架之所以重要，是因为它把设计问题摆到了明处。模型开箱即用时，无法跨交互维护持久状态、执行代码、访问实时知识，也不能为了完成任务自行配置环境和安装包；这些都是 harness 层能力 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。即使是最基本的聊天，也就是模型看起来“记得”刚才说过什么，本质上也是一个 harness 模式：一个 while-loop 记录历史消息，并把新消息追加进上下文。
 
@@ -10,17 +10,7 @@ HumanLayer 从配置 coding agent 的视角给出的工作定义基本相同：�
 
 ### 1.2 Agent 循环
 
-在逐块剖析 harness 之前，先看清每个 agent 都在运行的那个循环。一次原始模型调用是一次性的——文本进，文本出。*agent* 把这次调用包进一个循环里：
-
-1. **组装上下文** — 系统提示、目前为止的对话与事件历史、工具定义，以及任何刚检索到的数据，被拼接成模型的输入。
-2. **模型做决定** — 它发出最终答案，或一个 *工具调用*：通常是 JSON 的结构化输出，指明工具名和参数。
-3. **harness 执行** — 确定性的 harness 代码解析这个工具调用，执行它（一条 shell 命令、一次文件读取、一个 API 请求），并捕获结果。
-4. **追加观察结果** — 工具结果作为新消息追加进上下文。
-5. **重复** — 循环带着更长的上下文再次运行，直到模型返回最终答案或触发停止条件。
-
-因此，工具调用不是魔法，也不是模型真的直接行动。它只是模型生成的结构化输出，由代码解释和执行；HumanLayer 后来也把这一点明确成 “tools are just structured outputs” 原则 ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))。Agent transcript 中所有看起来像“动作”的东西也是如此：文件编辑、shell 命令、浏览器点击、数据库写入、给人类发消息，都只有在 harness 接受模型请求并执行之后，才会变成真实效果。
-
-Anthropic 把这个循环中心的模型称为 *augmented LLM*——配备了检索、工具和记忆的模型，能生成自己的查询、选择工具、决定保留什么 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))。在研究文献中，这种把推理与工具调用交错进行的模式常被称为 *ReAct*（reason + act）([Yao et al. - ReAct](https://arxiv.org/abs/2210.03629))；无论模型是否在每次调用前以可见文本“思考”，循环结构都是一样的。
+agent 循环——以及“工具调用是 harness 执行的结构化输出，而非模型真的直接行动”这一原则——已在配套的前置卷中确立（见《LLM Foundations》第 1 章与第 12 章）。这里快速回顾：一次原始模型调用是一次性的（文本进，文本出）；*agent* 把它包进一个循环，循环组装上下文，让模型发出最终答案或一个 *工具调用*（通常是 JSON 的结构化输出，指明工具名和参数），由确定性的 harness 代码执行该调用，追加观察结果，再带着更长的上下文重复。HumanLayer 把同一点表述为 “tools are just structured outputs” ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：文件编辑、shell 命令、浏览器点击、数据库写入，都只有在 harness 接受模型请求并执行之后才会变成真实效果。这个循环中心的模型，就是 Anthropic 所说的 *augmented LLM*、研究文献所称的 *ReAct*（reason + act）（机制见《LLM Foundations》第 12 章）。
 
 这个循环的两个后果贯穿全书。第一，**上下文单调增长**：每一轮都追加一个工具调用及其观察结果，因此 N 步任务会累积 N 轮历史。这就是为什么第 2 章把上下文当作有限资源，也是压缩、子代理和记忆之所以存在的原因。第二，**模型本身从不执行任何东西**——它只发出请求，由确定性的 harness 代码决定满足哪些请求。请求与执行之间的这个间隙，正是后续章节中每一道护栏、沙箱、hook 和审批关卡的插入点：harness 就处在循环里，夹在模型所要求的与实际发生的之间。
 
@@ -40,7 +30,7 @@ flowchart LR
 
 “Harness”这个词的用法并不总是严格。Thoughtworks 的作者指出，不同人说 harness 时可能指不同层。Birgitta Böckeler 建议把它理解成三层同心圆：核心是模型，中间是 coding agent 的 *builder harness*（Anthropic、OpenAI 等提供的系统提示和工具），外层是 *user harness*（团队为了适配自己代码库而添加的 AGENTS.md、hooks、skills、review agents）([Thoughtworks / Martin Fowler - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。多数工程师的日常工作主要发生在外层。
 
-OpenReview 综述论文 *Agent Harness Engineering: A Survey* 给了同一边界一个更正式的定义：harness 是一套软件与接口基底，负责管理 foundation model 如何感知上下文、调用工具、跨时间行动，并在部署环境中保持可审计 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。它的 binding-constraint thesis 比“harness 有用”更强：对长周期 agent 来说，可靠性瓶颈常常不只在模型能力，也在包裹模型的运行基底。
+OpenReview 综述论文 *Agent Harness Engineering: A Survey* 给了同一边界一个更正式的定义：harness 是一套软件与接口基底，负责管理 foundation model 如何感知上下文、调用工具、跨时间行动，并在部署环境中保持可审计 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。它的 binding-constraint thesis 比“harness 有用”更强：对长周期 agent 来说，可靠性常常既取决于模型本身的质量，也同等地取决于包裹模型的运行基底。
 
 ### 1.4 ETCLOVG：七层系统地图
 
@@ -54,7 +44,7 @@ OpenReview 综述论文 *Agent Harness Engineering: A Survey* 给了同一边界
 - **Verification**：eval harness、grader、任务集、outcome check 和 readiness gate。
 - **Governance**：权限、策略语言、审计轨迹、人类审批、constitutional/rule-based 控制和跨层安全。
 
-本书多数章节都可以看作对这七层的展开。第 2-3 章主要讨论 context 和 memory；第 4-5 章覆盖 tools 和 execution；第 7-8 章进入 lifecycle；第 9-11 章展开 verification、observability 和 governance，并在展望中回到它们的开放问题。
+本书多数章节都可以看作对这七层的展开。第 2-3 章主要讨论 context 和 memory；第 4-5 章覆盖 tools 和 execution；第 7-8 章进入 lifecycle；第 9-11 章展开 verification、observability 和 governance，并在展望中再次回到。
 
 ### 1.5 Harness 为什么存在：从模型缺陷倒推
 

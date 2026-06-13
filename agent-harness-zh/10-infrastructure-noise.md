@@ -21,9 +21,9 @@ Anthropic 在 Google Kubernetes Engine cluster 上用六种资源配置运行 Te
 
 严格资源限制会无意中奖励高效策略；宽松限制奖励善用可用资源的 agent。二者都可以是合法测试目标，但如果不说明配置就折成单一分数，解释会变困难。
 
-Anthropic 的 `bn-fit-modify` 例子说明了这一点：在宽松限制下，一些模型默认先安装完整 Python 数据科学栈（pandas、networkx、scikit-learn），再写方案代码。在严格限制下，pod 在安装时内存耗尽。其实也存在更轻的策略：只用标准库从头实现数学。一些模型默认走轻策略。资源配置决定哪种默认策略成功。
+Anthropic 的 `bn-fit-modify` 例子说明了这一点：在宽松限制下，一些模型默认先安装完整 Python 数据科学栈（pandas、networkx、scikit-learn），再写方案代码。在严格限制下，pod 在安装时内存耗尽。其实也存在更轻的策略：只用标准库从头实现数学。一些模型默认走轻策略。资源配置决定哪种默认策略成功 ([Anthropic - Quantifying Infrastructure Noise](https://www.anthropic.com/engineering/infrastructure-noise))。
 
-同样效应也出现在 Terminal-Bench 之外，但幅度较小。Anthropic 的 SWE-bench 实验中，5x RAM 在 227 个问题上比 1x 高 1.54 个百分点；比 Terminal-Bench 小，因为 SWE-bench 任务资源密集度更低，但仍非中性。
+同样效应也出现在 Terminal-Bench 之外，但幅度较小。Anthropic 的 SWE-bench 实验中，5x RAM 在 227 个问题上比 1x 高 1.54 个百分点；比 Terminal-Bench 小，因为 SWE-bench 任务资源密集度更低，但仍非中性 ([Anthropic - Quantifying Infrastructure Noise](https://www.anthropic.com/engineering/infrastructure-noise))。
 
 ### 10.4 建议
 
@@ -33,7 +33,7 @@ Eval 应分别说明保证分配（floor）和硬上限（ceiling），不要只
 
 ---
 
-## 图：资源配置与分数
+## 图：资源配置与分数（Terminal-Bench 2.0 汇总）
 
 下表总结 Anthropic 报告的两个区间。只有 1x、3x 和 uncapped 错误率在文章中明确量化；中间行保持定性，以免暗示来源没有给出的精度。
 

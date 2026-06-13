@@ -4,6 +4,13 @@ Full bibliography for *Agent Harness: A Practitioner's Textbook*.
 
 ---
 
+## Foundations (prerequisite)
+
+- *LLM Foundations for Harness Engineering* — the prerequisite stage-1 volume this book builds on.
+  [../llm-foundations/](../llm-foundations/)
+
+---
+
 ## Foundations
 
 - OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026.
@@ -97,4 +104,7 @@ Full bibliography for *Agent Harness: A Practitioner's Textbook*.
   https://github.com/walkinglabs/awesome-harness-engineering
 
 - *Learn Harness Engineering*, Walking Labs.
-  https://walkinglabs.github.io/learn-harness-engineering/
+  https://walkinglabs.github.io/learn-harness-engineering/en/
+
+- *Learn Harness Engineering — Skills*, Walking Labs.
+  https://walkinglabs.github.io/learn-harness-engineering/en/skills/

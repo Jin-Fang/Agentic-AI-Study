@@ -99,7 +99,7 @@
 - Stephanie Lin, Jacob Hilton, and Owain Evans, *TruthfulQA: Measuring How Models Mimic Human Falsehoods*, 2021.
   https://arxiv.org/abs/2109.07958
 
-- Stephanie Kadavath et al., *Language Models (Mostly) Know What They Know*, 2022.
+- Saurav Kadavath et al., *Language Models (Mostly) Know What They Know*, 2022.
   https://arxiv.org/abs/2207.05221
 
 - Dan Hendrycks et al., *Measuring Massive Multitask Language Understanding*, 2020.

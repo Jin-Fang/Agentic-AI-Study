@@ -10,6 +10,8 @@ HELM 和 BIG-bench 这类大规模 benchmark 有价值，因为它们用许多�
 
 不同公开 benchmark 测的是不同行为切片。MMLU 衡量大量 multiple-choice 学术和专业科目的广泛知识 ([Measuring Massive Multitask Language Understanding](https://arxiv.org/abs/2009.03300))。TruthfulQA 测试模型在面对容易诱发常见错误信念的问题时，是否仍能真实回答 ([TruthfulQA](https://arxiv.org/abs/2109.07958))。HumanEval 和 MBPP 则通过可执行 programming problems 测代码生成 ([Evaluating Large Language Models Trained on Code](https://arxiv.org/abs/2107.03374), [Program Synthesis with Large Language Models](https://arxiv.org/abs/2108.07732))。
 
+还有一类较新的 agentic benchmark，试图测整个 tool-loop，而不是单次回答。SWE-bench 让模型在一个 repo 上解决真实的 GitHub issue，由 hidden tests 评分。tau-bench 在模拟用户和 policy 下给多轮工具调用打分。GAIA 出的任务需要多步推理、网页浏览和工具。WebArena 和 OSWorld 则把模型放进真实的浏览器或桌面环境，按最终状态评分。它们比 MMLU 更接近 harness 行为，但带着同样的告诫：可能被污染、覆盖的是它们自己的任务分布而不是你的、并且高分不代表这个 loop 能在你的工具、权限和数据上跑通。
+
 这些 benchmark 有用，但不是产品 eval。它们可能被训练数据污染，可能对真实 workflow 来说太窄，也可能对权限、检索、工具副作用、延迟和恢复行为不敏感。一个模型可以在 MMLU 上变强，却在你的工具 schema 上回归；也可以在 HumanEval 上表现好，却因为本地惯例、依赖或 hidden tests 不同而在你的 repo 里失败。
 
 公开 benchmark 适合作为背景信号；workload eval 才适合作为 release 信号。
@@ -34,6 +36,12 @@ HELM 和 BIG-bench 这类大规模 benchmark 有价值，因为它们用许多�
 Deep dive 的 reward-model 部分提醒我们：评估本身也可能成为一个学得或近似的系统。Reward model 会给输出打分，但它只是人类偏好的 proxy ([Deep Dive, around 02:52:39](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10359s))。Model-based grading 也是同样形状。它能扩展 review，但也可能漏掉系统性失败。
 
 可以使用 model grader，但不要把 grader 分数误认为真实答案。
+
+### 处理随机性
+
+因为系统是概率性的，单次的 pass 或 fail 不是 release 信号。每个 golden task 应该跑若干次（例如视成本跑 5-20 次），报告通过率而不是单次结果。要区分 pass@k（k 次里至少成功一次）和 pass^k（k 次每次都成功）。pass@k 会美化一个不稳定的 agent；当 harness 必须每次都成功时，pass^k 才是诚实的指标，所以对可靠性敏感的 workflow 更应该用它。把通过率当作带置信区间的估计：8/10 通过的任务置信区间很宽，所以两个版本之间的小幅分数变化可能只是噪声，而不是回归。
+
+固定你做 eval 时的采样设置。记录 temperature，以及在 API 支持时记录固定的 seed，这样分数变化反映的是真实行为变化，而不是不同的 decoding 配置。如果在固定设置下，某个任务在多次运行间在 pass 和 fail 之间翻转，就标记为 flaky 并 triage：把它从 release gate 里隔离出去，或者收紧 rubric 直到判定稳定。一个 flaky 的 eval 本身就是关于某个不稳定行为的发现。
 
 ## Golden Tasks
 
@@ -89,14 +97,14 @@ Workflow 越重要，验证越应该独立。
 
 ## Eval 里的 Reward Hacking
 
-Karpathy 关于 RLHF reward hacking 的讨论，直接适用于 harness eval ([Deep Dive, around 03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s))。如果系统被优化到某个 metric，它可能学会满足 metric，而不是满足真实目标。
+Post-training 里的 reward hacking（见[第 7 章](./07-post-training.md)）在 harness eval 里有一个直接对应。Karpathy 关于 RLHF reward hacking 的讨论在这里同样适用 ([Deep Dive, around 03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s))。如果系统被优化到某个 metric，它可能学会满足 metric，而不是满足真实目标。
 
 例子：
 
 - summarizer 通过引用很多无关段落最大化 citation count；
 - coding agent 通过 visible tests，却破坏 hidden behavior；
 - support bot 为了客户情绪避免说难听但必要的真话；
-- retrieval 系统优化相似度，却漏掉精确 policy clause；
+- retrieval 系统优化基于点击的相似度信号，却漏掉精确 policy clause；
 - model grader 奖励流畅解释，但回答没命中问题。
 
 缓解手段包括 hidden tests、多指标、人类 audit、adversarial cases 和周期性 trace review。

@@ -10,7 +10,9 @@ A vocabulary of whole words is brittle. New names, code identifiers, URLs, chemi
 
 Subword tokenization is the compromise. Byte Pair Encoding and related methods represent frequent strings as larger tokens and rare strings as combinations of smaller tokens. Sennrich, Haddow, and Birch introduced subword units for open-vocabulary neural machine translation, showing that rare and unseen words can be handled by decomposing them into pieces ([Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909)).
 
-Modern LLM tokenizers use this broad idea at massive scale. The exact tokenizer differs by model family, so the same text may consume different token counts in different systems.
+BPE builds its vocabulary by starting from individual bytes or characters and then repeatedly merging the most frequent adjacent pair into a new token, growing the vocabulary one merge at a time. Because the base units are raw bytes, any input can always be encoded as some sequence of tokens, so there is no out-of-vocabulary case; an unfamiliar string just falls back to smaller pieces. This is why most "surprises" later in the chapter have a single root cause: the boundaries are whatever the learned merges happened to produce.
+
+Modern LLM tokenizers use this broad idea at massive scale, with vocabularies typically ranging from tens of thousands to around 100k or more tokens. The exact tokenizer differs by model family, so the same text may consume different token counts in different systems.
 
 ## Token Budgets Are Not Word Budgets
 
@@ -18,7 +20,7 @@ Harnesses often reason in terms of "documents," "messages," or "paragraphs," but
 
 This creates practical design rules:
 
-- Count tokens before sending large contexts.
+- Count tokens before sending large contexts, using a tokenizer library or the provider's token-count endpoint. Count with the tokenizer that matches the target model, since token counts differ by model family.
 - Truncate by semantic unit, not by raw character count.
 - Avoid dumping logs, tables, or minified JSON directly into prompts.
 - Prefer tools that search, filter, and summarize before returning data.
@@ -44,11 +46,11 @@ Chat models do not receive a mystical "conversation" object. The conversation is
 
 This detail matters for harness design:
 
-- The model learns the provider's chat format during post-training.
+- The model learns the provider's chat format during [post-training](./07-post-training.md).
 - Role boundaries must be preserved when constructing prompts.
 - Tool results should be clearly delimited from user instructions.
 - Summaries inserted as assistant messages may be interpreted differently from summaries inserted as system or developer context.
-- Prompt injection attacks often work by smuggling instruction-like text into data positions.
+- [Prompt injection](./08-prompting-and-in-context-learning.md) attacks often work by smuggling instruction-like text into data positions.
 
 If a harness builds conversation strings manually, it should understand the target model's expected template. Otherwise, it may accidentally create a distribution shift: the model sees a sequence that looks unlike the conversations it was trained to follow.
 
@@ -84,7 +86,13 @@ Common failures include:
 - A summary deletes role boundaries and causes the model to treat data as instruction.
 - A screenshot is downsampled or encoded in a way that hides small but important UI text.
 
-These are not model-intelligence failures. They are representation failures.
+Most of these are representation and budgeting failures rather than reasoning failures: the model is capable, but the encoding hid or distorted what it needed. The next section covers a different class, where tokenization degrades a capability directly.
+
+## Tokenization-Induced Capability Gaps
+
+Some weaknesses are not about budget at all. Because characters are packed inside tokens, the model never sees text as a clean stream of letters or digits, and tasks that operate on individual characters become systematically harder. Spelling, counting characters (the classic "how many r's in strawberry"), reversing a string, and arithmetic where digits are split across token boundaries are the common examples. Karpathy revisits this in the deep dive, noting that models struggle with spelling for exactly this reason ([Deep Dive, around 02:01:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=7271s)).
+
+The harness lesson is to route such tasks to tools instead of asking the model to do them by inspection. A code interpreter can count, reverse, or compute exactly, and the model reads back the result. Treat character-level and exact-arithmetic operations as tool calls, not as something the model should reliably do in its head.
 
 ## Tokenization and Context Engineering
 

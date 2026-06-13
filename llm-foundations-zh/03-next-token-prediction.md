@@ -34,7 +34,7 @@ The capital of France is
 
 ## Loss 和参数更新
 
-训练使用 loss function：这是一个数字，模型给正确下一个 token 的概率越高，这个数字越低。Karpathy 明确把 loss 讲成训练过程试图降低的单一数字 ([Deep Dive, around 00:35:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2158s))。优化器会据此更新模型参数，让未来预测更符合数据。
+训练使用 loss function：这是一个数字，模型给正确下一个 token 的概率越高，这个数字越低。具体来说，它是正确下一个 token 概率取负对数后的平均值，也就是 cross-entropy（交叉熵）或 negative log-likelihood（负对数似然）。它的指数就是 perplexity（困惑度），一个更直观的尺度：perplexity 为 10，意味着模型平均上的不确定程度相当于在 10 个 token 中均匀挑选。同样的逐 token log-probability 就是工程师在模型 API 中看到的 logprobs，所以训练 loss 和推理时的 logprobs 是同一个量的两面。Karpathy 明确把 loss 讲成训练过程试图降低的单一数字 ([Deep Dive, around 00:35:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2158s))。优化器会据此更新模型参数，让未来预测更符合数据。
 
 训练循环大致是：
 
@@ -78,6 +78,10 @@ Next-token pretraining 的结果是 base model。Base model 可以补全文本�
 - 把检索文本当证据，不当系统行为的权威。
 
 模型预训练提供广泛能力。Harness 把这种能力转化为受控工作。
+
+## 模型用 Token 来计算
+
+每次 forward pass 在每个位置只做有限的计算，所以模型无法在单个 token 内部完成任意长的计算。让它"在脑子里"把两个大数相乘，就是把全部工作压进一步，往往会出错。可靠的做法是给模型更多 token 把工作摊开，或者把精确计算挪到模型外面。Chain-of-thought 和 reasoning model 走前一条路：中间 token 成为草稿空间，于是难题在许多次 forward pass 上求解，而不是一次。Tool use 走后一条路：计算器或 code interpreter 执行精确计算，模型再读回结果。这是这三种技术共同的原因，后面会在 [Prompting](./08-prompting-and-in-context-learning.md) 和 [推理、工具与 Agent](./12-reasoning-tools-and-agents.md) 中展开。
 
 ## 要点
 

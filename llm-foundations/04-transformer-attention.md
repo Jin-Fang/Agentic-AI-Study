@@ -37,6 +37,8 @@ The basic intuition:
 - Values carry the information to be mixed in.
 - Attention weights decide how strongly positions influence each other.
 
+For a concrete picture, imagine the model generating code and reaching the position right after `return `. To predict the next token, that position's query matches strongly against the key of an earlier `user_count = ...` line, so the value carrying that variable name flows in and the model emits `user_count`. The same thing happens with prose: when answering a question, the generating position attends back to the sentence in a retrieved chunk that actually states the answer, and pulls that information forward. No math required, just a later position looking back and weighting earlier ones by relevance.
+
 This is not a database lookup. It is a learned, soft, distributed operation. Relevant text can influence generation, but irrelevant or misleading text can also influence generation. Long context increases opportunity and risk at the same time.
 
 The attention block is the part Karpathy points to when explaining how positions communicate inside the Transformer ([Deep Dive, around 00:24:29](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=1469s)). In harness terms, attention is why putting evidence into the prompt can work at all. It is also why evidence placement, delimiters, and noise control matter.
@@ -82,7 +84,7 @@ This distinction avoids confusion. When a model fails to follow a tool schema, t
 
 ## Attention Cost
 
-Standard attention compares positions with other positions, which makes long context expensive. Modern systems use many optimizations, but context length still affects latency, memory, and cost. The harness should not treat a large context window as permission to paste everything.
+Standard attention compares every position with every other position, so its cost grows roughly quadratically (O(n^2)) with sequence length: double the context and attention work roughly quadruples. Generation also pays a per-token cost that grows with the prefix length. Modern systems use many optimizations, but context length still affects latency, memory, and cost. The harness should not treat a large context window as permission to paste everything.
 
 Good harnesses use the model's attention deliberately:
 

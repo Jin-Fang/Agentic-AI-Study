@@ -8,7 +8,7 @@ Large pretraining corpora contain web pages, books, code, papers, discussions, d
 
 Karpathy emphasizes that dataset construction is a major part of the work, not a side detail. This is why model behavior can differ across domains. A model may be strong at Python because it saw a large amount of code, weaker at a niche internal DSL because it did not, and unreliable on a private company's current process because that process was never in pretraining data.
 
-The deep dive uses FineWeb as a concrete public example of a web-scale text dataset and discusses how raw Common Crawl-like data must be transformed before training ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s)). The raw web is not a clean book. It contains menus, cookie banners, duplicated templates, spam, broken extraction, boilerplate, and pages in many languages.
+The deep dive uses FineWeb as a concrete public example of a web-scale text dataset and discusses how raw Common Crawl-like data must be transformed before training ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s)). FineWeb is on the order of tens of terabytes of text, roughly 15 trillion tokens after filtering, which gives a sense of the scale involved. The raw web is not a clean book. It contains menus, cookie banners, duplicated templates, spam, broken extraction, boilerplate, and pages in many languages.
 
 Dataset construction therefore includes:
 
@@ -43,9 +43,11 @@ For harnesses, the practical lesson is that model memory is uneven. A model may 
 
 ## Scaling Laws
 
-The broad empirical lesson of the last several years is that larger models trained on more data with more compute often improve predictably. Kaplan et al. found power-law relationships between loss and model size, dataset size, and compute over large ranges ([Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361)).
+The broad empirical lesson of the last several years is that larger models trained on more data with more compute often improve predictably. Kaplan et al. found power-law relationships between loss and model size, dataset size, and compute over large ranges ([Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361)). The power-law intuition is that loss falls smoothly as a function of each input: every additional order of magnitude of compute buys a roughly fixed decrement in loss, so gains keep coming but with diminishing returns per dollar.
 
-Later work showed that compute-optimal training requires balancing parameters and tokens. The Chinchilla paper argued that many earlier large models were undertrained relative to their size, and that using more data for a smaller model can outperform a much larger undertrained model at the same compute budget ([Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556)).
+Later work showed that compute-optimal training requires balancing parameters and tokens. The Chinchilla paper argued that many earlier large models were undertrained relative to their size, and that using more data for a smaller model can outperform a much larger undertrained model at the same compute budget ([Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556)). The rough rule of thumb it gave is about 20 tokens per parameter for compute-optimal training.
+
+But compute-optimal training minimizes the cost of training once, not the cost of running the model forever. Since 2023 the norm has been to deliberately train past the Chinchilla-optimal point: a smaller model trained on many more tokens (for example, a few-billion-parameter model on many trillions of tokens) costs more to train but is cheaper to serve on every request. This is the missing link to "Compute Is an Operational Constraint" below: compute-optimal is not the same as deployment-optimal, and for a high-traffic workflow the deployment-optimal choice is usually a smaller, over-trained model.
 
 Scaling laws are strongest as statements about aggregate loss and average trends. They are not a guarantee that every benchmark, workflow, or capability improves smoothly. Some apparent "emergent" jumps can be partly caused by metric choice or thresholded scoring rather than a sharp new internal mechanism ([Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004)).
 
@@ -55,7 +57,7 @@ The harness-level consequence is straightforward: model selection is not just "b
 
 ## Compute Is an Operational Constraint
 
-Training produces parameters, but inference spends compute every time the model is used. Karpathy shows concrete GPU-oriented examples in the deep dive to make the cost visible ([Deep Dive, around 00:40:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2411s)). For harness work, this means cost is not only a provider billing concern. It changes architecture.
+Training produces parameters, but inference spends compute every time the model is used. Karpathy shows concrete GPU-oriented examples in the deep dive to make the cost visible ([Deep Dive, around 00:40:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2411s)). The numbers also fall fast: GPT-2 cost on the order of $40,000 to train in 2019, but Karpathy's later reproduction ran for roughly $600 on rented GPUs as hardware and software improved. For harness work, this means cost is not only a provider billing concern. It changes architecture.
 
 Expensive inference encourages:
 

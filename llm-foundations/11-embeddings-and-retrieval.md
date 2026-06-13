@@ -8,7 +8,11 @@ For harness engineers, RAG is not a model feature. It is a harness pattern.
 
 An embedding model maps text into a vector space where semantically related texts tend to be near each other. A retrieval system embeds documents or chunks, embeds the query, and finds nearby vectors. This is useful when keyword search misses paraphrases or conceptual matches.
 
+"Nearby" is a numeric score, usually cosine similarity or dot product between the query vector and each chunk vector. Computing this exactly against every chunk does not scale, so production vector databases use approximate nearest neighbor (ANN) indexes such as HNSW or IVF. These trade recall for latency: they return the true nearest chunks most of the time, not every time. That makes the index itself an implicit source of Recall@k loss, so index parameters (and not just the embedding model) should be part of retrieval evaluation.
+
 Embeddings are not magic. They can miss exact constraints, confuse near neighbors, or retrieve text that is topically similar but not actually relevant. Hybrid search, metadata filters, reranking, and domain-specific chunking often matter.
+
+Hybrid search combines lexical retrieval (exact-match tools like BM25 or grep) with vector retrieval, then merges the two result lists. Lexical retrieval is good at exact tokens that embeddings blur over; vector retrieval is good at paraphrases and concepts. This matters most for code readers who need an exact symbol name, error code, or version number, where a near-miss neighbor is useless.
 
 Karpathy's intro presents retrieval-augmented generation as an alternative to expecting all knowledge to live inside the model parameters ([Intro to LLMs, around 00:41:33](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2493s)). That distinction is central:
 
@@ -50,6 +54,9 @@ Useful retrieval metrics include:
 - **Recall@k**: whether the needed chunk appears in the top k results.
 - **Precision@k**: how many retrieved chunks are actually useful.
 - **MRR or NDCG**: whether better evidence is ranked earlier.
+
+Generation / end-to-end metrics measure what happens after retrieval:
+
 - **Citation support rate**: whether final cited chunks actually support the answer.
 - **Answer faithfulness**: whether generated claims stay inside retrieved evidence.
 
@@ -119,7 +126,7 @@ Harness controls:
 
 ## RAG vs Fine-Tuning
 
-Use retrieval when information is large, changing, private, or needs citation. Use [fine-tuning](./07-post-training.md) when behavior or style must be internalized across many calls. Many systems need both: fine-tuned behavior plus retrieved knowledge.
+Use retrieval when information is large, changing, private, or needs citation. Use [fine-tuning](./07-post-training.md) when behavior or style must be internalized across many calls. Here fine-tuning means customer-side training on top of an already post-trained model, not the vendor post-training that shaped the assistant in the first place. Many systems need both: fine-tuned behavior plus retrieved knowledge.
 
 The harness should own the retrieval path because it owns permissions, indexing, freshness, and auditability.
 

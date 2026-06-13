@@ -10,6 +10,8 @@ Supervised fine-tuning, or SFT, trains the model on examples of desired behavior
 
 The model is still predicting tokens, but the distribution has changed. It has seen many examples of assistant behavior, so a chat prompt elicits an assistant-like continuation.
 
+Where does this data come from? Originally, human labelers wrote the ideal answers by hand, following detailed labeling instructions that spell out what a good response looks like: helpful, honest, harmless. Today much of it is LLM-generated synthetic dialogue that humans review and edit, which is cheaper and scales further. Either way, the assistant is imitating those answers. Karpathy's mental model is the useful one here: talking to an assistant is closer to talking to a statistical simulation of the labelers than to a knowing entity. That framing explains a lot of observed behavior — the default tone, which requests get refused, when the model asks a clarifying question — and it explains behavior drift on model upgrades, because new labeling guidelines and new synthetic data move that simulated labeler.
+
 For harness engineers, SFT explains why message format matters. Chat templates, role labels, system messages, and tool-call formats are part of the behavior the model was trained to imitate.
 
 Karpathy frames fine-tuning as the stage that changes the model from a raw internet-document completer into an assistant model ([Intro to LLMs, around 00:14:29](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=869s)). In practice, this means the training data stops looking like arbitrary web pages and starts looking like conversations:
@@ -94,7 +96,7 @@ Harness engineers should separate:
 
 Confusing these layers leads to bad designs. A refusal is not proof that the model lacks the capability. A confident answer is not proof that the model knows the fact. A tool-call string is not proof that the action should run.
 
-Jailbreaks illustrate this separation. Karpathy shows examples where adversarial prompts or multimodal inputs can push a model away from its safety behavior ([Intro to LLMs, around 00:46:16](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2776s)). The important lesson is not a specific attack string. The lesson is that safety behavior is learned and mediated by context. It should be reinforced by harness controls such as policy checks, permission boundaries, and tool gating.
+Jailbreaks illustrate this separation: safety behavior is learned in post-training, so it can be pushed around by context rather than being a hard guarantee. The implication here is just that the harness must reinforce it with controls such as policy checks, permission boundaries, and tool gating. [Chapter 10](./10-knowledge-hallucination-uncertainty.md) gives the formal treatment of refusal and jailbreaks.
 
 ## Fine-Tuning vs Harnessing
 
@@ -107,6 +109,8 @@ Fine-tuning changes the model. Harnessing changes the environment around the mod
 - Need task reliability? Build evals and traces.
 
 Fine-tuning is powerful when behavior must be internalized across many calls or when latency makes long prompts impractical. It is not a substitute for source-of-truth state, execution control, or verification.
+
+When you do fine-tune, it is a spectrum, not one knob. Full fine-tuning updates all weights and is expensive to train and host. LoRA and other PEFT (parameter-efficient fine-tuning) methods train a small set of added weights on top of a frozen base, which is cheaper and lets you swap adapters per task. A rough rule for fine-tuning vs RAG: reach for fine-tuning when you need a stable behavior or format internalized across many calls, or when the relevant knowledge is small and slow-changing; reach for RAG when the knowledge is large, changes often, or must stay current — for example, product docs that ship weekly. Whatever you ship, a fine-tuned artifact is a new model: rerun the [Chapter 13](./13-evaluation-for-llm-behavior.md) golden regression evals against it before trusting it, because fine-tuning can fix one behavior and quietly regress another.
 
 ## Key Takeaways
 

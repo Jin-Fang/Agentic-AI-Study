@@ -34,7 +34,7 @@ This explains why representation quality matters so much. If a dataset contains 
 
 ## Loss and Gradient Updates
 
-Training uses a loss function: a number that is lower when the model assigns higher probability to the correct next tokens. Karpathy explicitly frames loss as the single number the training process tries to reduce ([Deep Dive, around 00:35:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2158s)). The optimizer updates model parameters so future predictions become more consistent with the data.
+Training uses a loss function: a number that is lower when the model assigns higher probability to the correct next tokens. Concretely it is the average negative log-probability of the correct next token, known as cross-entropy or negative log-likelihood. Its exponential is perplexity, a more intuitive scale: a perplexity of 10 means the model is on average as uncertain as if choosing uniformly among 10 tokens. The same per-token log-probabilities are the logprobs engineers see in model APIs, so the training loss and inference-time logprobs are the same quantity viewed from two sides. Karpathy explicitly frames loss as the single number the training process tries to reduce ([Deep Dive, around 00:35:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2158s)). The optimizer updates model parameters so future predictions become more consistent with the data.
 
 The loop is:
 
@@ -78,6 +78,10 @@ Because the model continues context, the harness should make the desired continu
 - Treat retrieved text as evidence, not as authority over system behavior.
 
 The model's pretraining gives it broad competence. The harness turns that competence into controlled work.
+
+## Models Compute With Tokens
+
+Each forward pass does a bounded amount of compute per position, so the model cannot do arbitrarily long computation inside a single token. Asking it to multiply two large numbers "in its head" forces all the work into one step and it often fails. The reliable fixes are to give the model more tokens to spread the work across, or to move the exact computation outside the model. Chain-of-thought and reasoning models do the former: intermediate tokens become scratch space, so a hard problem is solved over many forward passes instead of one. Tool use does the latter: a calculator or code interpreter performs the exact computation and the model reads back the result. This is the shared reason behind all three techniques, covered later in [prompting](./08-prompting-and-in-context-learning.md) and [reasoning, tools, and agents](./12-reasoning-tools-and-agents.md).
 
 ## Key Takeaways
 

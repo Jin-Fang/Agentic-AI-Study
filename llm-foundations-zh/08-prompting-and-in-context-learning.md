@@ -2,6 +2,8 @@
 
 Prompting 是构造模型上下文，让期望的 continuation 更可能发生。In-context learning 则是模型在不改变参数的情况下，根据 prompt 里的指令和示例调整行为的能力。GPT-3 论文通过 zero-shot、one-shot、few-shot 实验让这个能力成为核心话题 ([Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165))。
 
+本章是一个转折点。第 1-7 章建立了“模型是什么”：一个 token 机器，经过 pretraining 和 post-training 塑造，在 inference 时被采样。从这里开始，重点转向这套心智模型如何改变 harness 设计。Prompting 正是这些性质第一次变成工程接口的地方。
+
 对 harness engineer 来说，prompting 不是小技巧，而是在概率接口上做运行时编程。
 
 ## 指令、数据和示例
@@ -30,6 +32,27 @@ Deep dive 的 conversation tokenization 进一步说明：role 不是漂浮在�
 - 输出 schema 和示例分开。
 
 重点不是让模型像编译器一样解析 XML，而是用清晰结构让期望的 continuation 更容易出现。
+
+结构化 prompt 能把这些边界变得具体：指令和证据分开，检索文档用带 source ID 的 tag 包裹，一个示例展示期望形状，输出契约也写明：
+
+```text
+System: Answer only from the documents. Cite the source ID. If the
+documents do not contain the answer, reply exactly: NOT_FOUND.
+
+<documents>
+  <doc id="d1">Refunds are issued within 14 days of delivery.</doc>
+  <doc id="d2">Gift cards are non-refundable.</doc>
+</documents>
+
+Example:
+Question: Can I return a gift card?
+Answer: No. Gift cards are non-refundable. [d2]
+
+Question: How long do I have to request a refund?
+Answer:
+```
+
+模型补全最后那行 `Answer:`。因为数据被 fenced 起来、契约也写明了，一份写着“ignore previous instructions”的文档会被当成要引用的证据，而不是要遵守的命令。
 
 ## Few-Shot Learning
 

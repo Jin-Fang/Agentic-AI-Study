@@ -6,7 +6,9 @@
 
 大型预训练语料包含网页、书籍、代码、论文、讨论、文档和许多其他文本来源。它们也包含重复内容、spam、低质量文本、过期事实、有毒内容、个人数据和分布偏差。数据 pipeline 会过滤、去重、分类和重新配比这些来源，但没有任何 pipeline 能产生完美的真理表示。
 
-Karpathy 强调，dataset construction 是核心工作，不是附带细节。FineWeb 是一个公开的 web-scale 文本数据集例子，用来说明类似 Common Crawl 的原始网页数据在训练前必须经过大量处理 ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s))。原始网页不是干净的书，它包含菜单、cookie banner、重复模板、spam、抽取错误、样板噪声和多语言页面。
+Karpathy 强调，dataset construction 是核心工作，不是附带细节。这也是模型行为因领域而异的原因：模型可能因为见过大量代码而擅长 Python，对小众的内部 DSL 较弱，对从未进入预训练数据的私有公司流程则不可靠。
+
+FineWeb 是一个公开的 web-scale 文本数据集例子，用来说明类似 Common Crawl 的原始网页数据在训练前必须经过大量处理 ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s))。FineWeb 的规模在几十 TB 文本量级，过滤后大约 15 万亿（15T）token，可以由此感受其涉及的规模。原始网页不是干净的书，它包含菜单、cookie banner、重复模板、spam、抽取错误、样板噪声和多语言页面。
 
 Dataset construction 通常包括：
 
@@ -41,9 +43,11 @@ Karpathy 以语言过滤为例：如果数据集主要面向英文，那么非�
 
 ## Scaling Laws
 
-过去几年的经验事实是：更大的模型、更多数据和更多算力，通常会以可预测的方式改进模型。Kaplan 等人发现，loss 与模型大小、数据集大小和 compute 之间在很大范围内呈现 power-law 关系 ([Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361))。
+过去几年的经验事实是：更大的模型、更多数据和更多算力，通常会以可预测的方式改进模型。Kaplan 等人发现，loss 与模型大小、数据集大小和 compute 之间在很大范围内呈现 power-law 关系 ([Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361))。power-law 的直觉是：loss 会随每个输入平滑下降——compute 每增加一个数量级，loss 大致下降一个固定的量，因此收益持续存在，但每一块钱带来的回报递减。
 
-后续工作进一步说明，compute-optimal training 需要平衡参数量和 token 数。Chinchilla 论文指出，许多早期大模型相对于其规模训练不足；在同等 compute 下，用更多数据训练较小模型，可能胜过更大的 undertrained model ([Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556))。
+后续工作进一步说明，compute-optimal training 需要平衡参数量和 token 数。Chinchilla 论文指出，许多早期大模型相对于其规模训练不足；在同等 compute 下，用更多数据训练较小模型，可能胜过更大的 undertrained model ([Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556))。它给出的经验配比大约是每个参数 20 个 token。
+
+但 compute-optimal training 最小化的是一次训练的成本，而不是模型部署后长期运行的成本。2023 年以后的常态是刻意训练到超过 Chinchilla 最优点：用更多 token 训练较小模型（例如用许多万亿 token 训练一个几十亿参数的模型），训练更贵，但每次请求的服务成本更低。这正是下文“Compute 是操作性约束”所缺的那一环：compute-optimal 不等于 deployment-optimal，对高流量 workflow 来说，deployment-optimal 的选择通常是较小、过训练的模型。
 
 更稳妥地说，scaling law 描述的是 aggregate loss 和平均趋势。它不保证每个 benchmark、workflow 或能力都会平滑提升。有些看起来像 “emergent ability” 的跳变，可能部分来自 metric choice 或 thresholded scoring，而不是内部机制突然出现 ([Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004))。
 
@@ -53,7 +57,7 @@ Harness 层面的结论很直接：模型选择不是简单的“越大越好”
 
 ## Compute 是操作性约束
 
-训练产生参数，但每次使用模型时，inference 都会消耗 compute。Karpathy 在 deep dive 中用 GPU 例子让成本变得具体 ([Deep Dive, around 00:40:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2411s))。对 harness 来说，成本不只是供应商账单问题，它会影响架构。
+训练产生参数，但每次使用模型时，inference 都会消耗 compute。Karpathy 在 deep dive 中用 GPU 例子让成本变得具体 ([Deep Dive, around 00:40:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2411s))。这些数字也在快速下降：GPT-2 在 2019 年训练成本约 4 万美元，但随着硬件和软件改进，Karpathy 后来的复现只用了约 600 美元的租用 GPU。对 harness 来说，成本不只是供应商账单问题，它会影响架构。
 
 昂贵 inference 会鼓励：
 

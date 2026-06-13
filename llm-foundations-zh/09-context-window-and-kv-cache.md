@@ -28,7 +28,15 @@ Inference 过程中，[Transformer attention](./04-transformer-attention.md) 会
 
 KV cache 是 inference 优化，不是语义记忆。它帮助模型高效继续当前序列。它不会决定哪些事实重要，不会更新长期状态，也不会解决 context pollution。
 
-对 harness 来说，KV cache 重要是因为长 prompt 和长输出会消耗内存并影响延迟。复用稳定前缀能提高性能，但过期或臃肿前缀仍然伤害模型行为。
+对 harness 来说，KV cache 重要是因为长 prompt 和长输出会消耗内存并影响延迟。KV cache 也正是让每 token 的 attention 成本可承受的原因：没有它，每一步都要重算整段前缀，而前缀的 attention 计算量大致随 context length 平方增长（见[第 4 章](./04-transformer-attention.md)）。复用稳定前缀能提高性能，但过期或臃肿前缀仍然伤害模型行为。
+
+### 从 KV Cache 到 provider prompt caching
+
+Provider 把前缀复用产品化为 prompt caching：当新请求和近期请求共享开头前缀时，provider 直接给出该前缀缓存好的 KV 状态，而不重新计算。收益很大——缓存命中的前缀 token 以大幅折扣计费，而且因为模型跳过了匹配部分的 prefill，首 token 延迟（TTFT）也会下降。
+
+关键在于匹配方式。缓存按前缀作为 key，所以只匹配到第一个不同的 token 为止。改动任何一个早期 token——系统 prompt 里的时间戳、重排过的工具定义、被编辑的较早消息——其后所有 token 都要重算并重新计费。这推出一条具体的 harness 规则：让系统 prompt 和工具定义保持稳定并放在最前面，然后让对话历史只追加（append-only）地增长，不要原地改写历史。
+
+这条规则和本章下文推荐的摘要与 compaction 存在直接张力。Compaction 通过改写较早轮次来省 token，但改写它们会击穿其后全部内容的缓存，于是下一次调用要付完整 prefill。这个权衡是真实的：只有当省下的 token（以及减轻的 context rot）盖过损失的缓存命中时才做 compaction，而不是每轮都做。成本一侧见[第 5 章](./05-training-data-and-scaling.md)，把这些 prompt 和历史改动当作对回归敏感的内容来对待见[第 13 章](./13-evaluation-for-llm-behavior.md)。
 
 ## 工作记忆 vs 长期记忆
 
@@ -64,7 +72,7 @@ Harness 需要 context-selection policy。每次模型调用，它都要选择�
 
 ## Context Rot
 
-任务变长时，上下文往往会积累无关材料：旧工具输出、失败计划、重复日志、过期假设、摘要的摘要。这就是 context rot。模型可能把 attention 花在不再代表当前任务的文本上。
+Context rot 指模型输出随输入变长而退化。它有两层。第一层是长度引起的：即使每个 token 都相关、总量也远未触及窗口上限，输入越长，模型使用它就越不可靠。下文的 *Lost in the Middle* 效应就是一个实例——埋在大输入里的材料召回率下降，不是因为材料本身错了，只是因为材料更多了。第二层是无关材料累积：任务变长时，上下文会堆积旧工具输出、失败计划、重复日志、过期假设、摘要的摘要，模型把 attention 花在不再代表当前任务的文本上。两层会叠加。上下文足够长时，干净的上下文也会 rot；上下文充满噪声时，短上下文也会 rot。
 
 好的 harness 会这样对抗 context rot：
 

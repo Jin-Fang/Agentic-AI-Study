@@ -30,7 +30,15 @@ During inference, [Transformer attention](./04-transformer-attention.md) produce
 
 The KV cache is an inference optimization, not semantic memory. It helps the model continue the current sequence efficiently. It does not decide what facts matter, does not update long-term state, and does not solve context pollution.
 
-For harness engineers, KV cache matters operationally because long prompts and long outputs consume memory and affect latency. Reusing stable prefixes can improve performance, but stale or bloated prefixes still hurt model behavior.
+For harness engineers, KV cache matters operationally because long prompts and long outputs consume memory and affect latency. The cache is also what makes attention's cost tolerable per token: without it, each step would recompute the whole prefix, whose attention work grows roughly quadratically with context length (see [Chapter 4](./04-transformer-attention.md)). Reusing stable prefixes can improve performance, but stale or bloated prefixes still hurt model behavior.
+
+### From KV Cache to Provider Prompt Caching
+
+Providers productize prefix reuse as prompt caching: when a new request shares a leading prefix with a recent one, the provider serves the cached KV state for that prefix instead of recomputing it. The wins are large — cached prefix tokens are billed at a steep discount, and time-to-first-token drops because the model skips the prefill for the matched portion.
+
+The catch is how the match works. Caching keys on the prefix, so it holds only up to the first token that differs. Change one early token — a timestamp in the system prompt, a reordered tool definition, an edited earlier message — and every token after it is recomputed and re-billed. This dictates a concrete harness rule: keep the system prompt and tool definitions stable and put them first, then grow the conversation append-only. Do not rewrite history in place.
+
+That rule is in direct tension with the summarization and compaction this chapter recommends below. Compaction saves tokens by rewriting earlier turns, but rewriting them busts the cache for everything downstream, so the next call pays full prefill. The trade is real: compact when the token savings (and reduced context rot) outweigh the lost cache hit, not on every turn. See [Chapter 5](./05-training-data-and-scaling.md) for the cost side and [Chapter 13](./13-evaluation-for-llm-behavior.md) for treating these prompt and history changes as regression-sensitive.
 
 ## Working Memory vs Long-Term Memory
 
@@ -66,7 +74,7 @@ Selection is often more important than compression. A short prompt with exactly 
 
 ## Context Rot
 
-As tasks get longer, the context often accumulates irrelevant material: old tool outputs, failed plans, duplicate logs, stale assumptions, and summaries of summaries. This is context rot. The model may spend attention on text that no longer represents the current task.
+Context rot is the degradation of model output as the input grows. It has two layers. The first is length-induced: a model uses a long input less reliably even when every token is relevant and the total is well under the window limit. The *Lost in the Middle* effect below is one instance — recall drops for material buried in a large input, not because that material is wrong, just because there is more of it. The second layer is irrelevant-material accumulation: as tasks get longer, the context piles up old tool outputs, failed plans, duplicate logs, stale assumptions, and summaries of summaries, and the model spends attention on text that no longer represents the current task. Both layers compound. A clean context still rots if it is long enough; a short context still rots if it is full of noise.
 
 Good harnesses fight context rot by:
 

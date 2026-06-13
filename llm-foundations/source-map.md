@@ -38,6 +38,7 @@ This map links the book's main concepts to the two source lectures. The timestam
 | [00:35:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2158s) | Loss as a training signal | Chapter 3 |
 | [00:40:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2411s) | GPU cost and practical inference/training constraints | Chapters 5, 6 |
 | [01:05:03](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=3903s) | Tokenization of conversations/chat format | Chapters 2, 8 |
+| [01:20:32](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=4832s) | Hallucination, knowledge vs working memory, and training the model to say "I don't know" | Chapter 10 |
 | [01:25:07](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=5107s) | Tool use in modern assistants | Chapter 12 |
 | [01:33:39](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=5619s) | Introducing tools to compensate for model limits | Chapters 11, 12 |
 | [02:51:20](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10280s) | RLHF and reinforcement learning framing | Chapter 7 |

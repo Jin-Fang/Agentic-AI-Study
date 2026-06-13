@@ -2,11 +2,13 @@
 
 The most useful first approximation is simple: a large language model is a system that receives a sequence of tokens and predicts a continuation. It does not directly see words, files, websites, test suites, databases, or users. It sees tokens that encode some representation of those things, and it produces more tokens.
 
+Generation is a loop: each forward pass yields only the distribution over the next token; the runtime samples one token, appends it to the context, and calls the model again, until a stop condition is reached. [Inference and sampling](./06-inference-and-sampling.md) covers this loop in detail.
+
 Karpathy's short introduction begins with a deliberately demystifying frame: a trained model can be thought of as two files, one containing parameters and one containing code that knows how to run those parameters ([Intro to LLMs, around 00:00:24](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=24s)). That statement is not a complete implementation manual, but it is a powerful corrective. The model is not an agent by itself. It is a function-like component that maps token context to token probabilities.
 
 ## Parameters Are Compressed Behavior
 
-The parameter file contains billions or trillions of learned numbers. During pretraining, those numbers are adjusted so that the model becomes better at predicting missing or next tokens in enormous text corpora. After post-training, the same parameter file also encodes assistant-like behavior: following instructions, refusing some requests, formatting answers, and preferring helpful responses.
+The parameter file contains billions or trillions of learned numbers. During pretraining, those numbers are adjusted so that the model becomes better at predicting the next token in enormous text corpora. After [post-training](./07-post-training.md), the same parameter file also encodes assistant-like behavior: following instructions, refusing some requests, formatting answers, and preferring helpful responses.
 
 The model's knowledge is therefore not stored as rows in a database. It is distributed across weights. This matters for harness design. If a system needs a current policy, an exact invoice, a user's private document, or a source citation, the harness should retrieve or provide that information. The model can reason over supplied material, but it should not be used as the source of truth for mutable or high-stakes facts.
 
@@ -54,7 +56,7 @@ Fine-tuning sits between base-model training and harnessing. It can change the p
 
 The user experiences a model as a text box. Karpathy's deep dive starts with this exact question: what is behind the text box, and what are the generated words really doing ([Deep Dive, around 00:00:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=28s))? For a harness engineer, the answer is: a probabilistic text interface wrapped by software.
 
-The probabilistic part explains why small prompt changes can matter, why outputs vary, and why deterministic-looking behavior may still fail under distribution shift. The software wrapper explains why some products can browse, cite sources, operate computers, keep long-term notes, or run tests while other products using similar base models cannot.
+Two separate effects hide behind that "probabilistic" label. Outputs vary run to run because of sampling: the runtime draws a token from a distribution. Small prompt changes change results for a different reason: the learned function is sensitive to its input, so a nearby prompt can land on a different answer even at temperature 0 or greedy decoding, where sampling is turned off. Both contribute to why deterministic-looking behavior can still fail when inputs drift from what development and testing covered. The software wrapper explains why some products can browse, cite sources, operate computers, keep long-term notes, or run tests while other products using similar base models cannot.
 
 The same text box can hide very different systems:
 

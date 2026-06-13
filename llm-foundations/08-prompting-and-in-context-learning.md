@@ -2,6 +2,8 @@
 
 Prompting is the act of constructing the model's context so that the desired continuation is likely. In-context learning is the model's ability to adapt behavior from instructions and examples inside the prompt without changing its parameters. GPT-3 made this capability central by showing strong zero-shot, one-shot, and few-shot behavior across many tasks ([Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165)).
 
+This chapter is a turning point. Chapters 1-7 established what the model is: a token machine, shaped by pretraining and post-training, sampled at inference. From here the focus shifts to how that mental model changes harness design. Prompting is the first place those properties become an engineering interface.
+
 For harness engineers, prompting is not a trick. It is runtime programming against a probabilistic interface.
 
 ## Instructions, Data, and Examples
@@ -30,6 +32,27 @@ Practical prompt boundaries include:
 - Output schemas separated from examples.
 
 The point is not that the model literally parses XML like a compiler. The point is that clear structure makes the intended continuation easier.
+
+A structured prompt makes these boundaries concrete. The instruction is separate from the evidence, retrieved documents are wrapped in tags with source IDs, one example shows the desired shape, and the output contract is stated explicitly:
+
+```text
+System: Answer only from the documents. Cite the source ID. If the
+documents do not contain the answer, reply exactly: NOT_FOUND.
+
+<documents>
+  <doc id="d1">Refunds are issued within 14 days of delivery.</doc>
+  <doc id="d2">Gift cards are non-refundable.</doc>
+</documents>
+
+Example:
+Question: Can I return a gift card?
+Answer: No. Gift cards are non-refundable. [d2]
+
+Question: How long do I have to request a refund?
+Answer:
+```
+
+The model fills in the final `Answer:` line. Because the data is fenced and the contract is explicit, a document that says "ignore previous instructions" reads as evidence to quote, not as a command to obey.
 
 ## Few-Shot Learning
 

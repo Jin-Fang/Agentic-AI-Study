@@ -38,6 +38,7 @@
 | [00:35:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2158s) | Loss 作为训练信号 | 第 3 章 |
 | [00:40:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2411s) | GPU 成本和 practical constraints | 第 5、6 章 |
 | [01:05:03](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=3903s) | 对话/chat format 的 tokenization | 第 2、8 章 |
+| [01:20:32](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=4832s) | 幻觉、知识 vs 工作记忆，以及训练模型说"I don't know" | 第 10 章 |
 | [01:25:07](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=5107s) | 现代 assistant 的工具使用 | 第 12 章 |
 | [01:33:39](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=5619s) | 通过工具弥补模型限制 | 第 11、12 章 |
 | [02:51:20](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10280s) | RLHF 和 reinforcement learning 框架 | 第 7 章 |

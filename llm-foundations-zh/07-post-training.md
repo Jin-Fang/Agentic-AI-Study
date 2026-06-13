@@ -10,6 +10,10 @@ Supervised fine-tuning，简称 SFT，会用期望行为的样例继续训练模
 
 模型仍然在预测 token，但要拟合的分布变了。它看过许多 assistant 行为样例，所以 chat prompt 更容易诱发 assistant-like continuation。
 
+这些数据从哪里来？最初，人类标注员按照详细的 labeling instructions 手写理想回答，这些规范明确好回答长什么样：helpful、honest、harmless。如今大量数据是 LLM 生成、再由人工审核和编辑的合成对话，这样更便宜也更易扩展。无论哪种方式，assistant 都是在模仿这些回答。Karpathy 的心智模型在这里很有用：和 assistant 对话，更接近于和标注员的统计模拟对话，而不是和一个真正“懂”的实体对话。这个框架解释了很多可观察到的行为——默认语气、哪些请求会被拒绝、模型何时会提问澄清——也解释了模型升级后的行为漂移，因为新的标注规范和新的合成数据会移动那个被模拟的标注员。
+
+对 harness 工程师来说，SFT 解释了为什么消息格式很重要。Chat template、role 标签、system message 和 tool-call 格式都是模型被训练去模仿的行为的一部分。
+
 Karpathy 把 fine-tuning 讲成把 raw internet-document completer 改造成 assistant model 的阶段 ([Intro to LLMs, around 00:14:29](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=869s))。实践中，训练数据不再像任意网页，而更像对话：
 
 ```text
@@ -92,7 +96,7 @@ Harness engineer 应该区分：
 
 混淆这些层会导致坏设计。拒绝不证明模型没有能力。自信回答不证明模型知道事实。工具调用字符串不证明动作应该执行。
 
-Jailbreak 展示了这种分离。Karpathy 给出例子说明 adversarial prompt 或多模态输入可以把模型推离 safety behavior ([Intro to LLMs, around 00:46:16](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2776s))。重要的不是某个具体攻击字符串，而是：安全行为是学出来的，并受上下文影响。它应该由 policy checks、permission boundaries、tool gating 等 harness 控制强化。
+Jailbreak 展示了这种分离：safety behavior 是在 post-training 里学出来的，所以会被上下文推动，而不是硬性保证。这里要说的只是：harness 必须用 policy checks、permission boundaries、tool gating 等控制来强化它。[第 10 章](./10-knowledge-hallucination-uncertainty.md)会正式讲解 refusal 和 jailbreak。
 
 ## Fine-Tuning vs Harnessing
 
@@ -105,6 +109,8 @@ Fine-tuning 改的是模型；harnessing 改的是模型周围的环境。许多
 - 需要任务可靠性？做 eval 和 trace。
 
 当某种行为必须跨大量调用内化，或长 prompt 造成延迟不可接受时，fine-tuning 很有力。但它不能替代 source-of-truth state、执行控制或验证。
+
+真要 fine-tune 时，它是一个谱系，不是一个开关。Full fine-tuning 更新全部权重，训练和托管都昂贵。LoRA 等 PEFT（parameter-efficient fine-tuning）方法在冻结的 base 之上训练一小组新增权重，更便宜，还能按任务切换 adapter。Fine-tuning 和 RAG 的粗略取舍：当你需要把某种稳定行为或格式跨大量调用内化，或相关知识很小且变化缓慢时，倾向 fine-tuning；当知识量大、变化频繁或必须保持最新时，倾向 RAG——比如每周更新的产品文档。无论你最终交付什么，fine-tuned artifact 都是一个新模型：信任它之前，先对它重跑[第 13 章](./13-evaluation-for-llm-behavior.md)的 golden regression eval，因为 fine-tuning 可能修好一个行为，却悄悄让另一个行为回退。
 
 ## 要点
 

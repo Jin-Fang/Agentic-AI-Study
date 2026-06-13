@@ -37,6 +37,8 @@ Self-attention 让每个 token 表示都能从上下文中的其他 token 收集
 - value 携带实际要混入的信息；
 - attention weight 决定各位置影响有多强。
 
+举个具体的画面：设想模型正在生成代码，走到 `return ` 后面那个位置。为了预测下一个 token，这个位置的 query 与前文某行 `user_count = ...` 的 key 强烈匹配，于是携带那个变量名的 value 被混入，模型输出 `user_count`。散文里也一样：回答问题时，生成位置会 attend 回检索段落中真正给出答案的那句话，把信息拉到当前位置。不需要任何数学，只是一个靠后的位置回看前文、并按相关性给更早的位置加权。
+
 这不是数据库查询，而是一种学得的、柔性的、分布式操作。相关文本能影响生成，无关或误导文本也能影响生成。长上下文同时增加机会和风险。
 
 Karpathy 指向 attention block 来解释 Transformer 内部位置如何交流 ([Deep Dive, around 00:24:29](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=1469s))。从 harness 角度看，attention 是把证据放进 prompt 后可能有效的原因；也是证据位置、分隔符和噪声控制重要的原因。
@@ -82,7 +84,7 @@ Transformer 架构定义计算；训练设定参数。随机初始化的 Transfo
 
 ## Attention 成本
 
-标准 attention 需要位置之间相互比较，所以长上下文昂贵。现代系统有很多优化，但 context length 仍然影响延迟、内存和成本。Harness 不应该把大 context window 当作“可以粘贴一切”的许可。
+标准 attention 需要每个位置和其他每个位置相互比较，所以计算量大致随序列长度平方增长（O(n^2)）：上下文翻倍，attention 计算量约变为四倍。生成阶段每个新 token 也要付一份随前缀长度增长的代价。现代系统有很多优化，但 context length 仍然影响延迟、内存和成本。Harness 不应该把大 context window 当作“可以粘贴一切”的许可。
 
 好的 harness 会有意识地使用模型注意力：
 

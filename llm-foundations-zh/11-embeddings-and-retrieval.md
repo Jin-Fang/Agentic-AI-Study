@@ -8,7 +8,11 @@ Retrieval 在运行时为模型补充外部信息。Karpathy 把 retrieval-augme
 
 Embedding model 把文本映射到向量空间，使语义相关的文本倾向于彼此接近。检索系统会嵌入文档或 chunk，再嵌入 query，并寻找相近向量。当 keyword search 漏掉改写或概念匹配时，embedding 很有用。
 
+“相近”是一个数值分数，通常是 query 向量与各 chunk 向量之间的 cosine similarity 或点积。对每个 chunk 都精确计算无法扩展，所以生产 vector database 会用近似最近邻（ANN）索引，例如 HNSW 或 IVF。这类索引以召回换延迟：它们多数时候返回真正最近的 chunk，但不是每次都返回。因此索引本身就是 Recall@k 损失的一个隐性来源，索引参数（而不只是 embedding model）应纳入检索评估。
+
 Embedding 并不神奇。它可能漏掉精确约束，混淆近邻，或者检索到主题相似但实际无关的文本。Hybrid search、metadata filter、reranking 和领域 chunking 通常都很重要。
+
+Hybrid search 把 lexical retrieval（BM25 或 grep 这类精确匹配工具）和 vector retrieval 结合起来，再把两份结果列表合并。Lexical retrieval 擅长 embedding 会模糊掉的精确 token；vector retrieval 擅长改写和概念匹配。对需要精确符号名、错误码或版本号的代码读者来说，这一点最关键——此时一个差一点的近邻毫无用处。
 
 Karpathy 的 intro 把 RAG 作为“不把所有知识都寄托在模型参数里”的替代方案 ([Intro to LLMs, around 00:41:33](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2493s))。这个区别很关键：
 
@@ -50,6 +54,9 @@ RAG 系统应该把 retrieval 和 generation 分开评估。否则每个失败�
 - **Recall@k**：需要的 chunk 是否出现在 top k 结果中。
 - **Precision@k**：检索到的 chunks 有多少真的有用。
 - **MRR 或 NDCG**：更好的 evidence 是否排在更前。
+
+Generation / end-to-end metrics 衡量的是检索之后发生的事：
+
 - **Citation support rate**：最终引用的 chunks 是否真的支持答案。
 - **Answer faithfulness**：生成 claim 是否停留在检索 evidence 内。
 
@@ -119,7 +126,7 @@ Harness 控制包括：
 
 ## RAG vs Fine-Tuning
 
-信息庞大、变化、私有或需要引用时，用 retrieval。行为或风格需要跨大量调用内化时，用 [fine-tuning](./07-post-training.md)。许多系统两者都需要：fine-tuned behavior 加 retrieved knowledge。
+信息庞大、变化、私有或需要引用时，用 retrieval。行为或风格需要跨大量调用内化时，用 [fine-tuning](./07-post-training.md)。这里的 fine-tuning 指在已经 post-trained 的模型之上做客户侧训练，而不是最初塑造出 assistant 的厂商 post-training。许多系统两者都需要：fine-tuned behavior 加 retrieved knowledge。
 
 Harness 应拥有 retrieval path，因为它拥有权限、索引、新鲜度和可审计性。
 

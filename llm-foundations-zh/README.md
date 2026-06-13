@@ -27,18 +27,18 @@ Harness engineering 的起点，是看清原始模型在哪里停止工作。模
 |------|------|------|
 | [前言](./00-preface.md) | 前言 | 本书范围、读者定位，以及和 harness engineering 的关系 |
 | [第 1 章](./01-llm-as-token-machine.md) | 把 LLM 看成 token 机器 | 模型是 token 输入、token 输出的组件；harness 从哪里开始 |
-| [第 2 章](./02-tokenization.md) | Tokenization | 文本如何变成 token；subword、预算、chat template、多模态表示 |
-| [第 3 章](./03-next-token-prediction.md) | Next-Token Prediction | 预训练目标、训练循环、loss，以及为什么简单目标能产生复杂能力 |
-| [第 4 章](./04-transformer-attention.md) | Transformer 与 Attention | embedding、attention、MLP、层结构和长上下文的工程直觉 |
-| [第 5 章](./05-training-data-and-scaling.md) | 数据与 Scaling | Web 数据、过滤、去重、模型规模、算力和数据新鲜度 |
-| [第 6 章](./06-inference-and-sampling.md) | Inference 与 Sampling | logits、temperature、top-p、停止条件、延迟和模型路由 |
+| [第 2 章](./02-tokenization.md) | Tokenization | 文本到 token 的转换、subword、预算、chat template 和多模态 token |
+| [第 3 章](./03-next-token-prediction.md) | Next-Token Prediction | 预训练目标、训练循环、loss，以及为什么它能产生广泛能力 |
+| [第 4 章](./04-transformer-attention.md) | Transformer 与 Attention | embedding、attention、MLP 和层结构背后的工程直觉 |
+| [第 5 章](./05-training-data-and-scaling.md) | 数据与 Scaling | Web 数据、过滤、去重、scaling laws、quantization 和训练 cutoff |
+| [第 6 章](./06-inference-and-sampling.md) | Inference 与 Sampling | logits、temperature、top-p、停止条件、streaming、延迟和模型路由 |
 | [第 7 章](./07-post-training.md) | Post-Training | SFT、RLHF、reward model、reward hacking 和 assistant 行为 |
-| [第 8 章](./08-prompting-and-in-context-learning.md) | Prompting 与 In-Context Learning | 指令、样例、chain-of-thought、工具提示和 prompt injection |
-| [第 9 章](./09-context-window-and-kv-cache.md) | Context Window 与 KV Cache | 有限上下文、KV cache、工作记忆、长期记忆和 context rot |
+| [第 8 章](./08-prompting-and-in-context-learning.md) | Prompting 与 In-Context Learning | 指令、few-shot、chain-of-thought、reasoning model、test-time compute 和 prompt injection |
+| [第 9 章](./09-context-window-and-kv-cache.md) | Context Window 与 KV Cache | 有限上下文、KV cache、工作记忆与长期记忆、context rot 和作为安全边界的上下文 |
 | [第 10 章](./10-knowledge-hallucination-uncertainty.md) | 知识、幻觉与不确定性 | 参数化知识、grounding、引用纪律、安全和 jailbreak |
-| [第 11 章](./11-embeddings-and-retrieval.md) | Embeddings 与 Retrieval | 向量检索、RAG pipeline、chunking、reranking 和 context pollution |
+| [第 11 章](./11-embeddings-and-retrieval.md) | Embeddings 与 Retrieval | 向量检索、RAG、chunking、reranking 和 context pollution |
 | [第 12 章](./12-reasoning-tools-and-agents.md) | 推理、工具与 Agent | 工具调用协议、agent loop、长运行任务和人工监督 |
-| [第 13 章](./13-evaluation-for-llm-behavior.md) | 评估 LLM 行为 | golden tasks、trace、grader、reward hacking 和回归纪律 |
+| [第 13 章](./13-evaluation-for-llm-behavior.md) | 评估 LLM 行为 | golden tasks、trace、grading、reward hacking 和回归纪律 |
 | [第 14 章](./14-operational-mental-model.md) | 操作性心智模型 | 从模型基础到 harness 设计决策的统一框架 |
 | [素材映射](./source-map.md) | Source Map | 本书主要知识点对应的视频时间点 |
 | [术语表](./glossary.md) | 术语表 | 全书关键术语 |
@@ -50,4 +50,4 @@ Harness engineering 的起点，是看清原始模型在哪里停止工作。模
 
 第 1-7 章先建立“模型是什么”的基础心智模型。第 8-14 章再讨论这些基础如何影响 harness 设计。
 
-如果你已经在做 agent 或 coding assistant，最应该优先读第 6、9、10、11、12、13 章。
+如果你已经在做 agent 或 coding assistant，最应该优先读第 2、6、8、9、10、11、12、13、14 章。

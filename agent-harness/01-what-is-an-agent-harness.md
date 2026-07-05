@@ -44,7 +44,7 @@ The survey organizes the harness design space with the acronym **ETCLOVG**: Exec
 - **Verification**: eval harnesses, graders, task suites, outcome checks, and readiness gates.
 - **Governance**: permissions, policy languages, audit trails, human approval, constitutional or rule-based controls, and cross-layer security.
 
-Most chapters in this book can be read as a pass over those seven layers. Context and memory dominate Chapters 2-3; tools and execution appear in Chapters 4-5; lifecycle appears in Chapters 7-8; verification, observability, and governance are developed in Chapters 9-11 and revisited in the outlook.
+Most chapters in this book can be read as a pass over those seven layers. Context and memory dominate Chapters 2-3; tools and execution appear in Chapters 4-5; lifecycle appears in Chapters 7-9; verification, observability, and governance are developed in Chapters 10-12 and revisited in the outlook.
 
 ### 1.5 Why Harnesses Exist: Working Backwards from Model Deficits
 
@@ -56,7 +56,9 @@ Each piece is a response to a specific limitation, and the harness as a whole is
 
 Anthropic frames the recent shift as a natural progression. In the early days of LLM applications, the dominant work was *prompt engineering*: writing and organizing instructions for one-shot tasks. As applications grew into multi-turn agents that operate over longer time horizons, the relevant work shifted to *context engineering* — strategies for curating and maintaining the optimal set of tokens (information) during LLM inference, including everything that lands in context outside of the prompts themselves ([Anthropic — Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)).
 
-Harness engineering sits one level up from context engineering. It is the practice, as Mitchell Hashimoto has put it, of taking the time to engineer a solution every time the agent makes a mistake, so that it never makes that mistake again ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) quoting Hashimoto). Where prompt engineering tunes a single prompt, harness engineering iterates on the entire system in which prompts run.
+Harness engineering sits one level up from context engineering. It is the practice, as Mitchell Hashimoto has put it, of taking the time to engineer a solution every time the agent makes a mistake, so that it never makes that mistake again ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) quoting Hashimoto). Where prompt engineering tunes a single prompt, harness engineering iterates on the entire system in which prompts run. 
+
+A further reframing arrived in 2026 under the name *loop engineering*. As agents began running unattended over long horizons, the salient unit of work shifted once more — from the prompt, to the context, to the *loop* that decides what to prompt, when, and whether the result is good enough ([Addy Osmani — Loop Engineering](https://addyosmani.com/blog/loop-engineering/)). This is less a rival to harness engineering than its operator-facing view of the outer control loop — the trigger, the verifier, and the stop rules that surround the agent — and Chapter 8 develops it in full.
 
 ### 1.7 Frameworks, Runtimes, and Harnesses
 

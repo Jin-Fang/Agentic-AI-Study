@@ -1,4 +1,4 @@
-# Chapter 10: Infrastructure Noise
+# Chapter 11: Infrastructure Noise
 
 A practitioner reading benchmark leaderboards needs to know that small score differences carry more uncertainty than the precision of the reported numbers suggests. Anthropic's "Quantifying Infrastructure Noise" documents the size of this effect ([Anthropic — Quantifying Infrastructure Noise in Agentic Coding Evals](https://www.anthropic.com/engineering/infrastructure-noise)).
 

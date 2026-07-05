@@ -100,11 +100,11 @@
 
 **Sandbox liveness(沙箱活性)** — 沙箱作为授权区域的作用:agent 可在配置边界内行动而无需逐动作审批(第 5 章)。
 
-**Governance(治理)** — 管理身份、权限策略、scoped credentials、人类审批、审计日志和跨层安全问责的 harness 机制(第 5、12 章)。
+**Governance(治理)** — 管理身份、权限策略、scoped credentials、人类审批、审计日志和跨层安全问责的 harness 机制(第 5、17 章)。
 
 **Delegated auth(委托授权)** — Agent 通过 scoped credentials 或 proxy-authorized identity 行动,而不是继承用户完整环境权限的模式(第 5 章)。
 
-**Supply-chain provenance(供应链来源证据)** — 关于 agent 所依赖的 tools、packages、datasets、MCP servers 和 retrieval sources 的来源与完整性证据(第 5、12 章)。
+**Supply-chain provenance(供应链来源证据)** — 关于 agent 所依赖的 tools、packages、datasets、MCP servers 和 retrieval sources 的来源与完整性证据(第 5、17 章)。
 
 **Hook / middleware(中间件)** — 由 harness 在生命周期事件(启动、工具调用后、停止)自动执行的脚本或检查点,确定性地强制规则(第 5 章)。
 
@@ -126,25 +126,25 @@
 
 ## 评估
 
-**Eval harness(评估 harness)** — 端到端运行评估的基础设施;区别于被评估的 agent harness(第 9 章)。
+**Eval harness(评估 harness)** — 端到端运行评估的基础设施;区别于被评估的 agent harness(第 10 章)。
 
-**Readiness validation(就绪验证)** — 验证某个具体 model + harness 配置是否适合特定任务分布、环境、预算和治理规则(第 9 章)。
+**Readiness validation(就绪验证)** — 验证某个具体 model + harness 配置是否适合特定任务分布、环境、预算和治理规则(第 10 章)。
 
 **Failure attribution(失败归因)** — 在选择修复方式前,先把 agent 失败标注到最可能的问题层:execution、tool interface、context、lifecycle、observability、verification 或 governance(第 9、11 章)。
 
-**Task / trial(任务/试验)** — *task* 有定义好的输入和成功标准;*trial* 是对它的一次尝试(第 9 章)。
+**Task / trial(任务/试验)** — *task* 有定义好的输入和成功标准;*trial* 是对它的一次尝试(第 10 章)。
 
-**Grader** — 为试验某个方面评分的组件:code-based、model-based 或 human(第 9 章)。
+**Grader** — 为试验某个方面评分的组件:code-based、model-based 或 human(第 10 章)。
 
 **Transcript(trace、trajectory)** — 一次试验的完整记录:每条消息、工具调用和结果(第 9、11 章)。
 
-**Outcome(结果状态)** — 试验结束时的最终环境状态,区别于 agent 的文本回应(第 9 章)。
+**Outcome(结果状态)** — 试验结束时的最终环境状态,区别于 agent 的文本回应(第 10 章)。
 
-**Capability eval / regression eval** — capability eval 衡量 agent 新近能做什么(通过率低、正在爬升);regression eval 保护它已能可靠做到的事(接近 100%)(第 9 章)。
+**Capability eval / regression eval** — capability eval 衡量 agent 新近能做什么(通过率低、正在爬升);regression eval 保护它已能可靠做到的事(接近 100%)(第 10 章)。
 
-**pass@k / pass^k** — pass@k 是 k 次尝试中至少一次成功的概率(随 k 上升);pass^k 是 k 次试验*全部*成功的概率(随 k 下降)(见《LLM Foundations》第 13 章)(第 9 章)。
+**pass@k / pass^k** — pass@k 是 k 次尝试中至少一次成功的概率(随 k 上升);pass^k 是 k 次试验*全部*成功的概率(随 k 下降)(见《LLM Foundations》第 13 章)(第 10 章)。
 
-**Infrastructure noise(基础设施噪声)** — 由运行时资源配置(而非模型能力)造成的 benchmark 分数波动(第 10 章)。
+**Infrastructure noise(基础设施噪声)** — 由运行时资源配置(而非模型能力)造成的 benchmark 分数波动(第 11 章)。
 
 ---
 
@@ -160,24 +160,90 @@
 
 **Sprint contract** — generator 与 evaluator 两个 agent 之间基于文件的约定,在每个构建 sprint 前敲定要构建什么、如何验证成功(第 7 章)。
 
-**Event log(事件日志)** — 对消息、工具调用、结果、审批和错误的追加式记录。执行状态可以从中推导出来,因此 agent 更容易重放和调试(第 8 章)。
+**Event log(事件日志)** — 对消息、工具调用、结果、审批和错误的追加式记录。执行状态可以从中推导出来,因此 agent 更容易重放和调试(第 9 章)。
 
-**Agent platform** — 超出本地 framework 的基础设施:跨多次运行和多用户的 durable workspaces、managed sandboxes、identity、billing、observability、evaluation、governance 和 human handoff(第 8、12 章)。
+**Agent platform** — 超出本地 framework 的基础设施:跨多次运行和多用户的 durable workspaces、managed sandboxes、identity、billing、observability、evaluation、governance 和 human handoff(第 8、17 章)。
 
 **Checkpoint / resume(检查点/恢复)** — 一种可靠性模式:agent 定期保存足够状态,以便在失败或上下文重置后继续工作而不丢进度(第 7、8 章)。
 
-**Stateless reducer(无状态归约器)** — 把 agent 建模为对 event log 的纯 fold,使其可序列化、可重放、可测试(第 8 章)。
+**Stateless reducer(无状态归约器)** — 把 agent 建模为对 event log 的纯 fold,使其可序列化、可重放、可测试(第 9 章)。
 
-**Model-harness co-evolution(模型与 harness 共同演化)** — frontier 模型在其 harness 一起参与的情况下 post-train 所形成的耦合,因此改变任一侧都可能损害性能(第 11 章)。
+**Model-harness co-evolution(模型与 harness 共同演化)** — frontier 模型在其 harness 一起参与的情况下 post-train 所形成的耦合,因此改变任一侧都可能损害性能(第 12 章)。
 
-**Span telemetry** — 以 span tree 表示的结构化 trace 数据,覆盖 model calls、tool calls、retrieval、context assembly、permissions、costs 和 outcomes(第 11 章)。
+**Span telemetry** — 以 span tree 表示的结构化 trace 数据,覆盖 model calls、tool calls、retrieval、context assembly、permissions、costs 和 outcomes(第 12 章)。
 
-**Trace-to-eval loop** — 把真实生产失败转换成脱敏、可复现、带 outcome assertion 的 regression case(第 11 章)。
+**Trace-to-eval loop** — 把真实生产失败转换成脱敏、可复现、带 outcome assertion 的 regression case(第 12 章)。
 
-**Meta-harness** — 把 harness 设计本身当作优化对象:用 eval feedback 消融或搜索 prompts、tools、retries、context policies、evaluators 和 control loops(第 11 章)。
+**Meta-harness** — 把 harness 设计本身当作优化对象:用 eval feedback 消融或搜索 prompts、tools、retries、context policies、evaluators 和 control loops(第 12 章)。
 
-**Cost-quality-speed trilemma(成本-质量-速度三难)** — 更强 execution environment、observability、verification 和 governance 会提高可靠性,但也增加成本和延迟(第 12 章)。
+**Cost-quality-speed trilemma(成本-质量-速度三难)** — 更强 execution environment、observability、verification 和 governance 会提高可靠性,但也增加成本和延迟(第 18 章)。
 
-**Capability-control tradeoff(能力-控制权衡)** — 更多权限、工具、记忆和自治会提升能力,同时扩大控制、provenance 和审计问题(第 12 章)。
+**Capability-control tradeoff(能力-控制权衡)** — 更多权限、工具、记忆和自治会提升能力,同时扩大控制、provenance 和审计问题(第 18 章)。
 
-**Ralph Wiggum loop** — 一个 hook,拦截 agent 的退出尝试,并在干净的上下文窗口中重新注入原始 prompt,迫使它继续对照目标工作(第 7 章)。
+**Ralph Wiggum loop** — 一个 hook,拦截 agent 的退出尝试,并在干净的上下文窗口中重新注入原始 prompt,迫使它继续对照目标工作(第 7、8 章)。
+
+**Loop engineering(循环工程)** — 把 agent loop 本身当作设计单元:规定环绕模型的 trigger、topology、verifier 和 stop rule,使它能无人值守地运行。这是外层控制循环的运维者视角(第 8 章)。
+
+**Trigger(触发器 / heartbeat)** — 无需人类 prompt 就启动一趟 loop 的东西:一个 schedule、一个 webhook,或另一个 agent(第 8 章)。
+
+**Verifier(验证器 / maker–checker)** — 决定“够好了”的固定标准,由一个不同于产出工作的 agent 来施加,使 maker 不能批改自己的作业;是 loop 设计的瓶颈(第 8 章)。
+
+**Stop rule(停止规则)** — 结束一个 loop 的明确条件——success、no-op、ask-for-approval——外加兜住失控的三个硬停:最大迭代次数、无进展检测、预算上限(第 8 章)。
+
+**Closed vs. open loop(闭环与开环)** — 闭环预先钉死硬的、可检查的验收标准,放着跑是安全的;开环朝模糊目标探索,需要一个更强的 verifier,否则会 ship 出自信的垃圾(第 8 章)。
+
+---
+
+## 指令与模型选择
+
+**Instruction hierarchy(指令层级)** — 指令按来源带有不同权威——system 高于 developer 高于 user 高于工具/检索内容——使低优先级指令无法覆盖高优先级指令。Prompt injection 就是这一层级的失效(第 13 章)。
+
+**Right altitude(合适的高度)** — System prompt 的目标具体程度:具体到能可靠引导行为,一般到能跨情况迁移,既不沦为脆弱的硬编码规则,也不流于含糊指引(第 13 章)。
+
+**Model routing(模型路由)** — 给请求的难度分类,把简单的派给便宜的弱模型、把困难的派给昂贵的强模型。只有当路由决策远比它带来的节省更便宜时才划算(第 14 章)。
+
+**LLM cascade(级联)** — 先试便宜模型,只在 verifier 否决便宜答案时才升级到更强的模型。升级信号可靠时,能以更低成本匹配强模型准确率(第 14 章)。
+
+**Fallback(回退)** — 当主模型出错、超时或被限流时切换到备用模型,使 agent 优雅降级(第 14 章)。
+
+**Reasoning model(推理模型)** — 经过 post-training(通常是在可验证奖励上做 RL),学会在回答前生成很长内部推理、用 inference token 换困难任务上更好表现的模型(第 14 章;*LLM Foundations* 第 7–8 章)。
+
+**Test-time compute** — 在回答时花更多 inference token、时间和金钱以在困难问题上做得更好——区别于更大模型或更多硬件的一条 scaling 轴(第 14 章)。
+
+---
+
+## 人类交互
+
+**Permission fatigue(许可疲劳)** — 当 agent 过于频繁请求批准时监督的退化,把人训练成不读就盖橡皮图章(第 5、14 章)。
+
+**Mixed-initiative(混合主动)** — 一种交互风格:系统逐动作决定是自主行动还是让步给人,并管理打断的代价(第 15 章)。
+
+**Approval as a tool call(批准即工具调用)** — 把人类批准建模为 agent 调用的一个工具,使请求成为持久、可重放、可审计、并与挂起/恢复组合的事件(第 15 章)。
+
+**Steering(引导)** — 把一条新指令注入正在运行的 agent,使其在下一回合被纳入,从而在不丢 session 状态的前提下重定向(第 15 章)。
+
+**Calibrated trust(校准过的信任)** — 人接口的目标:人对 agent 的信任恰好等于它在给定任务上配得到的程度,通过透明和扎根于验证的不确定性、而非流畅度来实现(第 15 章)。
+
+---
+
+## Computer-Use Agent
+
+**Computer-use agent** — 通过 GUI 操作软件的 agent——查看截图并发出光标、键盘和导航动作——而不是调用定义好的 API(第 16 章)。
+
+**Visual grounding(视觉接地)** — 把意图(“点击 Submit”)翻译成具体动作(在特定坐标点击);一种在 API 工具里没有对应物的错误模式(第 16 章)。
+
+**Set-of-Mark prompting** — 在候选可交互元素上叠加编号标记,让模型选择离散标签而不是产出裸坐标,提升 grounding 可靠性(第 16 章)。
+
+**Accessibility tree(可达性树)** — UI 的结构化语义表示(role、label、state),为辅助技术构建;常比裸像素或 DOM 更紧凑、更精确的屏幕编码(第 16 章)。
+
+---
+
+## 成本与运维
+
+**Per-task budget(每任务预算)** — 对单次 agent 运行的 token、工具调用或成本设的明确上限,超过后 agent 停下来问,而不是无限循环(第 17 章)。
+
+**Cost attribution(成本归因)** — 给 trace 的每个 span 附上 token 和美元成本,把“agent 很贵”变成一个具体、可修的工程发现(第 17 章)。
+
+**Multi-tenancy / 租户隔离** — 用一个平台服务许多用户或组织,同时防止状态串味(context/记忆/缓存跨租户泄露)和权限串味(用错误租户的凭据行事)(第 17 章)。
+
+**Canary rollout(金丝雀放量)** — 把 harness 改动发布给一小部分流量,在全量部署前盯住生产 trace 和 outcome 指标,接住 eval 套件漏掉的案例(第 17 章)。

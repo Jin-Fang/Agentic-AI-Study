@@ -1,4 +1,4 @@
-# 第 8 章：生产级 Agent 的十二要素
+# 第 9 章：生产级 Agent 的十二要素
 
 前几章讨论了单个 harness 技术：上下文管理、工具、沙箱、工作流和长运行 handoff。本章退一步看：HumanLayer 的 “12 Factor Agents” 更适合作为一份生产 checklist，把这些技术重新连接到普通软件架构。它借用了经典 Twelve-Factor App 的命名风格，但要素本身针对的是 LLM agent——而且它是一份宣言，而不是完整参考架构。
 

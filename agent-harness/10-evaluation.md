@@ -1,4 +1,4 @@
-# Chapter 9: Evaluation
+# Chapter 10: Evaluation
 
 ### 9.1 Why Evals
 

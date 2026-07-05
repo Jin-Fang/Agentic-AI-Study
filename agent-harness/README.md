@@ -18,7 +18,7 @@ The premise of the field is simple. As Vivek Trivedy of LangChain puts it: "Agen
 
 This is the second book in a two-part sequence. It assumes the model fundamentals covered in the companion volume, [*LLM Foundations for Harness Engineering*](../llm-foundations/) — tokens, attention and the KV-cache, the context window, sampling, post-training, retrieval, the agent loop and tool-call protocol, prompt injection, and pass@k vs pass^k. Where this book names a Foundations concept, it points back (e.g. "see Foundations ch 9") rather than re-deriving it. Read that volume first if those terms are unfamiliar.
 
-The chapters are a single narrative pass over the ETCLOVG taxonomy and can be read straight through. If you arrive with a specific goal: context budget is Ch 2–3; tools and MCP are Ch 4; safety and sandboxing are Ch 5; evaluation and iteration are Ch 9–11; and the production checklist is Ch 8.
+The chapters are a single narrative pass over the ETCLOVG taxonomy and can be read straight through. If you arrive with a specific goal: context budget is Ch 2–3; tools and MCP are Ch 4; safety and sandboxing are Ch 5; evaluation and iteration are Ch 10–12; and the production checklist is Ch 9.
 
 ---
 
@@ -34,11 +34,17 @@ The chapters are a single narrative pass over the ETCLOVG taxonomy and can be re
 | [Ch 5](./05-sandboxing-guardrails.md) | Sandboxing, Guardrails, and Safe Autonomy | The security threat model, sandbox roles, permission fatigue, governance, filesystem/network isolation, hooks |
 | [Ch 6](./06-agentic-workflow-patterns.md) | Agentic Workflow Patterns | Five compositional workflow patterns, micro-agent approach |
 | [Ch 7](./07-long-running-agents.md) | Long-Running Agents and Multi-Context-Window Tasks | Shift-change problem, initializer+coding agent pattern, managed agents, GAN-inspired architecture |
-| [Ch 8](./08-twelve-factors.md) | Twelve Factors for Production Agents | HumanLayer's 12-factor manifesto, state reducers, and the framework-to-platform shift |
-| [Ch 9](./09-evaluation.md) | Evaluation | Eval anatomy, grader types, pass@k vs pass^k, readiness validation, eight-step roadmap |
-| [Ch 10](./10-infrastructure-noise.md) | Infrastructure Noise | Resource configuration effects on benchmark scores |
-| [Ch 11](./11-trace-driven-iteration.md) | Trace-Driven Iteration and Model–Harness Co-Evolution | Traces as feedback loops, span telemetry, regression extraction, meta-harness, model–harness coupling |
-| [Ch 12](./12-outlook.md) | Outlook | Open problems, cross-layer tradeoffs, and standing principles |
+| [Ch 8](./08-loop-engineering.md) | Loop Engineering | Designing the outer loop: triggers and nested loops, the verifier as bottleneck, stop rules, the Ralph lineage, building blocks, the maturity ladder |
+| [Ch 9](./09-twelve-factors.md) | Twelve Factors for Production Agents | HumanLayer's 12-factor manifesto, state reducers, and the framework-to-platform shift |
+| [Ch 10](./10-evaluation.md) | Evaluation | Eval anatomy, grader types, pass@k vs pass^k, readiness validation, eight-step roadmap |
+| [Ch 11](./11-infrastructure-noise.md) | Infrastructure Noise | Resource configuration effects on benchmark scores |
+| [Ch 12](./12-trace-driven-iteration.md) | Trace-Driven Iteration and Model–Harness Co-Evolution | Traces as feedback loops, span telemetry, regression extraction, meta-harness, model–harness coupling |
+| [Ch 13](./13-system-prompts-and-instructions.md) | System Prompts and Instruction Architecture | The instruction layer, the instruction hierarchy, dynamic assembly, prompt versioning, the right altitude |
+| [Ch 14](./14-model-selection-routing-reasoning.md) | Model Selection, Routing, and Reasoning Models | Per-step model choice, routing, cascades and fallbacks, reasoning models and test-time compute |
+| [Ch 15](./15-human-agent-interaction.md) | Human–Agent Interaction | Permission fatigue vs blind trust, mixed-initiative, approval as a tool call, review surfaces, steering, supervising fleets |
+| [Ch 16](./16-computer-use-and-multimodal-agents.md) | Computer-Use and Multimodal Agents | Operating GUIs, screen encodings, visual grounding, action spaces, the widest attack surface, environmental evals |
+| [Ch 17](./17-cost-privacy-and-operations.md) | Cost, Privacy, and Production Operations | Budgets, cost attribution, data governance, multi-tenancy, releasing harness changes, monitoring, governance frameworks |
+| [Ch 18](./18-outlook.md) | Outlook | Open problems, cross-layer tradeoffs, and standing principles |
 | [References](./references.md) | References | Full bibliography |
 | [Glossary](./glossary.md) | Glossary | Quick definitions for key terms used throughout the book |
 

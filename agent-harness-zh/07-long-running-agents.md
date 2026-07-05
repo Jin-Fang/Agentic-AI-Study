@@ -75,7 +75,7 @@ Anthropic 的 harness-design 后续文章明确区分两者 ([Anthropic - Harnes
 
 两者解决不同问题。Compaction 保持连续性。Reset 用来缓解 “context anxiety”：Anthropic 在 Sonnet 4.5 中观察到，agent 在接近它认为的上下文上限时，会过早收尾。Reset 给 agent 一个干净开局；代价是 handoff artifact 必须携带足够状态，让下一 agent 干净恢复。
 
-当 Opus 4.5 基本自行修复 context-anxiety 行为后，Anthropic 能够完全从 harness 中删除 context reset。这是第 11 章 model-harness coupling 的明确例子。
+当 Opus 4.5 基本自行修复 context-anxiety 行为后，Anthropic 能够完全从 harness 中删除 context reset。这是第 12 章 model-harness coupling 的明确例子。
 
 ### 7.7 Managed Agents：解耦 Brain、Hands 与 Session State
 

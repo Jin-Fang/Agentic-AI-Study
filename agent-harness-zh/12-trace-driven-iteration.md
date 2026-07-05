@@ -1,4 +1,4 @@
-# 第 11 章：基于 Trace 的迭代与 Model-Harness 共同演化
+# 第 12 章：基于 Trace 的迭代与 Model-Harness 共同演化
 
 ### 11.1 Traces 是反馈回路
 

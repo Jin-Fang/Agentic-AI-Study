@@ -1,4 +1,4 @@
-# Chapter 11: Trace-Driven Iteration and Model–Harness Co-Evolution
+# Chapter 12: Trace-Driven Iteration and Model–Harness Co-Evolution
 
 ### 11.1 Traces Are the Feedback Loop
 

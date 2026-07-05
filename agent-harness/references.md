@@ -75,6 +75,31 @@ Full bibliography for *Agent Harness: A Practitioner's Textbook*.
 
 ---
 
+## Loop Engineering
+
+- Addy Osmani, *Loop Engineering*, addyosmani.com, Jun 2026.
+  https://addyosmani.com/blog/loop-engineering/
+
+- *Loop Engineering*, O'Reilly Radar, 2026.
+  https://www.oreilly.com/radar/loop-engineering/
+
+- Andrew Ng, *Three Loops for Building 0-to-1 AI Products*, The Batch, Jun 2026.
+  https://www.deeplearning.ai/the-batch/
+
+- *The Anthropic leader who built Claude Code ditched prompting — now he writes loops*, The New Stack, 2026.
+  https://thenewstack.io/loop-engineering/
+
+- *The Agentic Loop: A Practical Field Guide*, DEV Community, 2026.
+  https://dev.to/truongpx396/the-agentic-loop-a-practical-field-guide-mnc
+
+- *Loop Engineering Guide (2026)*, AI Builder Club.
+  https://www.aibuilderclub.com/blog/loop-engineering-guide-2026
+
+- *Loop Engineering Crash Course*, The AI Agent Factory (Panaversity).
+  https://agentfactory.panaversity.org/docs/loop-engineering-crash-course
+
+---
+
 ## Evaluation and Observability
 
 - Mikaela Grace et al., *Demystifying Evals for AI Agents*, Anthropic, Jan 2026.
@@ -95,6 +120,78 @@ Full bibliography for *Agent Harness: A Practitioner's Textbook*.
 
 - Jeremy Hadfield et al., *How We Built Our Multi-Agent Research System*, Anthropic, Jun 2025.
   https://www.anthropic.com/engineering/multi-agent-research-system
+
+---
+
+## Instructions and Prompting
+
+- Eric Wallace et al., *The Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions*, OpenAI, Apr 2024.
+  https://arxiv.org/abs/2404.13208
+
+---
+
+## Model Selection, Routing, and Reasoning
+
+- Isaac Ong et al., *RouteLLM: Learning to Route LLMs with Preference Data*, 2024.
+  https://arxiv.org/abs/2406.18665
+
+- Lingjiao Chen, Matei Zaharia, and James Zou, *FrugalGPT: How to Use Large Language Models While Reducing Cost and Improving Performance*, 2023.
+  https://arxiv.org/abs/2305.05176
+
+- Charlie Snell et al., *Scaling LLM Test-Time Compute Optimally Can Be More Effective Than Scaling Model Parameters*, 2024.
+  https://arxiv.org/abs/2408.03314
+
+- DeepSeek-AI, *DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning*, 2025.
+  https://arxiv.org/abs/2501.12948
+
+---
+
+## Human–Agent Interaction
+
+- Saleema Amershi et al., *Guidelines for Human-AI Interaction*, CHI 2019.
+  https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/
+
+- Eric Horvitz, *Principles of Mixed-Initiative User Interfaces*, CHI 1999.
+  https://www.microsoft.com/en-us/research/publication/principles-of-mixed-initiative-user-interfaces/
+
+---
+
+## Computer-Use and Multimodal Agents
+
+- Anthropic, *Introducing computer use, a new Claude 3.5 Sonnet, and Claude 3.5 Haiku*, Oct 2024.
+  https://www.anthropic.com/news/3-5-models-and-computer-use
+
+- OpenAI, *Computer-Using Agent (Operator)*, Jan 2025.
+  https://openai.com/index/computer-using-agent/
+
+- Jianwei Yang et al., *Set-of-Mark Prompting Unleashes Extraordinary Visual Grounding in GPT-4V*, 2023.
+  https://arxiv.org/abs/2310.11441
+
+- Boyuan Zheng et al., *GPT-4V(ision) is a Generalist Web Agent, if Grounded* (SeeAct), 2024.
+  https://arxiv.org/abs/2401.01614
+
+- Shuyan Zhou et al., *WebArena: A Realistic Web Environment for Building Autonomous Agents*, 2023.
+  https://arxiv.org/abs/2307.13854
+
+- Tianbao Xie et al., *OSWorld: Benchmarking Multimodal Agents for Open-Ended Tasks in Real Computer Environments*, 2024.
+  https://arxiv.org/abs/2404.07972
+
+---
+
+## Cost, Privacy, and Governance Frameworks
+
+- OWASP, *Top 10 for Large Language Model Applications*, 2025.
+  https://genai.owasp.org/llm-top-10/
+
+- NIST, *AI Risk Management Framework (AI RMF 1.0)*, 2023.
+  https://www.nist.gov/itl/ai-risk-management-framework
+
+---
+
+## Companion Volume
+
+- *LLM Foundations for Harness Engineering*. The model-internals companion to this book.
+  ../llm-foundations/
 
 ---
 

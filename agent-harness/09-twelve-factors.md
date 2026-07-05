@@ -1,4 +1,4 @@
-# Chapter 8: Twelve Factors for Production Agents
+# Chapter 9: Twelve Factors for Production Agents
 
 The previous chapters described individual harness techniques: context management, tools, sandboxing, workflows, and long-running handoffs. This chapter steps back: HumanLayer's "12 Factor Agents" is best read as a production checklist that ties those techniques back to ordinary software architecture. It borrows the naming style of the classic Twelve-Factor App, but the factors are specific to LLM agents — and it is a manifesto, not a complete reference architecture.
 

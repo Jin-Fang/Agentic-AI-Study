@@ -1,4 +1,4 @@
-# 第 10 章：基础设施噪声
+# 第 11 章：基础设施噪声
 
 阅读 benchmark leaderboard 的实践者需要知道：小分差的不确定性比报告数字看起来更大。Anthropic 的 “Quantifying Infrastructure Noise” 记录了这种影响的量级 ([Anthropic - Quantifying Infrastructure Noise in Agentic Coding Evals](https://www.anthropic.com/engineering/infrastructure-noise))。
 

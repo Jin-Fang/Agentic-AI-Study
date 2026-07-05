@@ -74,7 +74,7 @@ Anthropic's harness-design follow-up makes an explicit distinction ([Anthropic â
 
 The two address different problems. Compaction preserves continuity. Resets cure "context anxiety" â€” a tendency Anthropic observed in Sonnet 4.5 where the agent began wrapping up work prematurely as it neared what it believed to be its context limit. Resets give the agent a clean slate; the cost is that the handoff artifact must carry enough state for the next agent to resume cleanly.
 
-When Opus 4.5 largely fixed the context-anxiety behavior on its own, Anthropic was able to drop context resets from the harness entirely. This is an explicit example of the model-harness coupling discussed in chapter 11.
+When Opus 4.5 largely fixed the context-anxiety behavior on its own, Anthropic was able to drop context resets from the harness entirely. This is an explicit example of the model-harness coupling discussed in chapter 12.
 
 ### 7.7 Managed Agents: Decoupling Brain, Hands, and Session State
 

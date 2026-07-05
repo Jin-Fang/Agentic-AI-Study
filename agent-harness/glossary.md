@@ -22,7 +22,7 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Harness engineering** — Iterating on the whole system around the model — not just one prompt — so that each observed failure is permanently engineered out (Ch 1).
 
-**Binding-constraint thesis** — The claim that long-horizon agent reliability is often limited by harness layers — execution, tools, context, lifecycle, observability, verification, and governance — rather than by model capability alone (Ch 1, 11).
+**Binding-constraint thesis** — The claim that long-horizon agent reliability is often limited by harness layers — execution, tools, context, lifecycle, observability, verification, and governance — rather than by model capability alone (Ch 1, 12).
 
 **ETCLOVG** — A seven-layer taxonomy for agent harness engineering: Execution environment, Tool interface, Context, Lifecycle, Observability, Verification, and Governance (Ch 1).
 
@@ -34,9 +34,9 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Protocol boundary** — The integration line a tool or agent standard crosses: model-to-function, agent-to-external-capability, agent-to-agent, or agent-to-repo/environment (Ch 4).
 
-**Tool call** — Structured output (typically JSON) in which the model names a tool and its arguments. Deterministic harness code decides what to do with it (see Foundations ch 12) (Ch 4, 8).
+**Tool call** — Structured output (typically JSON) in which the model names a tool and its arguments. Deterministic harness code decides what to do with it (see Foundations ch 12) (Ch 4, 9).
 
-**Structured output** — Model output constrained into a machine-readable shape, usually JSON or XML, so software can parse it reliably. Tool calls are the agent-specific case (see Foundations ch 12) (Ch 1, 4, 8).
+**Structured output** — Model output constrained into a machine-readable shape, usually JSON or XML, so software can parse it reliably. Tool calls are the agent-specific case (see Foundations ch 12) (Ch 1, 4, 9).
 
 ---
 
@@ -76,7 +76,7 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Evaluator-optimizer** — A workflow where one LLM generates and another critiques, in a loop, until evaluation criteria are met (Ch 6).
 
-**Micro-agent** — A small, focused agent (≈3–20 steps) embedded in an otherwise deterministic workflow, rather than an open-ended "loop until done" agent (Ch 6, 8).
+**Micro-agent** — A small, focused agent (≈3–20 steps) embedded in an otherwise deterministic workflow, rather than an open-ended "loop until done" agent (Ch 6, 9).
 
 ---
 
@@ -100,11 +100,11 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Sandbox liveness** — The sandbox's role as an authorization region: it lets an agent act without per-action approval prompts while staying inside configured boundaries (Ch 5).
 
-**Governance** — Harness mechanisms for identity, permission policy, scoped credentials, human approval, audit logs, and cross-layer security accountability (Ch 5, 12).
+**Governance** — Harness mechanisms for identity, permission policy, scoped credentials, human approval, audit logs, and cross-layer security accountability (Ch 5, 18).
 
 **Delegated auth** — A pattern where the agent acts through scoped credentials or a proxy-authorized identity rather than inheriting the user's full ambient authority (Ch 5).
 
-**Supply-chain provenance** — Evidence about the origin and integrity of tools, packages, datasets, MCP servers, and retrieval sources the agent depends on (Ch 5, 12).
+**Supply-chain provenance** — Evidence about the origin and integrity of tools, packages, datasets, MCP servers, and retrieval sources the agent depends on (Ch 5, 18).
 
 **Hook / middleware** — Harness-executed scripts or checkpoints that run automatically on lifecycle events (start, post-tool-call, stop), enforcing rules deterministically (Ch 5).
 
@@ -114,7 +114,7 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Ambient affordances** — Properties of the environment itself (strong typing, clear module boundaries, opinionated frameworks) that make a codebase legible and tractable to agents (Ch 5).
 
-**CI (continuous integration)** — Automated checks that run around code changes, usually tests, linters, builds, and deployment gates. In harness design, CI-like checks become feedback sensors (Ch 5, 9).
+**CI (continuous integration)** — Automated checks that run around code changes, usually tests, linters, builds, and deployment gates. In harness design, CI-like checks become feedback sensors (Ch 5, 10).
 
 **Linter / type checker** — Deterministic tools that detect style, syntax, structural, or type errors before runtime. They are common computational sensors in an outer harness (Ch 5).
 
@@ -126,25 +126,25 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 ## Evaluation
 
-**Eval harness** — The infrastructure that runs an evaluation end-to-end; distinct from the agent harness being evaluated (Ch 9).
+**Eval harness** — The infrastructure that runs an evaluation end-to-end; distinct from the agent harness being evaluated (Ch 10).
 
-**Readiness validation** — Verification that a specific model-plus-harness configuration is ready for a specific task distribution, environment, budget, and governance regime (Ch 9).
+**Readiness validation** — Verification that a specific model-plus-harness configuration is ready for a specific task distribution, environment, budget, and governance regime (Ch 10).
 
-**Failure attribution** — Labeling an agent failure by likely harness layer — for example execution, tool interface, context, lifecycle, observability, verification, or governance — before choosing a fix (Ch 9, 11).
+**Failure attribution** — Labeling an agent failure by likely harness layer — for example execution, tool interface, context, lifecycle, observability, verification, or governance — before choosing a fix (Ch 10, 12).
 
-**Task / trial** — A *task* has defined inputs and success criteria; a *trial* is a single attempt at it (Ch 9).
+**Task / trial** — A *task* has defined inputs and success criteria; a *trial* is a single attempt at it (Ch 10).
 
-**Grader** — A component that scores some aspect of a trial: code-based, model-based, or human (Ch 9).
+**Grader** — A component that scores some aspect of a trial: code-based, model-based, or human (Ch 10).
 
-**Transcript (trace, trajectory)** — The full record of a trial: every message, tool call, and result (Ch 9, 11).
+**Transcript (trace, trajectory)** — The full record of a trial: every message, tool call, and result (Ch 10, 12).
 
-**Outcome** — The final environmental state at the end of a trial, distinct from the agent's text response (Ch 9).
+**Outcome** — The final environmental state at the end of a trial, distinct from the agent's text response (Ch 10).
 
-**Capability eval / regression eval** — Capability evals measure what an agent can newly do (low pass rates, climbing); regression evals protect what it already does reliably (near 100%) (Ch 9).
+**Capability eval / regression eval** — Capability evals measure what an agent can newly do (low pass rates, climbing); regression evals protect what it already does reliably (near 100%) (Ch 10).
 
-**pass@k / pass^k** — pass@k is the probability of at least one success in k attempts (rises with k); pass^k is the probability that *all* k trials succeed (falls with k) (see Foundations ch 13) (Ch 9).
+**pass@k / pass^k** — pass@k is the probability of at least one success in k attempts (rises with k); pass^k is the probability that *all* k trials succeed (falls with k) (see Foundations ch 13) (Ch 10).
 
-**Infrastructure noise** — Variation in benchmark scores caused by the runtime's resource configuration rather than by model capability (Ch 10).
+**Infrastructure noise** — Variation in benchmark scores caused by the runtime's resource configuration rather than by model capability (Ch 11).
 
 ---
 
@@ -160,24 +160,90 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Sprint contract** — A file-based agreement between a generator and an evaluator agent on what will be built and how success is verified, settled before each build sprint (Ch 7).
 
-**Event log** — An append-only record of messages, tool calls, results, approvals, and errors. Execution state can be derived from it, making agents easier to replay and debug (Ch 8).
+**Event log** — An append-only record of messages, tool calls, results, approvals, and errors. Execution state can be derived from it, making agents easier to replay and debug (Ch 9).
 
-**Agent platform** — Infrastructure beyond a local framework: durable workspaces, managed sandboxes, identity, billing, observability, evaluation, governance, and human handoff across many runs and users (Ch 8, 12).
+**Agent platform** — Infrastructure beyond a local framework: durable workspaces, managed sandboxes, identity, billing, observability, evaluation, governance, and human handoff across many runs and users (Ch 9, 18).
 
-**Checkpoint / resume** — A reliability pattern where an agent periodically saves enough state to restart after failure or context reset without losing work (Ch 7, 8).
+**Checkpoint / resume** — A reliability pattern where an agent periodically saves enough state to restart after failure or context reset without losing work (Ch 7, 9).
 
-**Stateless reducer** — Modeling an agent as a pure fold over an event log, making it serializable, replayable, and testable (Ch 8).
+**Stateless reducer** — Modeling an agent as a pure fold over an event log, making it serializable, replayable, and testable (Ch 9).
 
-**Model–harness co-evolution** — The coupling created when frontier models are post-trained with their harnesses in the loop, so that changing either side can degrade performance (Ch 11).
+**Model–harness co-evolution** — The coupling created when frontier models are post-trained with their harnesses in the loop, so that changing either side can degrade performance (Ch 12).
 
-**Span telemetry** — Structured trace data represented as a tree of spans for model calls, tool calls, retrieval, context assembly, permissions, costs, and outcomes (Ch 11).
+**Span telemetry** — Structured trace data represented as a tree of spans for model calls, tool calls, retrieval, context assembly, permissions, costs, and outcomes (Ch 12).
 
-**Trace-to-eval loop** — Converting real production failures into redacted, reproducible regression cases with outcome assertions (Ch 11).
+**Trace-to-eval loop** — Converting real production failures into redacted, reproducible regression cases with outcome assertions (Ch 12).
 
-**Meta-harness** — Treating harness design itself as an optimization object: prompts, tools, retries, context policies, evaluators, and control loops are ablated or searched using eval feedback (Ch 11).
+**Meta-harness** — Treating harness design itself as an optimization object: prompts, tools, retries, context policies, evaluators, and control loops are ablated or searched using eval feedback (Ch 12).
 
-**Cost-quality-speed trilemma** — The tradeoff that stronger execution environments, observability, verification, and governance improve reliability but increase cost and latency (Ch 12).
+**Cost-quality-speed trilemma** — The tradeoff that stronger execution environments, observability, verification, and governance improve reliability but increase cost and latency (Ch 18).
 
-**Capability-control tradeoff** — The design axis where more authority, tools, memory, and autonomy improve capability while expanding the control, provenance, and audit problem (Ch 12).
+**Capability-control tradeoff** — The design axis where more authority, tools, memory, and autonomy improve capability while expanding the control, provenance, and audit problem (Ch 18).
 
-**Ralph Wiggum loop** — A hook that intercepts an agent's exit attempt and reinjects the original prompt in a clean context window, forcing it to continue against its goal (Ch 7).
+**Ralph Wiggum loop** — A hook that intercepts an agent's exit attempt and reinjects the original prompt in a clean context window, forcing it to continue against its goal (Ch 7, 8).
+
+**Loop engineering** — Treating the agent loop itself as the unit of design — specifying the trigger, topology, verifier, and stop rules that surround the model so it can run unattended. The operator-facing view of the outer control loop (Ch 8).
+
+**Trigger (heartbeat)** — What starts a loop pass without a human prompt: a schedule, a webhook, or another agent (Ch 8).
+
+**Verifier (maker–checker)** — The fixed standard that decides "good enough," applied by an agent separate from the one that produced the work, so the maker cannot grade its own homework; the bottleneck of loop design (Ch 8).
+
+**Stop rule** — An explicit condition that ends a loop — success, no-op, or ask-for-approval — plus the three hard stops that bound a runaway: a maximum iteration count, no-progress detection, and a budget ceiling (Ch 8).
+
+**Closed vs. open loop** — A closed loop pins hard, checkable acceptance criteria up front and is safe to leave running; an open loop explores a fuzzy goal and needs an even stronger verifier or it ships confident garbage (Ch 8).
+
+---
+
+## Instructions and Model Selection
+
+**Instruction hierarchy** — The principle that instructions carry different authority by origin — system over developer over user over tool/retrieved content — so a lower-priority instruction cannot override a higher one. Prompt injection is a failure of this hierarchy (Ch 13).
+
+**Right altitude** — The target specificity for a system prompt: concrete enough to steer behavior reliably, general enough to transfer across cases, avoiding both brittle hardcoded rules and vague guidance (Ch 13).
+
+**Model routing** — Classifying a request's difficulty and dispatching easy ones to a cheap, weak model and hard ones to an expensive, strong one. Pays off only when the routing decision is much cheaper than the saving (Ch 14).
+
+**LLM cascade** — Trying a cheap model first and escalating to a stronger one only when a verifier rejects the cheap answer. Matches strong-model accuracy at lower cost when the escalation signal is reliable (Ch 14).
+
+**Fallback** — Failing over to an alternate model when the primary errors, times out, or is rate-limited, so the agent degrades gracefully (Ch 14).
+
+**Reasoning model** — A model post-trained, often with RL on verifiable rewards, to generate long internal reasoning before answering, spending inference tokens for better performance on hard tasks (Ch 14; *LLM Foundations* Ch 7–8).
+
+**Test-time compute** — Spending more inference tokens, time, and money at answer time to do better on hard problems — a scaling axis distinct from larger models or more hardware (Ch 14).
+
+---
+
+## Human Interaction
+
+**Permission fatigue** — The degradation of oversight when an agent prompts for approval too often, training the human to rubber-stamp without reading (Ch 5, 15).
+
+**Mixed-initiative** — An interaction style in which the system decides per action whether to act autonomously or defer to a human, managing the cost of interruption (Ch 15).
+
+**Approval as a tool call** — Modeling human approval as a tool the agent invokes, so the request becomes a durable, replayable, auditable event that composes with suspend/resume (Ch 15).
+
+**Steering** — Injecting a new instruction into a running agent so it is incorporated on the next turn, redirecting without losing session state (Ch 15).
+
+**Calibrated trust** — The goal of the human interface: the human trusts the agent exactly as much as it deserves on a given task, achieved through transparency and grounded uncertainty rather than fluency (Ch 15).
+
+---
+
+## Computer-Use Agents
+
+**Computer-use agent** — An agent that operates software through its GUI — viewing screenshots and emitting cursor, keyboard, and navigation actions — rather than calling defined APIs (Ch 16).
+
+**Visual grounding** — Translating an intention ("click Submit") into a concrete action (a click at specific coordinates); an error mode with no analog in API tools (Ch 16).
+
+**Set-of-Mark prompting** — Overlaying numbered marks on candidate interactive elements so the model selects a discrete label instead of producing raw coordinates, improving grounding reliability (Ch 16).
+
+**Accessibility tree** — A structured, semantic representation of a UI (roles, labels, states) built for assistive technology; often a more compact and exact screen encoding than raw pixels or DOM (Ch 16).
+
+---
+
+## Cost and Operations
+
+**Per-task budget** — An explicit ceiling on tokens, tool calls, or cost for a single agent run, after which the agent stops and asks rather than looping indefinitely (Ch 17).
+
+**Cost attribution** — Attaching token and dollar cost to each span of a trace, turning "the agent is expensive" into a specific, fixable engineering finding (Ch 17).
+
+**Multi-tenancy / tenant isolation** — Serving many users or organizations from one platform while preventing state bleed (context/memory/cache leaking across tenants) and authority bleed (acting with the wrong tenant's credentials) (Ch 17).
+
+**Canary rollout** — Releasing a harness change to a fraction of traffic and watching production traces and outcome metrics before full deployment, catching cases the eval suite missed (Ch 17).

@@ -44,7 +44,7 @@ OpenReview 综述论文 *Agent Harness Engineering: A Survey* 给了同一边界
 - **Verification**：eval harness、grader、任务集、outcome check 和 readiness gate。
 - **Governance**：权限、策略语言、审计轨迹、人类审批、constitutional/rule-based 控制和跨层安全。
 
-本书多数章节都可以看作对这七层的展开。第 2-3 章主要讨论 context 和 memory；第 4-5 章覆盖 tools 和 execution；第 7-8 章进入 lifecycle；第 9-11 章展开 verification、observability 和 governance，并在展望中再次回到。
+本书多数章节都可以看作对这七层的展开。第 2-3 章主要讨论 context 和 memory；第 4-5 章覆盖 tools 和 execution；第 7-9 章进入 lifecycle；第 10-12 章展开 verification、observability 和 governance，并在展望中再次回到。
 
 ### 1.5 Harness 为什么存在：从模型缺陷倒推
 
@@ -57,6 +57,8 @@ LangChain 给出了一种有用推导：先列出你希望 agent 具备的行为
 Anthropic 将最近的转变描述为自然演进。早期 LLM 应用的主导工作是 *prompt engineering*：为一次性任务编写和组织指令。随着应用发展成多轮、长时间运行的 agent，相关工作转向 *context engineering*：在 LLM 推理时策划和维护最优 token 集合，包括提示词之外进入上下文的一切信息 ([Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents))。
 
 Harness engineering 位于 context engineering 之上。Mitchell Hashimoto 的说法是，每当 agent 犯错，就花时间把系统工程化到它以后不再犯同一个错 ([HumanLayer - Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) quoting Hashimoto)。Prompt engineering 调的是一个提示；harness engineering 迭代的是承载这个提示运行的整个系统。
+
+2026 年又出现了一次重构，名字叫 *loop engineering（循环工程）*。随着 agent 开始在长周期上无人值守地运行，工作的核心单元再次转移——从 prompt，到 context，到那个决定“prompt 什么、何时 prompt、结果是否够好”的 *loop* ([Addy Osmani - Loop Engineering](https://addyosmani.com/blog/loop-engineering/))。与其说它是 harness engineering 的对手，不如说它是后者面向运维的外层控制循环视角——环绕 agent 的 trigger、verifier 和 stop rule——第 8 章会完整展开它。
 
 ### 1.7 Framework、Runtime 与 Harness
 

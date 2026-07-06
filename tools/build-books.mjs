@@ -119,19 +119,30 @@ table{ border-collapse:collapse; width:100%; font-size:8.8pt; margin:2pt 0 6pt; 
 th,td{ border:1px solid #d8d8d8; padding:3pt 5pt; text-align:left; vertical-align:top; }
 th{ background:#eef2f7; font-weight:640; }
 .mermaid-fig{ break-inside:avoid; margin:8pt 0; text-align:center; }
-.mermaid svg{ max-width:100%; height:auto; }
+.mermaid{ text-align:center; }
+/* Render diagrams at natural size, but never wider than the text column
+   nor taller than ~60% of a page, so long/tall diagrams stay reasonable. */
+.mermaid svg{ display:block; margin:0 auto; width:auto; height:auto; max-width:100%; max-height:165mm; }
 `;
 
 const MERMAID_INIT = `
 mermaid.initialize({
   startOnLoad:false, theme:'neutral', securityLevel:'loose',
-  flowchart:{ useMaxWidth:true, htmlLabels:true, curve:'basis' },
-  sequence:{ useMaxWidth:true },
+  // useMaxWidth:false -> diagrams keep their natural size instead of being
+  // stretched to the full page width (CSS then caps width/height).
+  flowchart:{ useMaxWidth:false, htmlLabels:true, curve:'basis' },
+  sequence:{ useMaxWidth:false },
+  mindmap:{ useMaxWidth:false },
+  quadrantChart:{ useMaxWidth:false },
   themeVariables:{ fontSize:'12px' }
 });
 (async () => {
   try { await mermaid.run({ querySelector:'.mermaid' }); }
   catch (e) { document.body.setAttribute('data-err', String(e && e.message || e)); }
+  // Normalize any inline sizing mermaid may add, so the stylesheet governs.
+  document.querySelectorAll('.mermaid svg').forEach((s) => {
+    s.style.removeProperty('max-width'); s.style.removeProperty('width'); s.style.removeProperty('height');
+  });
   document.title = 'RENDER_READY';
 })();
 `;

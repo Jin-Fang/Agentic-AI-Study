@@ -36,7 +36,12 @@ node build-books.mjs agent-harness
 node build-books.mjs llm-foundations-zh --html-only
 ```
 
-Output lands in `dist/` (git-ignored, so regenerate any time).
+Output lands in `dist/`. The four rendered PDFs are committed there for direct download:
+
+- [Agent Harness (EN)](./dist/agent-harness.pdf) · [中文](./dist/agent-harness-zh.pdf)
+- [LLM Foundations (EN)](./dist/llm-foundations.pdf) · [中文](./dist/llm-foundations-zh.pdf)
+
+The (larger) self-contained HTML is git-ignored; regenerate it any time with the commands above.
 
 **Notes**
 - PDF generation shells out to headless Chrome. If it isn't found automatically, set `CHROME_PATH` to the browser executable.

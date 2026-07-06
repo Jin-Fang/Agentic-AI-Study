@@ -1,8 +1,9 @@
 # Node dependencies for the book build tool
 tools/node_modules/
 
-# Generated book artifacts (regenerate with: cd tools && npm run build)
-dist/
+# Generated HTML is large and regenerable; the PDFs are committed for download.
+# Regenerate everything with: cd tools && npm run build
+dist/*.html
 
 # OS / editor cruft
 .DS_Store

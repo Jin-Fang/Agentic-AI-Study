@@ -17,4 +17,31 @@ More topics will be added as the field evolves.
 
 ---
 
+## Building the Books (HTML & PDF)
+
+All four books can be rendered to self-contained **HTML** and print-ready **PDF** with the build tool in [`tools/`](./tools/). Each book is bundled into a single file — a generated cover, its numbered chapters, then references and glossary. Mermaid diagrams are rendered to real SVG, and Chinese text uses the system CJK fonts.
+
+**Prerequisites:** [Node.js](https://nodejs.org/) 18+, and — for PDF output — Google Chrome or Chromium.
+
+```bash
+cd tools
+npm install            # one-time: fetches marked + mermaid
+
+npm run build          # all four books -> ../dist/<book>.html and .pdf
+npm run build:html     # HTML only (no browser needed)
+npm run build:pdf      # PDF only (reuses the built HTML)
+
+# build a single book by directory name; combine with --html-only / --pdf-only
+node build-books.mjs agent-harness
+node build-books.mjs llm-foundations-zh --html-only
+```
+
+Output lands in `dist/` (git-ignored, so regenerate any time).
+
+**Notes**
+- PDF generation shells out to headless Chrome. If it isn't found automatically, set `CHROME_PATH` to the browser executable.
+- The HTML is fully self-contained (mermaid is inlined), so it opens offline and is easy to share.
+
+---
+
 *Based on the [Awesome Harness Engineering](https://github.com/walkinglabs/awesome-harness-engineering) reading list and the OpenReview survey [Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh).*

@@ -64,6 +64,12 @@
 
 **结构化笔记(agentic memory)** — 让 agent 把进度笔记写到磁盘,以便上下文重置后重新加载(第 3 章)。
 
+**MemGPT** — 一种记忆架构,把上下文窗口当作 OS 式的“主存”、把外部存储当作“磁盘”,让模型通过函数调用把信息换入换出(虚拟上下文管理)(第 3 章)。
+
+**Mem0** — 一层记忆:跨会话动态抽取、整合并检索显著事实,并有可选的图变体捕获实体关系(第 3 章)。
+
+**Sleep-time compute(睡眠期计算)** — 在请求之间离线处理上下文——预判可能查询并预计算推断——以削减后续查询所需的计算(第 3 章)。
+
 ---
 
 ## 子代理与工作流
@@ -77,6 +83,12 @@
 **Evaluator-optimizer** — 一种工作流:一个 LLM 生成、另一个 LLM 批评,循环往复直到满足评价标准(第 6 章)。
 
 **Micro-agent(小代理)** — 嵌入在确定性工作流中的小而聚焦的 agent(约 3-20 步),而非开放式"loop until done"的 agent(第 6、8 章)。
+
+**Multi-agent topology(多代理拓扑)** — 多代理系统的协调形态:orchestrator–worker、hierarchical、blackboard/shared-memory,或 debate/voting(第 3、6 章)。
+
+**MAST(多代理系统失败分类法)** — 一套经验性的多代理失败分类,含 14 种失败模式,分三大类:规格问题、代理间错位、任务验证(第 3 章)。
+
+**推理 / 自我纠错模式** — 单个 agent 用 token 换可靠性的思考模式:Reflexion(自我批评记忆)、Self-Refine(批评并修订)、CRITIC(工具落地的批评)、Tree of Thoughts 与 LATS(分支搜索)、ReWOO(先规划再执行)(第 6 章)。
 
 ---
 
@@ -122,6 +134,14 @@
 
 **Lethal trifecta(致命三要素)** — 同一 agent 同时具备:访问私有数据、接触不可信内容、向外通信能力——这三者的危险组合(第 5 章)。
 
+**Circuit breaker(熔断器)** — 一个可靠性包装:在失败达到阈值后跳闸,让后续对失败工具、服务或子代理的调用快速失败,而不是挂起或重试成风暴(第 5 章)。
+
+**Kill switch(终止开关)** — 由人或策略触发的停止,立即且独立于 agent 自身控制流地终止一个 agent 或 fleet;它存在于 harness 中,因为被操纵的 agent 不能被指望停下自己(第 5 章)。
+
+**Canary token(金丝雀令牌)** — 一份被种下的假机密(未使用的 key、诱饵文件、陷阱 URL),其被访问或外泄会触发高信号警报,表明 agent 已被操纵——对 lethal-trifecta 外泄路径的检测(第 5 章)。
+
+**Action budget(动作预算)** — 对工具调用、token、墙钟时间或花费设的硬性上限,达到后循环停止并上报,而非失控奔跑(第 5、8、17 章)。
+
 ---
 
 ## 评估
@@ -166,11 +186,17 @@
 
 **Checkpoint / resume(检查点/恢复)** — 一种可靠性模式:agent 定期保存足够状态,以便在失败或上下文重置后继续工作而不丢进度(第 7、8 章)。
 
+**Durable execution(持久化执行)** — 一种基础设施保证:把每个工作流步骤持久化,使崩溃或被中断的 agent 从最后记录的一步恢复;非确定的模型/工具调用被记录并重放,而非重算(第 7 章)。
+
+**Time horizon(时间视野)** — METR 的能力指标:模型以 50% 可靠性能完成的人类任务长度;前沿值大约每七个月翻一番(第 7、18 章)。
+
 **Stateless reducer(无状态归约器)** — 把 agent 建模为对 event log 的纯 fold,使其可序列化、可重放、可测试(第 9 章)。
 
 **Model-harness co-evolution(模型与 harness 共同演化)** — frontier 模型在其 harness 一起参与的情况下 post-train 所形成的耦合,因此改变任一侧都可能损害性能(第 12 章)。
 
 **Span telemetry** — 以 span tree 表示的结构化 trace 数据,覆盖 model calls、tool calls、retrieval、context assembly、permissions、costs 和 outcomes(第 12 章)。
+
+**OpenTelemetry GenAI semantic conventions** — 一套新兴的、面向 LLM 与 agent 遥测的标准 span 与属性名 schema(`invoke_agent`、`chat`、`execute_tool` span),让 agent trace 加入普通可观测栈(第 12 章)。
 
 **Trace-to-eval loop** — 把真实生产失败转换成脱敏、可复现、带 outcome assertion 的 regression case(第 12 章)。
 
@@ -205,6 +231,8 @@
 **LLM cascade(级联)** — 先试便宜模型,只在 verifier 否决便宜答案时才升级到更强的模型。升级信号可靠时,能以更低成本匹配强模型准确率(第 14 章)。
 
 **Fallback(回退)** — 当主模型出错、超时或被限流时切换到备用模型,使 agent 优雅降级(第 14 章)。
+
+**AI gateway(AI 网关)** — 位于 harness 与各模型供应商之间的基础设施组件,对外呈现一个统一接口覆盖多个模型,并承载路由、fallback、预算、缓存和日志(如 LiteLLM、Portkey)(第 14、17 章)。
 
 **Reasoning model(推理模型)** — 经过 post-training(通常是在可验证奖励上做 RL),学会在回答前生成很长内部推理、用 inference token 换困难任务上更好表现的模型(第 14 章;*LLM Foundations* 第 7–8 章)。
 
@@ -247,3 +275,9 @@
 **Multi-tenancy / 租户隔离** — 用一个平台服务许多用户或组织,同时防止状态串味(context/记忆/缓存跨租户泄露)和权限串味(用错误租户的凭据行事)(第 17 章)。
 
 **Canary rollout(金丝雀放量)** — 把 harness 改动发布给一小部分流量,在全量部署前盯住生产 trace 和 outcome 指标,接住 eval 套件漏掉的案例(第 17 章)。
+
+**Semantic cache(语义缓存)** — 一种缓存:通过嵌入查询、在相似度超过阈值时返回已存响应,来服务*相似*(而非仅相同)的请求;能省掉整次模型调用,但有错误命中的风险(第 17 章)。
+
+**AI 管理体系(ISO/IEC 42001)** — 首个用于治理组织 AI 的可认证标准:如何建立、运行并持续改进一套 AI 管理体系——ISO 27001 的 AI 对应物(第 17 章)。
+
+**欧盟 AI 法案(EU AI Act)** — Regulation (EU) 2024/1689,首部全面的 AI 法律;它按风险层级对系统分类,并对高风险用途施加有约束力的义务(第 17 章)。

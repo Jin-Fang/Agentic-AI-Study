@@ -99,6 +99,17 @@ A term Böckeler credits to Ned Letcher, *ambient affordances*, captures this: p
 
 Anticipating the future, Böckeler suggests *harness templates* — bundled guides and sensors per service topology (CRUD service in JVM, event processor in Go, dashboard in Node) — that ride along with existing service templates. Böckeler invokes Ashby's Law of Requisite Variety to make the case formally — a regulator must have at least as much variety as the system it governs — so committing to a constrained topology is itself a variety-reduction move that makes a comprehensive harness more achievable ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
 
+### 5.11 Operational Safety: Circuit Breakers, Kill Switches, Budgets, and Canaries
+
+Sandboxes, governance, and hooks (§5.3–5.6) bound what an agent *may* do. A second family of controls bounds what happens when the agent or its tools *misbehave at runtime*. These are borrowed almost unchanged from distributed-systems reliability and security operations, and they belong in the harness because a steered or looping agent cannot be trusted to apply them to itself.
+
+- **Circuit breakers.** Wrap a flaky or expensive dependency — a tool, a downstream service, a sub-agent — so that after a threshold of failures the breaker trips and further calls fail fast instead of hanging or retrying into a storm ([Fowler — CircuitBreaker](https://martinfowler.com/bliki/CircuitBreaker.html)). For agents this bounds the blast radius of a tool that starts erroring or an agent stuck retrying the same failing action — the counterpart to "keep the wrong stuff in" (Ch 3): that pattern keeps one failure visible, while the breaker keeps failures from recurring without limit.
+- **Kill switches.** A human- or policy-triggered stop that halts an agent, or an entire fleet, immediately and independently of the agent's own control flow. Because a prompt-injected agent may be actively working against its instructions, the switch has to live in the harness — a supervisor process, a revocable credential, a sandbox teardown — not in a prompt that says "stop if asked."
+- **Action budgets, iteration caps, and cost governors.** Hard limits on tool calls, tokens, wall-clock time, or spend, after which the loop stops and escalates rather than running away. This is the operational form of the loop stop rules of Chapter 8 and the per-task budgets of Chapter 17: an unbounded loop is both a runaway bill and a runaway blast radius.
+- **Canary tokens.** Fake secrets — an unused API key, a decoy file, a tripwire URL — planted where a prompt-injected agent would try to read or exfiltrate them. A callback on a canary is a high-signal alarm that the agent has been steered into touching data it should not ([Thinkst — Canarytokens](https://canarytokens.org/)). Unlike the sandbox, a canary does not *prevent* the exfiltration leg of the lethal trifecta (§5.1); it *detects* it, which is what makes it a useful last line when prevention is imperfect.
+
+The framing matches the rest of the chapter: the more consequential the failure, the less it should depend on the model choosing to avoid it. Prevention (sandboxes, policy) and detection (canaries, drift alerts in Ch 17) compose; neither alone is sufficient.
+
 ---
 
 ## Diagram: Feedforward/Feedback × Computational/Inferential Quadrant
@@ -136,6 +147,7 @@ quadrantChart
 - **Feedforward and feedback are both required**: guides without sensors have no learning loop; sensors without guides react but don't prevent.
 - **Three categories of harness coverage**: maintainability (well-tooled), architecture fitness (achievable), and behavior (the unsolved problem).
 - **Ambient affordances matter**: strongly-typed languages and opinionated frameworks make harnessing easier from day one.
+- **Runtime safety needs operational controls too**: circuit breakers, kill switches, action/cost budgets, and canary tokens bound misbehavior when it happens — they live in the harness because a steered agent cannot be trusted to stop itself.
 
 ## Further Reading
 
@@ -144,3 +156,5 @@ quadrantChart
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 - Vivek Trivedy, *Improving Deep Agents with Harness Engineering*, LangChain, Feb 2026. https://blog.langchain.com/improving-deep-agents-with-harness-engineering/
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
+- Martin Fowler, *CircuitBreaker*, martinfowler.com, Mar 2014. https://martinfowler.com/bliki/CircuitBreaker.html
+- Thinkst, *Canarytokens* (free tripwire tokens). https://canarytokens.org/

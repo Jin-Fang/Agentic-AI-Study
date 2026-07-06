@@ -64,6 +64,12 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Structured note-taking (agentic memory)** — Having the agent write progress notes to disk so they can be reloaded after a context reset (Ch 3).
 
+**MemGPT** — A memory architecture that treats the context window as OS-style "main memory" and external stores as "disk," letting the model page information in and out via function calls (virtual context management) (Ch 3).
+
+**Mem0** — A memory layer that dynamically extracts, consolidates, and retrieves salient facts across sessions, with an optional graph variant for entity relations (Ch 3).
+
+**Sleep-time compute** — Processing context offline between requests — anticipating likely queries and precomputing inferences — to cut the compute a later query needs (Ch 3).
+
 ---
 
 ## Sub-Agents and Workflows
@@ -77,6 +83,12 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 **Evaluator-optimizer** — A workflow where one LLM generates and another critiques, in a loop, until evaluation criteria are met (Ch 6).
 
 **Micro-agent** — A small, focused agent (≈3–20 steps) embedded in an otherwise deterministic workflow, rather than an open-ended "loop until done" agent (Ch 6, 9).
+
+**Multi-agent topology** — The coordination shape of a multi-agent system: orchestrator–worker, hierarchical, blackboard/shared-memory, or debate/voting (Ch 3, 6).
+
+**MAST (Multi-Agent System failure taxonomy)** — An empirical taxonomy of 14 multi-agent failure modes in three categories: specification issues, inter-agent misalignment, and task verification (Ch 3).
+
+**Reasoning / self-correction patterns** — Single-agent deliberation patterns that trade tokens for reliability: Reflexion (self-critique memory), Self-Refine (critique-and-revise), CRITIC (tool-grounded critique), Tree of Thoughts and LATS (branching search), and ReWOO (plan-then-execute) (Ch 6).
 
 ---
 
@@ -122,6 +134,14 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Lethal trifecta** — The dangerous combination, in one agent, of access to private data, exposure to untrusted content, and the ability to communicate externally (Ch 5).
 
+**Circuit breaker** — A reliability wrapper that trips after a threshold of failures so further calls to a failing tool, service, or sub-agent fail fast instead of hanging or retry-storming (Ch 5).
+
+**Kill switch** — A human- or policy-triggered stop that halts an agent or fleet immediately, independent of the agent's own control flow; it lives in the harness because a steered agent cannot be trusted to stop itself (Ch 5).
+
+**Canary token** — A planted fake secret (unused key, decoy file, tripwire URL) whose access or exfiltration raises a high-signal alarm that an agent has been steered — detection for the lethal-trifecta exfiltration path (Ch 5).
+
+**Action budget** — A hard ceiling on tool calls, tokens, wall-clock time, or spend, after which the loop stops and escalates rather than running away (Ch 5, 8, 17).
+
 ---
 
 ## Evaluation
@@ -166,11 +186,17 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Checkpoint / resume** — A reliability pattern where an agent periodically saves enough state to restart after failure or context reset without losing work (Ch 7, 9).
 
+**Durable execution** — An infrastructure guarantee that each workflow step is persisted so a crashed or interrupted agent resumes from the last recorded step; non-deterministic model/tool calls are recorded and replayed, not recomputed (Ch 7).
+
+**Time horizon** — METR's capability metric: the human-task length a model completes with 50% reliability; the frontier value has roughly doubled every seven months (Ch 7, 18).
+
 **Stateless reducer** — Modeling an agent as a pure fold over an event log, making it serializable, replayable, and testable (Ch 9).
 
 **Model–harness co-evolution** — The coupling created when frontier models are post-trained with their harnesses in the loop, so that changing either side can degrade performance (Ch 12).
 
 **Span telemetry** — Structured trace data represented as a tree of spans for model calls, tool calls, retrieval, context assembly, permissions, costs, and outcomes (Ch 12).
+
+**OpenTelemetry GenAI semantic conventions** — An emerging standard schema of span and attribute names for LLM and agent telemetry (`invoke_agent`, `chat`, `execute_tool` spans), letting agent traces join the ordinary observability stack (Ch 12).
 
 **Trace-to-eval loop** — Converting real production failures into redacted, reproducible regression cases with outcome assertions (Ch 12).
 
@@ -205,6 +231,8 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 **LLM cascade** — Trying a cheap model first and escalating to a stronger one only when a verifier rejects the cheap answer. Matches strong-model accuracy at lower cost when the escalation signal is reliable (Ch 14).
 
 **Fallback** — Failing over to an alternate model when the primary errors, times out, or is rate-limited, so the agent degrades gracefully (Ch 14).
+
+**AI gateway** — An infrastructure component between the harness and model providers that presents one interface over many models and hosts routing, fallback, budgets, caching, and logging (e.g., LiteLLM, Portkey) (Ch 14, 17).
 
 **Reasoning model** — A model post-trained, often with RL on verifiable rewards, to generate long internal reasoning before answering, spending inference tokens for better performance on hard tasks (Ch 14; *LLM Foundations* Ch 7–8).
 
@@ -247,3 +275,9 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 **Multi-tenancy / tenant isolation** — Serving many users or organizations from one platform while preventing state bleed (context/memory/cache leaking across tenants) and authority bleed (acting with the wrong tenant's credentials) (Ch 17).
 
 **Canary rollout** — Releasing a harness change to a fraction of traffic and watching production traces and outcome metrics before full deployment, catching cases the eval suite missed (Ch 17).
+
+**Semantic cache** — A cache that serves *similar* (not just identical) requests by embedding the query and returning a stored response above a similarity threshold; can skip whole model calls but risks false hits (Ch 17).
+
+**AI management system (ISO/IEC 42001)** — The first certifiable standard for governing an organization's AI: how to establish, operate, and continually improve an AI management system — the AI analogue of ISO 27001 (Ch 17).
+
+**EU AI Act** — Regulation (EU) 2024/1689, the first comprehensive AI law; it classifies systems by risk tier and imposes binding obligations on high-risk uses (Ch 17).

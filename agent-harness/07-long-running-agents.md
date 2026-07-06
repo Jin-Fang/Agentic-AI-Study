@@ -113,6 +113,22 @@ Anthropic's research-system post documents engineering challenges that emerge on
 - **Deployment needs coordination**: rolling out a code change while many agents are running requires *rainbow deployments* that gradually shift traffic from old to new versions while keeping both alive.
 - **Synchronous execution creates bottlenecks**: in their current architecture, the lead agent waits for sub-agents to finish before proceeding, simplifying coordination but blocking the system on the slowest sub-agent. Asynchronous execution would unlock more parallelism but adds challenges in result coordination, state consistency, and error propagation.
 
+### 7.10 Durable Execution: Checkpoint, Replay, and Recovery
+
+Section 7.9 noted that errors compound, and that Anthropic pairs AI adaptability with deterministic checkpoints and retries. *Durable execution* is the systems discipline that generalizes this. A durable-execution engine persists each step of a workflow to a log so that if the process dies — a machine failure, a timeout, a deploy, an exhausted context window — it resumes from the last recorded step instead of restarting from zero. The idea predates agents; it is how workflow engines such as Temporal and DBOS provide fault tolerance ([Temporal — Durable Execution Meets AI](https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai)). It maps directly onto the managed-agent split of §7.7: the durable event log is precisely what lets a fresh brain resume after the old one is gone.
+
+For an agent, the unit of durability is the agent's state — its context, its tool-call results, and its position in the plan. LangGraph exposes this as a *checkpointer* that saves graph state at each super-step, enabling resume-after-failure, human-in-the-loop pauses, and even time-travel to a prior state, with selectable durability modes trading performance against how much work a crash can lose ([LangChain — Durable Execution](https://docs.langchain.com/oss/python/langgraph/durable-execution)).
+
+The design tension is *determinism vs. the model*. Replay-based durability assumes a step can be re-executed to reproduce its effect, but model calls and tool results are non-deterministic — re-running them would diverge from the recorded history. The standard resolution is to treat model and tool calls as *side-effecting activities* whose results are recorded once and then replayed from the log rather than recomputed. This is the same "record the observation, don't recompute it" logic behind ReWOO (§6.6) and context resets (§7.6), now made an infrastructure guarantee.
+
+Seen this way, durable execution is what turns the "clean exit, resumable from artifacts" discipline of §7.3 from a convention the agent must remember into a property the platform enforces. It also bounds cost — a crash mid-task does not waste all the tokens spent before it — and it is the substrate for the rollback that Chapter 17 requires when a harness change misbehaves in production.
+
+### 7.11 How Long Is "Long"? The Time-Horizon Metric
+
+This chapter is about tasks that exceed a single context window, but "long" deserves a measure. METR proposes one: a model's *time horizon* is the length of task — measured by how long it takes a skilled human — that the model can complete with 50% reliability. A model with a "50-minute time horizon" succeeds, half the time, on tasks that take a human about fifty minutes. Measured across frontier models from 2019 to 2025, this horizon has roughly *doubled every seven months* ([Kwa et al. — Measuring AI Ability to Complete Long Tasks](https://arxiv.org/abs/2503.14499); [METR](https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/)).
+
+Two implications matter for this chapter. First, the horizon is a property of the *model plus its harness*, not the model alone: the handoff, checkpoint, and self-verification machinery here is how a harness stretches the effective horizon beyond what the raw model sustains solo — the model-harness coupling of Chapter 12, seen from the capability side. Second, the metric reframes when this machinery is worth building. As the intrinsic horizon grows, some scaffolding becomes unnecessary — Anthropic dropped context resets and, later, sprint decomposition as models improved (§7.6, Ch 12) — but the frontier of *interesting* long-horizon tasks moves out with it. The harness work relocates to harder problems rather than disappearing (Ch 18).
+
 ---
 
 ## Diagram: Initializer Agent → Feature-List → Coding Agent Sessions
@@ -157,6 +173,8 @@ sequenceDiagram
 - **Context resets cure "context anxiety"**: sometimes a fresh start with a structured handoff outperforms compaction.
 - **Managed agents decouple brain, hands, and state**: model context, sandbox execution, credentials, and event logs should fail and recover independently.
 - **Self-verification is the headline lever**: forcing a verification pass before exit improved scores by 13.7 points with no model change.
+- **Durable execution makes resumability an infrastructure guarantee**: persisting each step to a log lets a fresh agent resume after a crash, context exhaustion, or deploy — treat non-deterministic model/tool calls as recorded side effects, not steps to recompute.
+- **The time horizon measures "how long"**: METR's task-completion horizon (the human-task-length a model clears 50% of the time) has doubled roughly every seven months — and it is a model-plus-harness property, which is why this chapter's machinery extends it.
 
 ## Further Reading
 
@@ -167,3 +185,6 @@ sequenceDiagram
 - Vivek Trivedy, *The Anatomy of an Agent Harness*, LangChain, Mar 2026. https://blog.langchain.com/the-anatomy-of-an-agent-harness/
 - OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
+- Temporal, *Durable Execution Meets AI: Why Temporal Is the Perfect Foundation for AI*, 2025. https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai
+- LangChain, *Durable Execution* (LangGraph documentation), 2025. https://docs.langchain.com/oss/python/langgraph/durable-execution
+- Thomas Kwa et al., *Measuring AI Ability to Complete Long Tasks*, METR / arXiv, Mar 2025. https://arxiv.org/abs/2503.14499

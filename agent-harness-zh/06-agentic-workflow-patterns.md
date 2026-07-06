@@ -43,6 +43,20 @@ HumanLayer 的实践版本表达了相同洞见 ([HumanLayer - 12-Factor Agents]
 
 原则可以推广：随着模型变强，agent 可处理步骤可能变多；但小而聚焦的 agent 方式让你今天就能交付，并随着模型能力增长逐步扩大范围。
 
+### 6.6 推理与自我纠错模式
+
+第 6.3 节的五个模式是组合式的*控制流*模式——它们编排调用。另一条研究线贡献了*推理*模式：单个 agent（或一个紧密循环）如何组织自身的思考与自我纠错。它们与工作流模式相组合，而非取代后者，且大多是值得辨识的具名研究成果。
+
+- **ReAct** 交错推理与行动——模型思考、调用工具、观察、重复。它是大多数 agent 循环之下的基础模式（第 1 章；《LLM Foundations》第 12 章）。
+- **Reflexion** 加了一层自我批评的记忆：一次尝试失败后，agent 用自然语言写下*为何*失败的反思，并把这段反思放进上下文再试一次——一种无需更新权重的“言语强化学习（verbal reinforcement learning）” ([Shinn et al. - Reflexion](https://arxiv.org/abs/2303.11366))。
+- **Self-Refine** 把 evaluator-optimizer 模式（第 6.3 节）收进单个模型：它生成、批评自己的输出、再修订，反复迭代直到满意 ([Madaan et al. - Self-Refine](https://arxiv.org/abs/2303.17651))。
+- **CRITIC** 把这种批评*落地*到*外部工具*——搜索、代码执行、计算器——而非仅靠内省，使纠正被世界检验，而非被模型自己的自信检验 ([Gou et al. - CRITIC](https://arxiv.org/abs/2305.11738))。
+- **Tree of Thoughts（ToT）** 用对多个分支的搜索取代单条推理链，以前瞻与回溯在提交前探索多个部分解 ([Yao et al. - Tree of Thoughts](https://arxiv.org/abs/2305.10601))。
+- **LATS** 通过在 agent 轨迹上运行蒙特卡洛树搜索（MCTS）来统一推理、行动与规划，由 LM 价值函数与反思引导搜索 ([Zhou et al. - Language Agent Tree Search](https://arxiv.org/abs/2310.04406))。
+- **ReWOO** 把规划与执行解耦：*Planner* 先写出完整计划，*Worker* 执行工具调用，*Solver* 合成答案——通过不在每次观察后重新推理来削减 token ([Xu et al. - ReWOO](https://arxiv.org/abs/2305.18323))。
+
+harness 视角把它们串起来。每个大多是用 token 和延迟换可靠性，而且——正如第 6.1 节和第 14 章所警告——这笔交易在困难、可检验的任务上才划算，在简单任务上纯属额外开销。更可信的是那些自我纠错被*落地*到工具或测试的模式（这里的 CRITIC；第 14 章由验证器把关的 cascade；第 7 章的 generator-evaluator 拆分），而非靠模型自我批评，这与本书反复出现的主题一致：验证胜于内省（第 7 章、第 10 章）。
+
 ---
 
 ## 图：五种工作流模式
@@ -73,9 +87,16 @@ flowchart TD
 - **五种模式覆盖多数场景**：chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer。
 - **小代理模式今天更容易落地**：把 5-10 步聚焦 agent 嵌入确定性 DAG，比“loop until done”更稳。
 - **抽象前先保留可见性**：直接 API 调用让早期行为更容易检查；模式稳定后 framework 才更划算。
+- **推理模式与工作流模式相组合**：Reflexion、Self-Refine、CRITIC、Tree of Thoughts、LATS 和 ReWOO 组织模型自身的思考——在困难、可检验的任务上最有价值，当自我纠错落地到工具或测试而非内省时最可信。
 
 ## 延伸阅读
 
 - Erik Schluntz and Barry Zhang, *Building Effective Agents*, Anthropic, Dec 2024. https://www.anthropic.com/engineering/building-effective-agents
 - Dex Horthy, *12-Factor Agents*, HumanLayer, Apr 2025. https://www.humanlayer.dev/blog/12-factor-agents
 - Vivek Trivedy, *The Anatomy of an Agent Harness*, LangChain, Mar 2026. https://blog.langchain.com/the-anatomy-of-an-agent-harness/
+- Noah Shinn et al., *Reflexion: Language Agents with Verbal Reinforcement Learning*, arXiv, Mar 2023. https://arxiv.org/abs/2303.11366
+- Aman Madaan et al., *Self-Refine: Iterative Refinement with Self-Feedback*, arXiv, Mar 2023. https://arxiv.org/abs/2303.17651
+- Zhibin Gou et al., *CRITIC: Large Language Models Can Self-Correct with Tool-Interactive Critiquing*, arXiv, May 2023. https://arxiv.org/abs/2305.11738
+- Shunyu Yao et al., *Tree of Thoughts: Deliberate Problem Solving with Large Language Models*, arXiv, May 2023. https://arxiv.org/abs/2305.10601
+- Andy Zhou et al., *Language Agent Tree Search Unifies Reasoning, Acting, and Planning in Language Models*, arXiv, Oct 2023. https://arxiv.org/abs/2310.04406
+- Binfeng Xu et al., *ReWOO: Decoupling Reasoning from Observations for Efficient Augmented Language Models*, arXiv, May 2023. https://arxiv.org/abs/2305.18323

@@ -114,6 +114,22 @@ Anthropic 的研究系统文章记录了 agent 长时间运行后的工程挑战
 - **部署需要协调**：当许多 agent 正在运行时推出代码变更，需要 *rainbow deployments*，逐步把流量从旧版本切到新版本，并同时保持两者存活。
 - **同步执行制造瓶颈**：当前架构中，lead agent 等待 sub-agents 完成后再继续，简化协调但受最慢 sub-agent 阻塞。异步执行可释放更多并行性，但带来结果协调、状态一致性、错误传播挑战。
 
+### 7.10 持久化执行：Checkpoint、Replay 与恢复
+
+第 7.9 节指出错误会复合，而 Anthropic 的做法是把 AI 适应性与确定性的 checkpoint、retry 相结合。*持久化执行（durable execution）* 正是将这一思路一般化的系统工程学科。持久化执行引擎把工作流的每一步都持久化到日志，使得进程一旦死掉——机器故障、超时、部署、上下文窗口耗尽——就从最后记录的一步恢复，而不是从零重启。这个想法早于 agent；它正是 Temporal、DBOS 等工作流引擎提供容错的方式 ([Temporal - Durable Execution Meets AI](https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai))。它直接对应第 7.7 节的受管代理拆分：持久事件日志，正是让全新 brain 在旧 brain 消失后得以恢复的凭借。
+
+对 agent 而言，持久化的单位是 agent 的状态——它的上下文、工具调用结果，以及它在计划中的位置。LangGraph 把这暴露为一个 *checkpointer*，在每个 super-step 保存 graph 状态，从而支持失败后恢复、human-in-the-loop 暂停，乃至时间旅行回到先前状态，并提供可选的持久化模式，在性能与崩溃可能损失的工作量之间权衡 ([LangChain - Durable Execution](https://docs.langchain.com/oss/python/langgraph/durable-execution))。
+
+设计上的张力是*确定性 vs. 模型*。基于 replay 的持久化假设某一步可以被重新执行以复现其效果，但模型调用与工具结果是非确定的——重跑它们会偏离已记录的历史。标准解法是把模型和工具调用当作*有副作用的 activity*，其结果只记录一次，之后从日志中 replay 而非重新计算。这正是 ReWOO（第 6.6 节）与 context reset（第 7.6 节）背后“记录观察，而不重算它”的同一逻辑，如今被做成了一种基础设施保证。
+
+如此看来，持久化执行把第 7.3 节“干净退出、可从产物恢复”的纪律，从一个 agent 必须自觉记住的约定，变成了平台强制的性质。它也约束成本——任务中途崩溃，不必把此前花掉的 token 从头重付一遍——并且它也是第 17 章所需回滚能力的底座：当某次 harness 变更在生产中行为异常时，回滚正是建立在它之上。
+
+### 7.11 “长”到底有多长？时间视野指标
+
+本章讲的是超出单个上下文窗口的任务，但“长”值得有个度量。METR 提出了一个：一个模型的*时间视野（time horizon）*是它以 50% 可靠性能完成的任务长度——以人类完成该任务所需时间来衡量。一个“50 分钟时间视野”的模型，在需要人类约五十分钟的任务上有一半时间能成功。在 2019 至 2025 年的前沿模型上测量，这个视野大约*每七个月翻一番* ([Kwa et al. - Measuring AI Ability to Complete Long Tasks](https://arxiv.org/abs/2503.14499); [METR](https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/))。
+
+对本章有两点意义。第一，这个视野是*模型加其 harness* 的性质，而非模型自身的性质：本章的 handoff、checkpoint、自我验证机制，正是 harness 把有效视野拉长到超出裸模型自身所能维持的手段——这是第 12 章模型-harness 耦合从能力侧看到的样子。第二，该指标重新框定了何时值得构建本章这套机制。随着内在视野增长，一些脚手架变得不再必要——Anthropic 随模型进步先后去掉了 context reset 与 sprint 分解（第 7.6 节、第 12 章）——但*有趣*的长视野任务前沿也随之外移。harness 的工作会迁移到更难的问题，而非消失（第 18 章）。
+
 ---
 
 ## 图：Initializer Agent -> Feature List -> Coding Agent Sessions
@@ -158,6 +174,8 @@ sequenceDiagram
 - **Context reset 可以缓解 context anxiety**：有时带结构化 handoff 的全新开始优于压缩。
 - **Managed agents 解耦 brain、hands 和状态**：模型上下文、沙箱执行、凭据和 event log 应能独立失败并恢复。
 - **自验证是头号杠杆**：退出前强制验证，在不换模型的情况下提升 13.7 分。
+- **持久化执行把可恢复性变成基础设施保证**：把每一步持久化到日志，使全新 agent 能在崩溃、上下文耗尽或部署后恢复——把非确定的模型/工具调用当作已记录的副作用，而非要重算的步骤。
+- **时间视野度量“多长”**：METR 的任务完成视野（模型有 50% 时间能完成的人类任务长度）大约每七个月翻一番——而它是模型加 harness 的性质，这正是本章机制能拉长它的原因。
 
 ## 延伸阅读
 
@@ -168,3 +186,6 @@ sequenceDiagram
 - Vivek Trivedy, *The Anatomy of an Agent Harness*, LangChain, Mar 2026. https://blog.langchain.com/the-anatomy-of-an-agent-harness/
 - OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
+- Temporal, *Durable Execution Meets AI: Why Temporal Is the Perfect Foundation for AI*, 2025. https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai
+- LangChain, *Durable Execution* (LangGraph documentation), 2025. https://docs.langchain.com/oss/python/langgraph/durable-execution
+- Thomas Kwa et al., *Measuring AI Ability to Complete Long Tasks*, METR / arXiv, Mar 2025. https://arxiv.org/abs/2503.14499

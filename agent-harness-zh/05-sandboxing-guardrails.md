@@ -99,6 +99,17 @@ Böckeler 将 *ambient affordances* 这一术语归功于 Ned Letcher，它捕�
 
 面向未来，Böckeler 提出 *harness templates*：按服务拓扑打包 guides 和 sensors，例如 JVM CRUD service、Go event processor、Node dashboard，并随现有 service template 一起分发。Böckeler 援引 Ashby 的必要变异度定律给出形式化理由——调节器必须具有至少与被调节系统同样多的变异度——因此，约束服务拓扑本身就是降低变异度的动作，使完整 harness 更可达 ([Thoughtworks - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。
 
+### 5.11 运营安全：熔断器、终止开关、预算与金丝雀
+
+Sandbox、治理和 hooks（第 5.3-5.6 节）约束的是 agent *可以*做什么。第二类控制约束的是当 agent 或其工具在*运行时行为异常*时会发生什么。它们几乎原封不动地借自分布式系统的可靠性工程与安全运营，并且属于 harness——因为被操纵或陷入循环的 agent 无法指望它自行施加这些控制。
+
+- **熔断器（circuit breaker）。** 包裹一个不稳定或昂贵的依赖——一个工具、一个下游服务、一个子代理——使其在失败达到阈值后跳闸，让后续调用快速失败，而不是挂起或重试成风暴 ([Fowler - CircuitBreaker](https://martinfowler.com/bliki/CircuitBreaker.html))。对 agent 而言，这限制了某个开始报错的工具、或某个卡在重试同一失败动作的 agent 的爆炸半径——它是第 3 章“保留有用错误”的对应物：后者让单个失败可见，但决不能让失败无上限地反复发生。
+- **终止开关（kill switch）。** 一个由人或策略触发的停止：立即终止一个 agent 或整个 fleet，且独立于 agent 自身的控制流。因为被 prompt 注入的 agent 可能正积极违抗其指令，这个开关必须存在于 harness 中——一个 supervisor 进程、一份可撤销凭证、一次 sandbox 拆除——而不是存在于一句写着“如被要求就停下”的 prompt 里。
+- **动作预算、迭代上限与成本调节器。** 对工具调用、token、墙钟时间或花费的硬性限额，达到后循环停止并上报，而不是失控奔跑。这是第 8 章循环停止规则和第 17 章按任务预算的运营形式：一个无界循环既是失控的账单，也是失控的爆炸半径。
+- **金丝雀令牌（canary token）。** 把假的机密——一个未使用的 API key、一个诱饵文件、一个陷阱 URL——种在被 prompt 注入的 agent 会去读取或外泄的地方。金丝雀上的回调是一个高信号警报，表明 agent 已被操纵去触碰它不该碰的数据 ([Thinkst - Canarytokens](https://canarytokens.org/))。与 sandbox 不同，金丝雀并不*阻止* lethal trifecta 的外泄一环（第 5.1 节）；它*检测*它，这正是它成为“预防不完美时最后一道防线”的原因。
+
+框架与本章其余部分一致：失败越严重，就越不该依赖模型选择去避免它。预防（sandbox、策略）与检测（金丝雀、第 17 章的漂移告警）相互组合；单靠任何一个都不够。
+
 ---
 
 ## 图：前馈/反馈 x 计算/推断
@@ -136,6 +147,7 @@ quadrantChart
 - **前馈与反馈都需要**：guide 没有 sensor 就没有学习回路；sensor 没有 guide 只能事后反应。
 - **三类 harness 覆盖**：maintainability、architecture fitness、behavior；behavior 仍是难题。
 - **环境可供性重要**：强类型语言和 opinionated framework 让 harness 更容易。
+- **运行时安全也需要运营控制**：熔断器、终止开关、动作/成本预算与金丝雀令牌在异常发生时约束它——它们存在于 harness 中，因为被操纵的 agent 不能被指望停下自己。
 
 ## 延伸阅读
 
@@ -144,3 +156,5 @@ quadrantChart
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 - Vivek Trivedy, *Improving Deep Agents with Harness Engineering*, LangChain, Feb 2026. https://blog.langchain.com/improving-deep-agents-with-harness-engineering/
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
+- Martin Fowler, *CircuitBreaker*, martinfowler.com, Mar 2014. https://martinfowler.com/bliki/CircuitBreaker.html
+- Thinkst, *Canarytokens* (free tripwire tokens). https://canarytokens.org/

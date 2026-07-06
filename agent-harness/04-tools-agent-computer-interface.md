@@ -86,6 +86,14 @@ Anthropic's recommended workflow for tool development has four stages ([Anthropi
 
 Anthropic ran this loop on their own internal Slack and Asana tools and found that a Claude-optimized version of human-written tools outperformed expert manual implementations on held-out test sets — a result that validates the loop and is an early instance of agents improving their own tools.
 
+### 4.11 The Agent-to-Agent Boundary: A2A
+
+Of the four integration boundaries in §4.4, three — model-to-function, agent-to-external-capability (MCP), and agent-to-repo/environment — have been developed above. The fourth, *agent-to-agent*, has its own emerging standard. The **Agent2Agent (A2A) protocol**, introduced by Google in April 2025 and donated to the Linux Foundation in June 2025, is an open standard for one agentic application to delegate work to another *opaque* agent — a peer with its own model, tools, memory, and internal state that it does not expose ([Agent2Agent (A2A) Protocol](https://github.com/a2aproject/A2A); [Linux Foundation — Agent2Agent Protocol Project](https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents)).
+
+The mechanics are deliberately conventional so that existing web infrastructure applies: communication is JSON-RPC 2.0 over HTTP(S); each agent publishes an *Agent Card* describing its capabilities so others can discover it; and a task lifecycle covers submission, negotiation of interaction modality (text, files, structured data), and streaming of results back to the caller.
+
+The contrast with MCP is the useful part. MCP connects an agent *downward* to tools and resources it controls and can inspect; A2A connects an agent *across* to a peer it does not control and cannot see inside. That flips the primary engineering concern from tool-schema design to *trust and provenance across an organizational boundary*. Because you cannot inspect the other agent's context or sandbox, a response from an A2A peer is untrusted content in exactly the sense of Chapter 5 — the lethal-trifecta discipline applies to peer agents as much as to web pages — and governance (scoped identity, delegated auth, audit) must span the A2A call rather than stopping at your own process (Ch 5, Ch 17). A2A does not remove the trust problem; it standardizes where it has to be solved.
+
 ---
 
 ## Diagram: Tool Design Pipeline — Prototype → Eval → Iterate
@@ -121,6 +129,7 @@ flowchart LR
 - **Tool responses are a major source of context bloat**: cap, paginate, filter, and truncate by default.
 - **Code execution as meta-tool is a step-change**: exposing MCP tools as a typed code API cut token usage by 98.7% in Anthropic's example.
 - **The four-stage eval loop is the recommended workflow**: prototype → build eval → run eval → analyze transcripts → iterate.
+- **A2A standardizes the agent-to-agent boundary**: it lets one agent delegate to an opaque peer over JSON-RPC + Agent Cards — shifting the concern from tool-schema design to trust and provenance across an organizational boundary, where the lethal-trifecta and governance rules of Ch 5 apply.
 
 ## Further Reading
 
@@ -130,3 +139,5 @@ flowchart LR
 - Yichao 'Peak' Ji, *Context Engineering for AI Agents: Lessons from Building Manus*, Manus, Jul 2025. https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
+- *Agent2Agent (A2A) Protocol*, Google / Linux Foundation, 2025. https://github.com/a2aproject/A2A
+- Linux Foundation, *Linux Foundation Launches the Agent2Agent Protocol Project*, Jun 2025. https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents

@@ -43,6 +43,20 @@ HumanLayer's pragmatic version of the same insight ([HumanLayer — 12-Factor Ag
 
 The principle generalizes: when the model gets smarter, agents may grow to handle more steps, but the small-focused-agent approach lets you ship results today and expand scope incrementally as model capabilities allow.
 
+### 6.6 Reasoning and Self-Correction Patterns
+
+The five patterns of §6.3 are compositional *control-flow* patterns — they orchestrate calls. A parallel line of research contributes *reasoning* patterns: ways a single agent, or a tight loop, structures its own deliberation and self-correction. They compose with the workflow patterns rather than replacing them, and most are named research artifacts worth recognizing.
+
+- **ReAct** interleaves reasoning and acting — the model thinks, calls a tool, observes, and repeats. It is the base pattern under most agent loops (Ch 1; *LLM Foundations* ch 12).
+- **Reflexion** adds a memory of self-critique: after a failed attempt, the agent writes a natural-language reflection on *why* it failed and retries with that reflection in context — "verbal reinforcement learning" without any weight update ([Shinn et al. — Reflexion](https://arxiv.org/abs/2303.11366)).
+- **Self-Refine** collapses the evaluator-optimizer pattern (§6.3) into one model: it generates, critiques its own output, and revises, iterating until satisfied ([Madaan et al. — Self-Refine](https://arxiv.org/abs/2303.17651)).
+- **CRITIC** grounds that critique in *external tools* — search, code execution, calculators — rather than introspection alone, so the correction is checked against the world instead of the model's own confidence ([Gou et al. — CRITIC](https://arxiv.org/abs/2305.11738)).
+- **Tree of Thoughts (ToT)** replaces the single reasoning chain with a search over branches, using lookahead and backtracking to explore multiple partial solutions before committing ([Yao et al. — Tree of Thoughts](https://arxiv.org/abs/2305.10601)).
+- **LATS** unifies reasoning, acting, and planning by running Monte Carlo Tree Search over agent trajectories, with an LM value function and reflection guiding the search ([Zhou et al. — Language Agent Tree Search](https://arxiv.org/abs/2310.04406)).
+- **ReWOO** decouples planning from execution: a *Planner* writes the full plan up front, *Workers* execute the tool calls, and a *Solver* composes the answer — cutting tokens by not re-reasoning after every observation ([Xu et al. — ReWOO](https://arxiv.org/abs/2305.18323)).
+
+The harness lens ties them together. Each mostly trades tokens and latency for reliability, and — as §6.1 and Chapter 14 warn — that trade pays off on hard, checkable tasks and is pure overhead on easy ones. The more trustworthy patterns are the ones whose self-correction is *grounded* in tools or tests (CRITIC here; the verifier-gated cascades of Ch 14; the generator–evaluator split of Ch 7) rather than resting on the model critiquing itself, matching the book's recurring theme that verification beats introspection (Ch 7, Ch 10).
+
 ---
 
 ## Diagram: The Five Workflow Patterns
@@ -73,9 +87,16 @@ flowchart TD
 - **Five patterns cover most cases**: chaining, routing, parallelization, orchestrator-workers, and evaluator-optimizer.
 - **The micro-agent approach scales well today**: 5–10 step focused agents embedded in a deterministic DAG outperform "loop until done" for most tasks.
 - **Preserve visibility before abstraction**: direct API calls make early behavior easier to inspect; frameworks pay off once patterns stabilize.
+- **Reasoning patterns compose with workflow patterns**: Reflexion, Self-Refine, CRITIC, Tree of Thoughts, LATS, and ReWOO structure a model's own deliberation — most valuable on hard, checkable tasks, and most trustworthy when the self-correction is grounded in tools or tests rather than introspection.
 
 ## Further Reading
 
 - Erik Schluntz and Barry Zhang, *Building Effective Agents*, Anthropic, Dec 2024. https://www.anthropic.com/engineering/building-effective-agents
 - Dex Horthy, *12-Factor Agents*, HumanLayer, Apr 2025. https://www.humanlayer.dev/blog/12-factor-agents
 - Vivek Trivedy, *The Anatomy of an Agent Harness*, LangChain, Mar 2026. https://blog.langchain.com/the-anatomy-of-an-agent-harness/
+- Noah Shinn et al., *Reflexion: Language Agents with Verbal Reinforcement Learning*, arXiv, Mar 2023. https://arxiv.org/abs/2303.11366
+- Aman Madaan et al., *Self-Refine: Iterative Refinement with Self-Feedback*, arXiv, Mar 2023. https://arxiv.org/abs/2303.17651
+- Zhibin Gou et al., *CRITIC: Large Language Models Can Self-Correct with Tool-Interactive Critiquing*, arXiv, May 2023. https://arxiv.org/abs/2305.11738
+- Shunyu Yao et al., *Tree of Thoughts: Deliberate Problem Solving with Large Language Models*, arXiv, May 2023. https://arxiv.org/abs/2305.10601
+- Andy Zhou et al., *Language Agent Tree Search Unifies Reasoning, Acting, and Planning in Language Models*, arXiv, Oct 2023. https://arxiv.org/abs/2310.04406
+- Binfeng Xu et al., *ReWOO: Decoupling Reasoning from Observations for Efficient Augmented Language Models*, arXiv, May 2023. https://arxiv.org/abs/2305.18323

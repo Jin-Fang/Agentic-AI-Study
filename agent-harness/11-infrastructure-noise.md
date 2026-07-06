@@ -4,20 +4,20 @@ A practitioner reading benchmark leaderboards needs to know that small score dif
 
 Static benchmarks score a model's output directly. Agentic coding evals are different: the model writes programs, runs tests, installs dependencies, iterates over many turns. The runtime is not a passive container but an integral component of the problem-solving process. Two agents with different resource budgets are not taking the same test.
 
-### 10.1 The Headline Result
+### 11.1 The Headline Result
 
 Running Terminal-Bench 2.0 across six resource configurations on a Google Kubernetes Engine cluster — same Claude model, same harness, same task set, varying only the resource floor and ceiling — the gap between the most- and least-resourced setups was 6 percentage points (p < 0.01) ([Anthropic — Quantifying Infrastructure Noise](https://www.anthropic.com/engineering/infrastructure-noise)).
 
 This is more than the typical leaderboard gap between top models. The implication is direct: a 2-point lead on a leaderboard might reflect a real capability gap, or it might reflect that one eval ran on beefier hardware.
 
-### 10.2 The Two Regimes
+### 11.2 The Two Regimes
 
 The data reveals two regimes:
 
 - **From 1× to 3× the per-task resource specs**, scores fluctuated within noise (p = 0.40), but infrastructure error rates dropped monotonically — from 5.8% at strict enforcement to 2.1% at 3× headroom, p < 0.001. Tasks that crashed at 1× would have failed regardless. The extra resources fixed transient memory spikes that were OOM-killing containers, without making the eval itself easier.
 - **Above 3×**, scores climbed faster than infrastructure errors declined. From 3× to uncapped, infra errors dropped 1.6 percentage points but success jumped almost 4 points. Extra resources let the agent try approaches that only work with generous allocations: pulling in large dependencies, running memory-intensive test suites, brute-forcing solutions with heavyweight tools.
 
-### 10.3 What This Means for Measurement
+### 11.3 What This Means for Measurement
 
 Tight resource limits inadvertently reward efficient strategies; generous limits reward agents that exploit available resources. Both are legitimate things to test, but collapsing them into a single score without specifying configuration makes interpretation difficult.
 
@@ -25,7 +25,7 @@ Anthropic's `bn-fit-modify` example illustrates: under generous limits, some mod
 
 The same effect holds outside Terminal-Bench, though with smaller magnitude. Anthropic's SWE-bench experiment with 5× RAM showed scores 1.54 percentage points higher at 5× than 1× across 227 problems — smaller than Terminal-Bench because SWE-bench tasks are less resource-intensive, but non-neutral ([Anthropic — Quantifying Infrastructure Noise](https://www.anthropic.com/engineering/infrastructure-noise)).
 
-### 10.4 The Recommendation
+### 11.4 The Recommendation
 
 Evals should specify both a guaranteed allocation (the floor) and a hard ceiling separately, not a single pinned value. A 3× ceiling over per-task specs is a reasonable default for Terminal-Bench: it cut infra errors by two-thirds while keeping the score lift well within noise ([Anthropic — Quantifying Infrastructure Noise](https://www.anthropic.com/engineering/infrastructure-noise)). The exact multiplier depends on benchmark and task distribution and should be reported.
 

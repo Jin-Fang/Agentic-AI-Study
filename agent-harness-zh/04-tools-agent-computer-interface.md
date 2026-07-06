@@ -86,6 +86,14 @@ Anthropic 推荐的工具开发流程有四阶段 ([Anthropic - Writing Effectiv
 
 Anthropic 在内部 Slack 和 Asana 工具上跑这个循环，发现 Claude 优化版工具在 held-out 测试集上超过专家手写实现。这验证了这个循环，也提供了 agent 改进自身工具的早期实例。
 
+### 4.11 Agent 到 Agent 的边界：A2A
+
+第 4.4 节的四个集成边界里，model-to-function、agent-to-external-capability（MCP）、agent-to-repo/environment 三个已在上文展开。第四个——*agent 到 agent*——则有一套新兴的专属标准。**Agent2Agent（A2A）协议**由 Google 于 2025 年 4 月推出，并于 2025 年 6 月捐赠给 Linux 基金会，是一个开放标准，让一个 agentic 应用把工作委派给另一个*不透明（opaque）*的 agent——一个拥有自己模型、工具、记忆和内部状态、且不对外暴露这些的对等体 ([Agent2Agent (A2A) Protocol](https://github.com/a2aproject/A2A); [Linux Foundation - Agent2Agent Protocol Project](https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents))。
+
+其机制刻意采用常规做法，以便复用现有 Web 基础设施：通信是 HTTP(S) 上的 JSON-RPC 2.0；每个 agent 发布一张描述其能力的 *Agent Card* 供他人发现；任务生命周期涵盖提交、交互模态（文本、文件、结构化数据）协商，以及把结果流式返回给调用方。
+
+真正有启发的是它与 MCP 的对比。MCP 把一个 agent *向下*连接到它掌控、可检视的工具与资源；A2A 把一个 agent *横向*连接到一个它既不掌控、也无法窥其内部的对等体。这就把首要工程关切从工具 schema 设计，翻转为*跨组织边界的信任与溯源*。因为你无法检视对方 agent 的上下文或 sandbox，来自 A2A 对等体的响应正是第 5 章意义上的不可信内容——lethal trifecta 纪律对对等 agent 与对网页同样适用——治理（受限身份、委托授权、审计）必须横跨这次 A2A 调用，而非止于你自己的进程边界（第 5 章、第 17 章）。A2A 并不消除信任问题；它只是把解决这个问题的位置标准化了。
+
 ---
 
 ## 图：工具设计流水线
@@ -121,6 +129,7 @@ flowchart LR
 - **工具响应是上下文膨胀主因**：默认 cap、分页、过滤和截断。
 - **代码执行作为元工具是阶段性跃迁**：Anthropic 示例中，把 MCP 暴露成类型化代码 API 节省 98.7% token。
 - **四阶段 eval loop 是推荐工作流**：prototype -> build eval -> run eval -> analyze transcripts -> iterate。
+- **A2A 标准化了 agent 到 agent 的边界**：它让一个 agent 借助 JSON-RPC + Agent Card 把工作委派给不透明的对等体——把关切从工具 schema 设计转向跨组织边界的信任与溯源，第 5 章的 lethal trifecta 与治理规则在此适用。
 
 ## 延伸阅读
 
@@ -130,3 +139,5 @@ flowchart LR
 - Yichao 'Peak' Ji, *Context Engineering for AI Agents: Lessons from Building Manus*, Manus, Jul 2025. https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
+- *Agent2Agent (A2A) Protocol*, Google / Linux Foundation, 2025. https://github.com/a2aproject/A2A
+- Linux Foundation, *Linux Foundation Launches the Agent2Agent Protocol Project*, Jun 2025. https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents

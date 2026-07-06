@@ -29,21 +29,21 @@ The chapters are a single narrative pass over the ETCLOVG taxonomy and can be re
 | [Preface](./00-preface.md) | Preface | Framing and purpose of the textbook |
 | [Ch 1](./01-what-is-an-agent-harness.md) | What Is an Agent Harness? | The Model + Harness equation, the agent loop, inner/outer harness layers, ETCLOVG taxonomy, historical arc |
 | [Ch 2](./02-context-as-finite-resource.md) | Context as a Finite Resource | Context rot, attention budgets, KV-cache, filesystem as memory |
-| [Ch 3](./03-compaction-memory-subagent.md) | Compaction, Memory, and the Sub-Agent Pattern | Compaction, note-taking, recitation, context firewalls |
-| [Ch 4](./04-tools-agent-computer-interface.md) | Tools and the Agent–Computer Interface | Tool design, MCP, protocol boundaries, namespacing, token-efficient responses, code execution as meta-tool |
-| [Ch 5](./05-sandboxing-guardrails.md) | Sandboxing, Guardrails, and Safe Autonomy | The security threat model, sandbox roles, permission fatigue, governance, filesystem/network isolation, hooks |
-| [Ch 6](./06-agentic-workflow-patterns.md) | Agentic Workflow Patterns | Five compositional workflow patterns, micro-agent approach |
-| [Ch 7](./07-long-running-agents.md) | Long-Running Agents and Multi-Context-Window Tasks | Shift-change problem, initializer+coding agent pattern, managed agents, GAN-inspired architecture |
+| [Ch 3](./03-compaction-memory-subagent.md) | Compaction, Memory, and the Sub-Agent Pattern | Compaction, note-taking, recitation, context firewalls, named memory architectures (MemGPT/Mem0), multi-agent topologies and the MAST failure taxonomy |
+| [Ch 4](./04-tools-agent-computer-interface.md) | Tools and the Agent–Computer Interface | Tool design, MCP, protocol boundaries, the A2A agent-to-agent protocol, namespacing, token-efficient responses, code execution as meta-tool |
+| [Ch 5](./05-sandboxing-guardrails.md) | Sandboxing, Guardrails, and Safe Autonomy | The security threat model, sandbox roles, permission fatigue, governance, filesystem/network isolation, hooks, operational safety (circuit breakers, kill switches, canary tokens) |
+| [Ch 6](./06-agentic-workflow-patterns.md) | Agentic Workflow Patterns | Five compositional workflow patterns, micro-agent approach, reasoning and self-correction patterns (Reflexion, ToT, LATS, ReWOO) |
+| [Ch 7](./07-long-running-agents.md) | Long-Running Agents and Multi-Context-Window Tasks | Shift-change problem, initializer+coding agent pattern, managed agents, GAN-inspired architecture, durable execution and checkpointing, the METR time-horizon metric |
 | [Ch 8](./08-loop-engineering.md) | Loop Engineering | Designing the outer loop: triggers and nested loops, the verifier as bottleneck, stop rules, the Ralph lineage, building blocks, the maturity ladder |
 | [Ch 9](./09-twelve-factors.md) | Twelve Factors for Production Agents | HumanLayer's 12-factor manifesto, state reducers, and the framework-to-platform shift |
 | [Ch 10](./10-evaluation.md) | Evaluation | Eval anatomy, grader types, pass@k vs pass^k, readiness validation, eight-step roadmap |
 | [Ch 11](./11-infrastructure-noise.md) | Infrastructure Noise | Resource configuration effects on benchmark scores |
-| [Ch 12](./12-trace-driven-iteration.md) | Trace-Driven Iteration and Model–Harness Co-Evolution | Traces as feedback loops, span telemetry, regression extraction, meta-harness, model–harness coupling |
+| [Ch 12](./12-trace-driven-iteration.md) | Trace-Driven Iteration and Model–Harness Co-Evolution | Traces as feedback loops, span telemetry, OpenTelemetry GenAI conventions, regression extraction, meta-harness, model–harness coupling |
 | [Ch 13](./13-system-prompts-and-instructions.md) | System Prompts and Instruction Architecture | The instruction layer, the instruction hierarchy, dynamic assembly, prompt versioning, the right altitude |
-| [Ch 14](./14-model-selection-routing-reasoning.md) | Model Selection, Routing, and Reasoning Models | Per-step model choice, routing, cascades and fallbacks, reasoning models and test-time compute |
+| [Ch 14](./14-model-selection-routing-reasoning.md) | Model Selection, Routing, and Reasoning Models | Per-step model choice, routing, cascades and fallbacks, AI gateways, reasoning models and test-time compute |
 | [Ch 15](./15-human-agent-interaction.md) | Human–Agent Interaction | Permission fatigue vs blind trust, mixed-initiative, approval as a tool call, review surfaces, steering, supervising fleets |
 | [Ch 16](./16-computer-use-and-multimodal-agents.md) | Computer-Use and Multimodal Agents | Operating GUIs, screen encodings, visual grounding, action spaces, the widest attack surface, environmental evals |
-| [Ch 17](./17-cost-privacy-and-operations.md) | Cost, Privacy, and Production Operations | Budgets, cost attribution, data governance, multi-tenancy, releasing harness changes, monitoring, governance frameworks |
+| [Ch 17](./17-cost-privacy-and-operations.md) | Cost, Privacy, and Production Operations | Budgets, cost attribution, semantic caching, data governance, multi-tenancy, releasing harness changes, monitoring, governance frameworks (OWASP, NIST, ISO 42001, EU AI Act) |
 | [Ch 18](./18-outlook.md) | Outlook | Open problems, cross-layer tradeoffs, and standing principles |
 | [References](./references.md) | References | Full bibliography |
 | [Glossary](./glossary.md) | Glossary | Quick definitions for key terms used throughout the book |

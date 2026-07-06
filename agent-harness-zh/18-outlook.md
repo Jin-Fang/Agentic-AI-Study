@@ -1,12 +1,12 @@
 # 第 18 章：展望
 
-### 12.1 这个领域仍然年轻
+### 18.1 这个领域仍然年轻
 
-本书使用的许多词汇，例如 initializer agents、context firewalls、sprint contracts、reasoning sandwiches、ambient affordances、computational vs. inferential controls，都是在最近十二到十八个月里进入主流 agent-engineering 讨论的。部分底层思想出现得更早，但共享语言很新。多数来源文章发表于 2025 和 2026 年。这个领域变化快于任何单本书能记录的速度。
+本书使用的许多词汇，例如 initializer agents、context firewalls、sprint contracts、reasoning sandwiches、ambient affordances、computational vs. inferential controls，都是在最近十二到十八个月里进入主流 agent-engineering 讨论的。部分底层思想出现得更早，但共享语言很新。多数来源文章发表于 2025 和 2026 年。这个领域变化快于任何单本书能记录的速度——而这个速度有一个数字：METR 发现，前沿模型的任务完成*时间视野（time horizon）*（它们有一半时间能完成的人类任务长度）大约每七个月翻一番（第 7.11 节） ([Kwa et al. - Measuring AI Ability to Complete Long Tasks](https://arxiv.org/abs/2503.14499))。一本讲 harness 必须提供什么的书，某种程度上也是一本讲移动靶的书。
 
 LangChain 对演进轨迹的描述很诚实：随着模型改进，今天 harness 中的一些东西会被模型吸收。模型会在规划、自验证、长周期连贯性上更原生地变强，因此需要更少上下文注入。但有趣的 harness 组合空间不会随模型变强而收缩；它会移动 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/); [Anthropic - Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps))。
 
-### 12.2 开放问题
+### 18.2 开放问题
 
 文献中反复出现几类开放问题：
 
@@ -23,7 +23,7 @@ LangChain 对演进轨迹的描述很诚实：随着模型改进，今天 harnes
 - **Trace 作为文档**。LangChain 观察到“在软件中，代码记录 app；在 AI 中，traces 记录 app”，这暗示了一种新文档模型，但领域尚未完全解决 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
 - **端到端供应链治理**。工具完整性只是其中一块。Agent 还依赖 MCP servers、外部 packages、datasets、retrieval sources 和生成出的依赖名。覆盖整条链路的 provenance 仍然不足 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
 
-### 12.3 长期建议
+### 18.3 长期建议
 
 几条原则几乎贯穿所有文章：
 
@@ -92,3 +92,4 @@ mindmap
 - Vivek Trivedy, *Improving Deep Agents with Harness Engineering*, LangChain, Feb 2026. https://blog.langchain.com/improving-deep-agents-with-harness-engineering/
 - *Awesome Harness Engineering* reading list: https://github.com/walkinglabs/awesome-harness-engineering
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
+- Thomas Kwa et al., *Measuring AI Ability to Complete Long Tasks*, METR / arXiv, Mar 2025. https://arxiv.org/abs/2503.14499

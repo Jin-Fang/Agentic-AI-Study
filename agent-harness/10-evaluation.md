@@ -1,6 +1,6 @@
 # Chapter 10: Evaluation
 
-### 9.1 Why Evals
+### 10.1 Why Evals
 
 Without evals, debugging is reactive: wait for complaints, reproduce manually, fix, hope nothing else regressed ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). Teams cannot distinguish real regressions from noise, automate testing of changes against many scenarios, or measure improvements. They also adopt new models slowly — without evals, taking advantage of a new model means weeks of manual testing, while evaluated teams can verify strengths and tune prompts in days.
 
@@ -8,7 +8,7 @@ Recall that an eval grades the unit that matters — for an agent, the unit is t
 
 Anthropic positions evals as compounding infrastructure: the costs are visible up front, the benefits accumulate over the agent's lifecycle. Their advice: start early, even with 20–50 simple tasks. Effect sizes in early agent development are large, so small samples suffice; mature agents need larger evals to detect smaller effects.
 
-### 9.2 The Anatomy of an Evaluation
+### 10.2 The Anatomy of an Evaluation
 
 The eval vocabulary — graders (code/model/human), traces, regression vs capability, pass@k vs pass^k, reward hacking — is established in Foundations ch 13; this chapter recaps it briefly and builds the harness-specific apparatus on top.
 
@@ -22,7 +22,7 @@ Anthropic's vocabulary ([Anthropic — Demystifying Evals for AI Agents](https:/
 - An **evaluation harness** (distinct from the agent harness) is the infrastructure that runs the eval end-to-end.
 - An **agent harness** (or scaffold) is the system being evaluated alongside the model. *"When we evaluate 'an agent,' we're evaluating the harness and the model working together."*
 
-### 9.3 Three Types of Graders
+### 10.3 Three Types of Graders
 
 - **Code-based**: string match, binary tests, static analysis, outcome verification, tool-call verification, transcript analysis. Fast, cheap, objective, reproducible — but brittle to valid variations.
 - **Model-based**: rubric scoring, natural-language assertions, pairwise comparison, multi-judge consensus. Flexible, scalable, handles open-ended tasks — but non-deterministic, requires human calibration.
@@ -30,7 +30,7 @@ Anthropic's vocabulary ([Anthropic — Demystifying Evals for AI Agents](https:/
 
 Anthropic recommends deterministic graders where possible, model-based where necessary, human for periodic calibration. They also caution against grading the *path* the agent took rather than what it produced — agents regularly find valid approaches the eval designer did not anticipate, and grading paths makes the eval brittle.
 
-### 9.4 Capability vs. Regression Evals
+### 10.4 Capability vs. Regression Evals
 
 Two distinct purposes ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)):
 
@@ -39,7 +39,7 @@ Two distinct purposes ([Anthropic — Demystifying Evals for AI Agents](https://
 
 After an agent matures, capability evals with high pass rates *graduate* into the regression suite. Tasks that once measured "can we do this at all?" then measure "can we still do this reliably?"
 
-### 9.5 Pass@k vs. Pass^k
+### 10.5 Pass@k vs. Pass^k
 
 For agents whose behavior varies between runs, two metrics with opposite slopes ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)):
 
@@ -50,7 +50,7 @@ These metrics exist because agent runs are stochastic. The same prompt, model, a
 
 A 75% per-trial success rate gives pass^3 of about 42% and pass^10 about 5.6%, while pass@10 is about 99.9999%. The right metric depends on the product: one success matters when the system can generate multiple candidates and select or show the best one; every success matters for a customer-facing agent that must behave reliably on repeated runs.
 
-### 9.6 The Eight-Step Roadmap
+### 10.6 The Eight-Step Roadmap
 
 Anthropic's distilled roadmap to going from no evals to evals you trust ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)):
 
@@ -64,7 +64,7 @@ Anthropic's distilled roadmap to going from no evals to evals you trust ([Anthro
 7. **Monitor for capability eval saturation** — an eval at 100% provides no improvement signal. SWE-bench Verified started at 30% and is now nearing 80%, with deceptive small score increases now hiding large capability gains.
 8. **Maintain through open contribution** — domain experts and product teams should contribute eval tasks; product managers, customer success, salespeople can use Claude Code to file evals as PRs.
 
-### 9.7 What Real Evals Look Like for Different Agent Types
+### 10.7 What Real Evals Look Like for Different Agent Types
 
 These canonical examples per agent type follow Anthropic's survey ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)):
 
@@ -73,19 +73,19 @@ These canonical examples per agent type follow Anthropic's survey ([Anthropic �
 - **Research agents**: groundedness checks (claims supported by sources), coverage checks (key facts included), source-quality checks (authoritative sources, not first-retrieved). Require frequent calibration against expert humans.
 - **Computer-use agents**: real or sandboxed environment, URL/page-state checks, backend state verification (was an order actually placed, or did just a confirmation page appear?). WebArena and OSWorld are the canonical examples.
 
-### 9.8 Verification Feedback for Coding Agents
+### 10.8 Verification Feedback for Coding Agents
 
 For coding agents, the most useful graders often double as repair signals. A failing check that says only "test failed" confirms that the outcome is bad but gives the agent little traction. A better failure message names the violated path, the expected state, the observed state, and the next place to inspect. OpenAI's Codex harness guidance emphasizes turning recurring review comments and architectural rules into repository-local checks so agents receive specific feedback while they are still able to fix the work ([OpenAI — Harness Engineering](https://openai.com/index/harness-engineering/)).
 
 End-to-end verification should also be treated as a done gate, not a ceremonial final step. Anthropic's long-running application harness required the coding agent to start the app and verify the feature through a browser-driven path because agents were otherwise prone to declaring features complete after local tests or visual inspection while the actual user flow remained broken ([Anthropic — Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)). The general rule from section 9.2 applies directly: grade the environment state, not the agent's confidence.
 
-### 9.9 Reading Transcripts Is the Skill
+### 10.9 Reading Transcripts Is the Skill
 
 A repeated theme: do not take eval scores at face value until someone reads the transcripts. Anthropic recounts a case where Opus 4.5 initially scored 42% on CORE-Bench, but investigation revealed rigid grading penalizing "96.12" when the expected answer was "96.124991…", ambiguous task specs, and stochastic tasks that were impossible to reproduce exactly. After fixing the grading bugs and running with a less constrained scaffold, the score jumped to 95% ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). Similarly, METR found tasks in their time-horizon benchmark that asked agents to optimize to a stated score threshold, but where the grading required exceeding the threshold — penalizing models that followed instructions and rewarding ones that ignored them ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)).
 
 The general rule: failures should seem fair. When scores plateau, the question to ask is whether the eval is measuring what it should.
 
-### 9.10 Evals Are One Layer of Many
+### 10.10 Evals Are One Layer of Many
 
 Automated evals are not a complete picture. Anthropic compares the situation to the Swiss-cheese model from safety engineering: no single layer catches every issue ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)). The complete stack:
 
@@ -96,7 +96,7 @@ Automated evals are not a complete picture. Anthropic compares the situation to 
 - **Manual transcript review** for building intuition about failure modes.
 - **Systematic human studies** for calibrating LLM graders or grading subjective output.
 
-### 9.11 Readiness Validation and Failure Attribution
+### 10.11 Readiness Validation and Failure Attribution
 
 The OpenReview survey separates the **Verification** layer from generic evaluation because harnesses need more than scorekeeping. Verification asks whether a deployed agent-harness combination is ready for a specific task distribution, under a specific environment, budget, and governance regime ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
 

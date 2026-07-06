@@ -1,12 +1,12 @@
 # Chapter 18: Outlook
 
-### 12.1 The Field Is Young
+### 18.1 The Field Is Young
 
-Much of the vocabulary used in this book — initializer agents, context firewalls, sprint contracts, reasoning sandwiches, ambient affordances, computational vs. inferential controls — entered the mainstream agent-engineering conversation within the last twelve to eighteen months. Some underlying ideas are older, but the shared language is recent. Most of the source articles for this textbook were published in 2025 and 2026. The field is moving faster than any single book can document.
+Much of the vocabulary used in this book — initializer agents, context firewalls, sprint contracts, reasoning sandwiches, ambient affordances, computational vs. inferential controls — entered the mainstream agent-engineering conversation within the last twelve to eighteen months. Some underlying ideas are older, but the shared language is recent. Most of the source articles for this textbook were published in 2025 and 2026. The field is moving faster than any single book can document — and there is a number attached to that pace: METR finds the task-completion *time horizon* of frontier models (the human-task-length they clear 50% of the time) has doubled roughly every seven months (§7.11) ([Kwa et al. — Measuring AI Ability to Complete Long Tasks](https://arxiv.org/abs/2503.14499)). A book about what a harness must supply is, in part, a book about a moving target.
 
 LangChain frames the trajectory honestly: as models improve, some of what lives in the harness today will be absorbed into the model. Models will get better at planning, self-verification, and long-horizon coherence natively, requiring less context injection. But the space of interesting harness combinations does not shrink as models improve. It moves ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/); [Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)).
 
-### 12.2 Open Problems
+### 18.2 Open Problems
 
 Several recur across the literature:
 
@@ -23,7 +23,7 @@ Several recur across the literature:
 - **Tracing as documentation**. LangChain's observation that "in software, the code documents the app; in AI, the traces do" hints at a different model of system documentation that the field has not fully worked out ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)).
 - **End-to-end supply-chain governance**. Tool integrity is only one piece. Agents also depend on MCP servers, external packages, datasets, retrieval sources, and generated dependency names. Provenance across that full chain is still underdeveloped ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
 
-### 12.3 The Standing Advice
+### 18.3 The Standing Advice
 
 A few principles repeat across nearly every article in the corpus:
 
@@ -91,4 +91,5 @@ mindmap
 - Jeremy Hadfield et al., *How We Built Our Multi-Agent Research System*, Anthropic, Jun 2025. https://www.anthropic.com/engineering/multi-agent-research-system
 - Vivek Trivedy, *Improving Deep Agents with Harness Engineering*, LangChain, Feb 2026. https://blog.langchain.com/improving-deep-agents-with-harness-engineering/
 - *Awesome Harness Engineering* reading list: https://github.com/walkinglabs/awesome-harness-engineering
+- Thomas Kwa et al., *Measuring AI Ability to Complete Long Tasks*, METR / arXiv, Mar 2025. https://arxiv.org/abs/2503.14499
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

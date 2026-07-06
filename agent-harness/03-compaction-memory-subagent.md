@@ -56,6 +56,29 @@ Three levers recur across the literature:
 
 Latency has its own structure. Time-to-first-token is dominated by prefill, and therefore by cache hits; end-to-end latency is dominated by the number of *sequential* model round-trips. Parallel tool calls and parallel sub-agents cut wall-clock time substantially — up to 90% on Anthropic's research workloads (chapter 7) — without reducing total token cost. The general rule: treat tokens, dollars, and seconds as explicit budgets, and know which lever moves which.
 
+### 3.8 Named Memory Architectures
+
+Sections 3.1–3.3 treated compaction, note-taking, and recitation as harness *techniques*. The research literature also packages these ideas into named memory *systems* worth knowing in their own right.
+
+- **MemGPT** draws an explicit analogy to an operating system: it treats the context window as fast "main memory" and external stores as "disk," and lets the model issue function calls to page information in and out of a fixed-size context — *virtual context management*. This is how a bounded window can present the appearance of a much larger one ([Packer et al. — MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560)). The system is now productized as Letta.
+- **Mem0** is a memory layer that dynamically *extracts* salient facts from a conversation, *consolidates* them against what is already stored, and *retrieves* them on later turns; a graph variant additionally captures relations between entities. Its reported win is operational — far lower token cost and latency than replaying full history across long multi-session dialogues ([Chhikara et al. — Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory](https://arxiv.org/abs/2504.19413)).
+- **Sleep-time compute** puts the gaps between requests to work: instead of sitting idle, the agent processes its context offline — anticipating likely future questions and precomputing inferences — so that later queries need less test-time compute. On some benchmarks this cut the inference budget for a given accuracy by roughly 5× ([Lin et al. — Sleep-time Compute: Beyond Inference Scaling at Test-time](https://arxiv.org/abs/2504.13171)).
+
+The harness lens is the one from §3.1: managed memory is powerful but lossy, and it adds its own failure surface — the wrong memory retrieved, a bad consolidation, a stale fact asserted with confidence. These systems earn their place when sessions are long and cross-session recall genuinely matters; on short tasks they are overhead layered on the note-taking that §3.2 already provides.
+
+### 3.9 Multi-Agent Topologies and Why They Fail
+
+Section 3.4 introduced the sub-agent as a context-firewall device and the orchestrator-worker configuration; Chapters 6 and 7 develop orchestration further. Beyond orchestrator-worker, practitioners reach for a small vocabulary of multi-agent *topologies*:
+
+- **Orchestrator–worker (supervisor)**: a lead agent decomposes a task, delegates to workers, and synthesizes their results (Ch 6, 7).
+- **Hierarchical**: supervisors of supervisors, for tasks deep enough that one lead cannot hold the whole decomposition.
+- **Blackboard / shared memory**: agents coordinate by reading and writing a common workspace rather than messaging each other directly — useful when many agents contribute to one evolving artifact.
+- **Debate / voting**: several agents argue or vote to raise reliability, the multi-agent form of the parallelization-voting pattern (§6.3).
+
+The temptation is to equate more agents with more capability. The empirical record is more sobering. The MAST study hand-annotated over 200 tasks across seven popular multi-agent frameworks and derived a taxonomy of 14 failure modes grouped into three categories: **specification issues** (underspecified roles and prompts), **inter-agent misalignment** (agents talking past each other, dropping information, or diverging from the shared goal), and **task verification** (weak or absent checking of the final result) ([Cemri et al. — Why Do Multi-Agent LLM Systems Fail?](https://arxiv.org/abs/2503.13657)). The headline is that a large share of failures are not raw model incapability but *coordination and verification* breakdowns — exactly the surfaces the harness owns.
+
+The practical guidance falls out of the taxonomy: prefer the simplest topology that works (§6.1); keep task boundaries explicit so workers do not overlap or drop work (§3.4, Ch 7); and treat verification as a first-class agent rather than an afterthought (the generator–evaluator split of Ch 7), because MAST identifies weak verification as one of the three leading failure families.
+
 ---
 
 ## Diagram: Parent Agent → Sub-Agent → Compressed Result (Context Firewall)
@@ -89,6 +112,8 @@ sequenceDiagram
 - **The context firewall is the sub-agent pattern's key value**: the parent never sees intermediate noise; it receives only condensed results.
 - **Leave useful errors in context**: self-healing only works when the relevant error trace is visible, but repeated failures should be compacted.
 - **Cost and latency are design variables**: route cheap work to small models, keep the KV-cache warm, and parallelize for wall-clock speed.
+- **Named memory systems package the memory patterns**: MemGPT (OS-style virtual context), Mem0 (extract–consolidate–retrieve), and sleep-time compute (offline pre-processing) are worth knowing — but each adds its own retrieval and staleness failure surface.
+- **More agents multiply coordination failure, not just cost**: the MAST taxonomy finds that specification gaps, inter-agent misalignment, and weak verification — all harness-owned surfaces — dominate multi-agent failures; prefer the simplest topology and make verification first-class.
 
 ## Further Reading
 
@@ -97,3 +122,7 @@ sequenceDiagram
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 - Jeremy Hadfield et al., *How We Built Our Multi-Agent Research System*, Anthropic, Jun 2025. https://www.anthropic.com/engineering/multi-agent-research-system
 - Dex Horthy, *12-Factor Agents*, HumanLayer, Apr 2025. https://www.humanlayer.dev/blog/12-factor-agents
+- Charles Packer et al., *MemGPT: Towards LLMs as Operating Systems*, arXiv, Oct 2023. https://arxiv.org/abs/2310.08560
+- Prateek Chhikara et al., *Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory*, arXiv, Apr 2025. https://arxiv.org/abs/2504.19413
+- Kevin Lin et al., *Sleep-time Compute: Beyond Inference Scaling at Test-time*, arXiv, Apr 2025. https://arxiv.org/abs/2504.13171
+- Mert Cemri et al., *Why Do Multi-Agent LLM Systems Fail?*, arXiv, Mar 2025. https://arxiv.org/abs/2503.13657

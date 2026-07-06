@@ -29,21 +29,21 @@ English version: [Agent Harness: A Practitioner's Textbook](../agent-harness/)
 | [前言](./00-preface.md) | 前言 | 本书的范围和写作目的 |
 | [第 1 章](./01-what-is-an-agent-harness.md) | 什么是 Agent Harness？ | Model + Harness 公式、agent 循环、内外层 harness、ETCLOVG 分类与历史脉络 |
 | [第 2 章](./02-context-as-finite-resource.md) | 上下文是一种有限资源 | Context rot、注意力预算、KV-cache、文件系统作为工作记忆 |
-| [第 3 章](./03-compaction-memory-subagent.md) | 压缩、记忆与子代理模式 | 压缩、结构化笔记、反复复述、上下文防火墙 |
-| [第 4 章](./04-tools-agent-computer-interface.md) | 工具与 Agent-Computer Interface | 工具设计、MCP、协议边界、命名空间、节省 token 的响应、代码执行作为元工具 |
-| [第 5 章](./05-sandboxing-guardrails.md) | 沙箱、护栏与安全自治 | 安全威胁模型、沙箱作用、权限疲劳、governance、文件系统/网络隔离、hooks |
-| [第 6 章](./06-agentic-workflow-patterns.md) | Agentic 工作流模式 | 五种组合式工作流、小代理模式 |
-| [第 7 章](./07-long-running-agents.md) | 长运行代理与多上下文窗口任务 | 交接班问题、initializer + coding agent、managed agents、GAN 式架构 |
+| [第 3 章](./03-compaction-memory-subagent.md) | 压缩、记忆与子代理模式 | 压缩、结构化笔记、反复复述、上下文防火墙、具名记忆架构（MemGPT/Mem0）、多代理拓扑与 MAST 失败分类法 |
+| [第 4 章](./04-tools-agent-computer-interface.md) | 工具与 Agent-Computer Interface | 工具设计、MCP、协议边界、A2A agent 到 agent 协议、命名空间、节省 token 的响应、代码执行作为元工具 |
+| [第 5 章](./05-sandboxing-guardrails.md) | 沙箱、护栏与安全自治 | 安全威胁模型、沙箱作用、权限疲劳、governance、文件系统/网络隔离、hooks、运营安全（熔断器、终止开关、金丝雀令牌） |
+| [第 6 章](./06-agentic-workflow-patterns.md) | Agentic 工作流模式 | 五种组合式工作流、小代理模式、推理与自我纠错模式（Reflexion、ToT、LATS、ReWOO） |
+| [第 7 章](./07-long-running-agents.md) | 长运行代理与多上下文窗口任务 | 交接班问题、initializer + coding agent、managed agents、GAN 式架构、持久化执行与 checkpoint、METR 时间视野指标 |
 | [第 8 章](./08-loop-engineering.md) | Loop Engineering（循环工程） | 设计外层循环：trigger 与嵌套 loop、verifier 才是瓶颈、stop rule、Ralph 谱系、构成部件、成熟度阶梯 |
 | [第 9 章](./09-twelve-factors.md) | 生产级 Agent 的十二要素 | HumanLayer 十二要素、状态 reducer、framework 到 platform 的迁移 |
 | [第 10 章](./10-evaluation.md) | 评估 | Eval 结构、grader 类型、pass@k 与 pass^k、readiness validation、八步路线图 |
 | [第 11 章](./11-infrastructure-noise.md) | 基础设施噪声 | 资源配置对 benchmark 分数的影响 |
-| [第 12 章](./12-trace-driven-iteration.md) | 基于 Trace 的迭代与 Model-Harness 共同演化 | Trace 反馈回路、span telemetry、regression extraction、meta-harness、模型与 harness 的耦合 |
+| [第 12 章](./12-trace-driven-iteration.md) | 基于 Trace 的迭代与 Model-Harness 共同演化 | Trace 反馈回路、span telemetry、OpenTelemetry GenAI 约定、regression extraction、meta-harness、模型与 harness 的耦合 |
 | [第 13 章](./13-system-prompts-and-instructions.md) | System Prompt 与指令架构 | 指令层、instruction hierarchy、动态组装、prompt 版本化、合适的高度 |
-| [第 14 章](./14-model-selection-routing-reasoning.md) | 模型选择、路由与推理模型 | 按步选模型、路由、级联与回退、推理模型与 test-time compute |
+| [第 14 章](./14-model-selection-routing-reasoning.md) | 模型选择、路由与推理模型 | 按步选模型、路由、级联与回退、AI 网关、推理模型与 test-time compute |
 | [第 15 章](./15-human-agent-interaction.md) | 人–Agent 交互 | 许可疲劳 vs 盲目信任、混合主动、批准即工具调用、review 界面、引导、监督 agent 群 |
 | [第 16 章](./16-computer-use-and-multimodal-agents.md) | Computer-Use 与多模态 Agent | 操作 GUI、屏幕编码、视觉 grounding、动作空间、最宽攻击面、环境式 eval |
-| [第 17 章](./17-cost-privacy-and-operations.md) | 成本、隐私与生产运维 | 预算、成本归因、数据治理、多租户、发布 harness 改动、监控、治理框架 |
+| [第 17 章](./17-cost-privacy-and-operations.md) | 成本、隐私与生产运维 | 预算、成本归因、语义缓存、数据治理、多租户、发布 harness 改动、监控、治理框架（OWASP、NIST、ISO 42001、欧盟 AI 法案） |
 | [第 18 章](./18-outlook.md) | 展望 | 开放问题、跨层权衡与长期原则 |
 | [参考文献](./references.md) | 参考文献 | 完整书目 |
 | [术语表](./glossary.md) | 术语表 | 全书关键术语的简明定义 |

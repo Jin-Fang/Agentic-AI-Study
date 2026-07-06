@@ -56,6 +56,29 @@ HumanLayer 将其形式化为 Factor 9：把错误压缩进上下文。Agent 的
 
 延迟有它自己的结构。首 token 延迟主要由 prefill 决定，因而由缓存命中决定；端到端延迟则主要由*顺序*模型往返的次数决定。并行工具调用和并行子代理能大幅削减墙钟时间——在 Anthropic 的研究工作负载上最多达 90%（见第 7 章）——却不减少总 token 成本。一般规则是：把 token、金钱和秒数都当作显式预算，并清楚哪个杠杆影响哪一个。
 
+### 3.8 具名记忆架构
+
+第 3.1-3.3 节把压缩、笔记和复述当作 harness *技术*来讲。研究文献则进一步把这些想法打包成了几个值得记住的具名记忆*系统*。
+
+- **MemGPT** 明确类比操作系统：它把上下文窗口当作快速的“主存”，把外部存储当作“磁盘”，让模型通过函数调用，在固定大小的上下文里换入换出信息——即*虚拟上下文管理（virtual context management）*。有界窗口由此得以呈现出远大于自身容量的表象 ([Packer et al. - MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560))。该系统现已产品化为 Letta。
+- **Mem0** 是一个记忆层：它从对话中动态*抽取*显著事实，与已有存储*整合*，并在后续轮次*检索*；其图变体还能捕获实体间关系。它报告的收益是运营层面的——在跨会话的长对话中，token 成本和延迟都远低于回放完整历史 ([Chhikara et al. - Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory](https://arxiv.org/abs/2504.19413))。
+- **Sleep-time compute（睡眠期计算）** 利用的是空闲时间：agent 不在请求之间闲着，而是离线处理其上下文——预判可能的后续问题并预先计算推断——使后续查询所需的 test-time compute 更少。在部分 benchmark 上，这把达到给定准确率所需的推理预算削减了约 5 倍 ([Lin et al. - Sleep-time Compute: Beyond Inference Scaling at Test-time](https://arxiv.org/abs/2504.13171))。
+
+harness 视角与第 3.1 节一致：受管记忆很强大，但同样是有损的，并引入了它自己的失败面——检索到错误记忆、整合出错、自信地断言过时事实。当会话很长、跨会话回忆确实重要时，这些系统才物有所值；在短任务上，它们只是在第 3.2 节已有的笔记之上徒增开销。
+
+### 3.9 多代理拓扑及其失败原因
+
+第 3.4 节把子代理作为上下文防火墙引入，并介绍了 orchestrator-worker 配置；第 6、7 章进一步展开编排。除 orchestrator-worker 外，实践者还会用到一小套多代理*拓扑（topology）*词汇：
+
+- **Orchestrator-worker（supervisor，主管）**：一个 lead agent 分解任务、委派给 worker，再综合结果（第 6、7 章）。
+- **Hierarchical（分层）**：主管之上还有主管，适用于分解太深、单个 lead 容纳不下的任务。
+- **Blackboard / shared memory（黑板 / 共享记忆）**：agent 通过读写一块公共工作区来协调，而非彼此直接发消息——当许多 agent 共同构建同一份不断演进的产物时尤其有用。
+- **Debate / voting（辩论 / 投票）**：多个 agent 争论或投票以提升可靠性，是第 6.3 节 parallelization-voting 模式的多代理形式。
+
+诱惑在于把更多 agent 读成更多能力，而经验记录要清醒得多。MAST 研究在七个流行的多代理框架上人工标注了 200 多个任务，归纳出 14 种失败模式，分为三大类：**规格问题（specification issues）**（角色和提示欠定义）、**代理间错位（inter-agent misalignment）**（agent 各说各话、丢失信息或偏离共享目标）、以及**任务验证（task verification）**（对最终结果的检查薄弱或缺失） ([Cemri et al. - Why Do Multi-Agent LLM Systems Fail?](https://arxiv.org/abs/2503.13657))。要点是：很大一部分失败并非模型本身能力不足，而是*协调与验证*的崩溃——恰恰是 harness 掌管的那些面。
+
+实践指引由此得出：优先选择能奏效的最简拓扑（第 6.1 节）；明确任务边界，使 worker 不重叠、不漏活（第 3.4 节、第 7 章）；把验证当作一等 agent 而非事后补丁（第 7 章的 generator-evaluator 拆分），因为 MAST 把薄弱验证列为三大失败族之一。
+
 ---
 
 ## 图：父 Agent -> 子 Agent -> 压缩结果（上下文防火墙）
@@ -89,6 +112,8 @@ sequenceDiagram
 - **上下文防火墙是子代理模式的关键价值**：父 agent 不看中间噪声，只接收浓缩结果。
 - **保留有用错误**：self-healing 需要相关错误 trace 可见，但重复失败应被压缩。
 - **成本与延迟是设计变量**：把便宜的工作路由给小模型，保持 KV-cache 命中，并用并行换取墙钟速度。
+- **具名记忆系统把记忆模式打包**：MemGPT（OS 式虚拟上下文）、Mem0（抽取-整合-检索）和 sleep-time compute（离线预处理）值得了解——但每个都会引入自己的失败面：检索出错和信息陈旧。
+- **更多 agent 放大的是协调失败，不只是成本**：MAST 分类法发现规格缺口、代理间错位与薄弱验证——都是 harness 掌管的面——主导了多代理失败；优先选最简拓扑，并让验证成为一等公民。
 
 ## 延伸阅读
 
@@ -97,3 +122,7 @@ sequenceDiagram
 - Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
 - Jeremy Hadfield et al., *How We Built Our Multi-Agent Research System*, Anthropic, Jun 2025. https://www.anthropic.com/engineering/multi-agent-research-system
 - Dex Horthy, *12-Factor Agents*, HumanLayer, Apr 2025. https://www.humanlayer.dev/blog/12-factor-agents
+- Charles Packer et al., *MemGPT: Towards LLMs as Operating Systems*, arXiv, Oct 2023. https://arxiv.org/abs/2310.08560
+- Prateek Chhikara et al., *Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory*, arXiv, Apr 2025. https://arxiv.org/abs/2504.19413
+- Kevin Lin et al., *Sleep-time Compute: Beyond Inference Scaling at Test-time*, arXiv, Apr 2025. https://arxiv.org/abs/2504.13171
+- Mert Cemri et al., *Why Do Multi-Agent LLM Systems Fail?*, arXiv, Mar 2025. https://arxiv.org/abs/2503.13657

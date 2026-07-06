@@ -4,7 +4,7 @@
 
 本章里有两个软件概念很关键。*状态* 是继续执行所需的信息：当前步骤、重试次数、审批、用户消息、工具结果，以及目前已经触及的业务对象。*事件日志* 是可以用来重建这些状态的追加式记录。把 agent 建模为对事件的 reducer 后，暂停/恢复、重放、调试和测试就会变成普通软件问题，而不是隐藏在对话里的状态问题。
 
-### 8.1 作为软件架构的十二要素
+### 9.1 作为软件架构的十二要素
 
 这十二条原则来自许多生产部署 ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：
 
@@ -23,7 +23,7 @@
 
 贯穿这些要素的深层主张是：“好的 agent 至少不是‘给你一个 prompt、一袋工具，循环直到目标完成’这种模式。它们大多只是软件” ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))。这些要素基本是在把软件工程卫生应用到一个有状态、非确定性的组件上。它们不应被当成普遍法则：研究原型、本地 coding assistant、受监管客服 agent 会需要不同权衡。真正有用的方向是：让状态显式、让控制流可检查、把人类交互放在结构化接口后面。
 
-### 8.2 从 Agent Program 到 Agent Platform
+### 9.2 从 Agent Program 到 Agent Platform
 
 OpenReview 综述认为，生态正在从 agent framework 走向 agent platform ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。Framework 打包的是本地抽象：agents、tools、memory stores 和 loops。Platform 额外提供跨多次运行、多用户的 durable workspace、managed sandbox、identity、billing、observability、evaluation、governance 和 human handoff。
 

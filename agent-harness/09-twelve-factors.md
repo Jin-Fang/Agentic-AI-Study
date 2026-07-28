@@ -31,6 +31,8 @@ This does not replace the twelve factors; it raises their scope. "Launch / pause
 
 The platform boundary also changes responsibility. A local agent can get away with ad hoc state files; a shared platform needs state ownership, retention policy, billing attribution, credential scoping, and replayable audit trails. The harness is no longer just the thing around one model call. It becomes the control system around many agents, many environments, and many human stakeholders.
 
+That control system is not another agent framework. It is the **agent control plane** developed in Chapter 18: a registry that says which agents and capabilities exist; an identity layer that says who is acting for whom; policy enforcement that decides what a run may do; and lifecycle, lineage, and audit services that operate across sessions. The twelve factors remain the design discipline inside each agent program; the control plane makes those programs governable as a fleet.
+
 ---
 
 ## Diagram: The 12 Factors Grouped by Theme
@@ -64,6 +66,7 @@ mindmap
 - **Own your prompts**: frameworks hide prompts; prompts should be first-class code under version control.
 - **Stateless reducer pattern**: treating the agent as a fold over an event log makes it serializable, replay-able, and testable.
 - **Platform scope changes the factors**: lifecycle, state, identity, billing, observability, and human handoff become shared infrastructure concerns.
+- **A fleet needs a control plane**: the twelve factors shape each agent program; registry, identity, policy, lifecycle, and audit govern the collection.
 - **Small, focused agents**: 3–20 steps per agent; performance degrades with context length.
 - **Contact humans with tool calls**: structured `request_human_input` tools beat relying on the model's unstructured text choices.
 - **Compact errors, don't hide them**: visible error traces enable self-healing; a consecutive-error counter provides a safety escalation path.

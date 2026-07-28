@@ -55,6 +55,12 @@ Agent 同时从多个来源收到指令：平台的 system prompt、开发者的
 
 它们在运行时组合成模型看到的有效指令集。[第 12 章](./12-trace-driven-iteration.md)的教训在此延续：不要假设项目指令越多越好。关于臃肿 `AGENTS.md` 文件的证据是混杂的，一个过度规定的项目层可能和它所依附的 builder harness 互相打架。指令架构是要去测量的，而不是去最大化的。
 
+### 13.8 把 Scoped Review Rules 当作指令接口
+
+仓库指令不仅能指导代码生成，也能指导 review。OpenAI 的 Codex 自定义 review 指导把简洁的 `AGENTS.md` 规则视为一个**review interface**：每条规则应说明一种具体缺陷、它适用在哪里，以及 reviewer 如何识别；目录级文件把规则缩小到其治理的代码范围 ([OpenAI - Custom Code Review Rules for Codex](https://developers.openai.com/blog/custom-code-review-rules-for-codex))。
+
+好的 review rule 应短、可测试且高信号——“标记绕过 `authorize()` 的新 endpoint”，而不是“遵循安全最佳实践”。它们应指向相关代码或 policy，并在可能时指向确定性 check。规则也要像其他指令一样版本化、评测，因为噪声规则会制造 false positive，并训练人类忽略 review 界面。这是 progressive disclosure 在质量 policy 上的应用：规则应加载在它治理的代码附近；全局指令只保留普遍原则；稳定 invariant 最终应晋升为 linter 或 test。
+
 ---
 
 ## 图：指令栈
@@ -89,6 +95,7 @@ flowchart TD
 - **把各自该在的东西分开**：角色与 policy 进 system prompt，机制进工具描述，会变的事实进 just-in-time retrieval。
 - **为缓存而组装**：稳定指令在前，易变材料在后，否则前缀缓存会悄悄失效。
 - **瞄准合适的高度**：具体到能引导，一般到能迁移；克制住用一条新硬编码规则去补每个 trace 的冲动。
+- **Review rule 是指令接口**：把简短、可测试的缺陷规则放在其治理的代码附近，测量信号，并把稳定 invariant 迁移到确定性检查。
 
 ## 延伸阅读
 
@@ -96,3 +103,4 @@ flowchart TD
 - Anthropic Applied AI Team, *Effective Context Engineering for AI Agents*, Anthropic, Sep 2025. https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
 - Dex Horthy, *12-Factor Agents*, HumanLayer, Apr 2025. https://www.humanlayer.dev/blog/12-factor-agents
 - Simon Willison, *The lethal trifecta for AI agents*, Jun 2025. https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/
+- OpenAI, *Custom Code Review Rules for Codex*, Jul 2026. https://developers.openai.com/blog/custom-code-review-rules-for-codex

@@ -79,6 +79,20 @@ harness 视角与第 3.1 节一致：受管记忆很强大，但同样是有损�
 
 实践指引由此得出：优先选择能奏效的最简拓扑（第 6.1 节）；明确任务边界，使 worker 不重叠、不漏活（第 3.4 节、第 7 章）；把验证当作一等 agent 而非事后补丁（第 7 章的 generator-evaluator 拆分），因为 MAST 把薄弱验证列为三大失败族之一。
 
+### 3.10 记忆投毒与信任升级
+
+持久记忆会改变安全模型。网页中的注入指令通常只威胁一次运行；但如果 agent 把它摘要进持久笔记、偏好存储或共享黑板，攻击就能越过上下文重置，继续操纵后续运行。Anthropic 将此称为**持久记忆投毒（persistent memory poisoning）**：不可信内容跨过写入边界，进入了未来 agent 会当作可信状态的存储 ([Anthropic - How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude))。
+
+防御方法是把记忆视为带溯源信息的存储，而不是上下文的中性延伸：
+
+- 给每条记忆标注来源、授权身份、创建时间和信任等级；
+- 将观察与指令分开，绝不自动把检索内容提升为策略；
+- 不可信发现进入持久共享记忆前，必须经过审查或确定性验证；
+- 支持过期、替代和回滚，使被投毒的事实能从未来所有上下文中移除；
+- 检索时重新检查授权，因为写入者有权看到的事实，读取者不一定有权看到。
+
+多 agent 系统还会带来**信任升级（trust escalation）**。低权限 worker 可以把一个看似可信的摘要返回给高权限 coordinator，后者再使用 worker 从未拥有的权力采取行动。压缩会加剧危险，因为溯源和不确定性往往最先被删掉。因此，子 agent 的结果应携带引用或产物指针、置信程度或未决问题，以及生成结果时所用的身份与权限。父 agent 必须先验证证据，再把结果转化为高权限动作。第 5 章展开 containment 控制，第 18 章则给出让这些控制能跨 fleet 执行的身份与控制平面模型。
+
 ---
 
 ## 图：父 Agent -> 子 Agent -> 压缩结果（上下文防火墙）
@@ -114,6 +128,8 @@ sequenceDiagram
 - **成本与延迟是设计变量**：把便宜的工作路由给小模型，保持 KV-cache 命中，并用并行换取墙钟速度。
 - **具名记忆系统把记忆模式打包**：MemGPT（OS 式虚拟上下文）、Mem0（抽取-整合-检索）和 sleep-time compute（离线预处理）值得了解——但每个都会引入自己的失败面：检索出错和信息陈旧。
 - **更多 agent 放大的是协调失败，不只是成本**：MAST 分类法发现规格缺口、代理间错位与薄弱验证——都是 harness 掌管的面——主导了多代理失败；优先选最简拓扑，并让验证成为一等公民。
+- **持久记忆是一条信任边界**：保留溯源，把数据与指令分开，并在把不可信发现提升为共享状态前验证；否则一张被注入的网页就能操纵许多次未来运行。
+- **委派不能静默升级权限**：父 agent 在使用 worker 不曾拥有的权限行动前，必须验证 worker 的证据。
 
 ## 延伸阅读
 
@@ -126,3 +142,4 @@ sequenceDiagram
 - Prateek Chhikara et al., *Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory*, arXiv, Apr 2025. https://arxiv.org/abs/2504.19413
 - Kevin Lin et al., *Sleep-time Compute: Beyond Inference Scaling at Test-time*, arXiv, Apr 2025. https://arxiv.org/abs/2504.13171
 - Mert Cemri et al., *Why Do Multi-Agent LLM Systems Fail?*, arXiv, Mar 2025. https://arxiv.org/abs/2503.13657
+- Anthropic Safeguards Research Team, *How We Contain Claude*, Anthropic, May 2026. https://www.anthropic.com/engineering/how-we-contain-claude

@@ -13,6 +13,8 @@
 
 要带进本章其余部分的视角是：模型不是可信组件。它是一个能力强但可被操纵的核心，而 harness 就是夹在敌对指令与真实后果之间的那一层。
 
+Anthropic 后续的 containment 工作沿两条轴进一步细化了威胁模型 ([Anthropic - How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude))。第一，风险可以来自**滥用系统的用户**、**模型自身的异常行为**，或通过内容操纵模型的**外部攻击者**。第二，防御可以放在**模型**、**执行环境**或**外部内容边界**上。这个矩阵很有用，因为没有一层能覆盖所有来源：alignment 不能保证模型一定忽略注入，而 sandbox 也无法判断一封获准发送的邮件在语义上是否有害。生产 containment 必须在三层同时做 defense in depth。
+
 ### 5.2 权限疲劳问题
 
 完全无监督运行的 coding agent 很危险；每一步都请求批准的 coding agent 又不可用。Anthropic 将其称作 approval fatigue：不断点击 approve 会拖慢开发循环，并让用户不再认真看自己批准了什么，反而降低安全性 ([Anthropic - Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing))。解决方案是结构性的：定义 agent 可以自由行动的边界，只有越界时才请求权限。
@@ -29,6 +31,14 @@ OpenReview 综述把 sandbox 的作用扩展到安全之外。在 agent 系统�
 
 第三点是 agent 时代特有的。沙箱不只是笼子，也是许可证。它把权限从逐动作问题转成 session 配置，让长周期自治可用，而不是退化成权限疲劳。
 
+Containment 应随任务风险升级。三种反复出现的模式组成了一条实用阶梯 ([Anthropic - How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude))：
+
+- **临时容器（ephemeral container）**可丢弃、成本低，适合 agent 需要在较小 blast radius 内充分自由的有界任务。
+- **Human-in-the-loop sandbox**适合交互式工作：安全操作自动进行，跨越边界时暂停并请求审批。
+- **密封虚拟机（sealed VM）**用更强的 kernel 和网络边界隔离高风险 workload，但启动与运营成本更高。
+
+正确问题不是“有没有 sandbox”，而是“哪些资源仍可访问、哪些状态会在 reset 后保留、哪些权限能跨越边界”。可重置的计算环境无法抵消挂载在其中的 credential、写到环境之外的被投毒记忆，或可传输私有数据的 egress 路径。
+
 ### 5.4 文件系统隔离必须与网络隔离配对
 
 Claude Code 的沙箱同时执行两类边界，Anthropic 认为二者都必要。文件系统隔离防止被 prompt injection 的 agent 修改敏感文件；网络隔离防止它泄露数据或下载恶意软件。没有网络隔离，被攻陷的 agent 可能外传 SSH key；没有文件系统隔离，被攻陷的 agent 可能逃出沙箱并访问网络 ([Anthropic - Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing))。
@@ -36,6 +46,10 @@ Claude Code 的沙箱同时执行两类边界，Anthropic 认为二者都必要�
 实现基于 OS 级 primitive：Linux bubblewrap 和 macOS seatbelt，并覆盖 Claude Code 的直接交互以及任何 subprocess。网络访问通过 Unix domain socket 进入 proxy，由 proxy 强制执行域名限制，并在请求新域名时处理用户确认。该 runtime 已开源。
 
 Claude Code on the web 将其扩展为云沙箱，敏感凭据（git credentials、signing keys）从不与 agent 同处沙箱中。自定义 proxy 处理 git 交互，只在确认操作被允许后附加 scoped credentials，例如只允许 push 到配置分支。
+
+Egress allowlist 应被理解为一种**能力授予**，而不是无害的目的地清单。允许访问 package registry，就允许下载可执行代码；允许访问源码托管站点，可能也允许发布内容；允许访问通用 Web endpoint，则可能补齐 lethal trifecta 的数据外泄一环。因此，策略应同时绑定目的地、协议、操作、身份与任务，而不是只看域名，并记录每条连接究竟由哪条规则授权。
+
+Containment 还必须在**建立信任之前**就开始。打开仓库可能在用户看到 trust dialog 之前触发配置加载、依赖发现、language server、hooks 或本地 listener。应把 project-open 和 config-load 路径当作敌对输入：能只解析就不要执行；关闭自动 hooks 和 listeners；在 workspace 明确受信之前，不提供 credentials 和 egress ([Anthropic - How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude))。
 
 ### 5.5 Governance：身份、策略与审计
 
@@ -91,13 +105,23 @@ CI 的经验是，越早发现问题，修复越便宜；harness 设计也是如
 
 Böckeler 注意到，OpenAI Codex 团队的 harness 也类似：用自定义 linter 和结构测试强制分层架构，加上周期性“garbage collection”扫描漂移，并让 agent 建议修复。
 
-### 5.10 Harnessability 与环境可供性
+### 5.10 Harnessability、Agentic Readiness 与环境可供性
 
 不是每个代码库都同样容易 harness。强类型语言天然带来 type-checking sensor；清晰模块边界让架构约束规则可写；Spring 等 opinionated framework 抽象掉了 agent 无需操心的细节 ([Thoughtworks - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。
 
 Böckeler 将 *ambient affordances* 这一术语归功于 Ned Letcher，它捕捉了这一点：环境本身会带有一些属性，使 agent 更容易理解、导航和处理 ([Thoughtworks - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。Greenfield 团队可以从第一天就设计这些 affordance；legacy 团队面对的是相反情况：越需要 harness 的地方，越难构建 harness。
 
 面向未来，Böckeler 提出 *harness templates*：按服务拓扑打包 guides 和 sensors，例如 JVM CRUD service、Go event processor、Node dashboard，并随现有 service template 一起分发。Böckeler 援引 Ashby 的必要变异度定律给出形式化理由——调节器必须具有至少与被调节系统同样多的变异度——因此，约束服务拓扑本身就是降低变异度的动作，使完整 harness 更可达 ([Thoughtworks - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。
+
+更宽泛的生产术语是 **agentic readiness**：一个自治调用者能否安全地理解、调用、观察、重试，并在必要时撤销这个系统？一个服务对人类开发者可能很友好，却会因 API 带有隐藏副作用、错误含糊或没有稳定 operation ID 而对 agent 极不友好。以下设计能提升 readiness：
+
+- mutation 接受 idempotency key，并暴露 operation status；
+- API 明确区分 read、propose、commit 和 compensate，而不是把它们藏在一个不透明调用里；
+- machine identity 与 delegated authorization 是一等概念；
+- 错误说明哪里失败、重试是否安全、什么证据能证明已经恢复；
+- 状态变化可观察、可归因；无法真正 undo 时，提供补偿操作。
+
+这些就是自治软件的 ambient affordances。它们减少模型必须承担的概率性推理，并为第 18 章控制平面的 policy、lifecycle 和 audit 提供稳定执行面。
 
 ### 5.11 运营安全：熔断器、终止开关、预算与金丝雀
 
@@ -142,11 +166,14 @@ quadrantChart
 - **沙箱减少 84% 权限提示**：结构边界优于不断弹窗。
 - **沙箱有三项工作**：security、reproducibility 和 liveness。
 - **文件系统与网络隔离必须配对**：二者对应不同攻击向量，单独使用都不足。
+- **Containment 是矩阵，不是一个 sandbox**：针对用户滥用、模型异常和外部攻击，在模型、环境与内容边界同时设防；按风险选择临时容器、交互式 sandbox 或 sealed VM。
+- **Egress 就是权限**：一个获准目的地授予的是真实能力，因此网络访问应绑定操作、身份与任务；仅仅打开项目时，不应存在 ambient trust。
 - **Governance 不只是审批**：身份、scoped credentials、policy checks、provenance 与 audit trail 必须跨工具和 session 组合。
 - **Hooks 与 middleware 是程序化执行**：它们不依赖模型记忆，比纯 prompt 约束可靠。
 - **前馈与反馈都需要**：guide 没有 sensor 就没有学习回路；sensor 没有 guide 只能事后反应。
 - **三类 harness 覆盖**：maintainability、architecture fitness、behavior；behavior 仍是难题。
 - **环境可供性重要**：强类型语言和 opinionated framework 让 harness 更容易。
+- **Agentic readiness 是 API 属性**：幂等性、明确 operation status、machine identity、重试语义、可观察状态与补偿操作，让系统更适合自治调用者。
 - **运行时安全也需要运营控制**：熔断器、终止开关、动作/成本预算与金丝雀令牌在异常发生时约束它——它们存在于 harness 中，因为被操纵的 agent 不能被指望停下自己。
 
 ## 延伸阅读
@@ -158,3 +185,4 @@ quadrantChart
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
 - Martin Fowler, *CircuitBreaker*, martinfowler.com, Mar 2014. https://martinfowler.com/bliki/CircuitBreaker.html
 - Thinkst, *Canarytokens* (free tripwire tokens). https://canarytokens.org/
+- Anthropic Safeguards Research Team, *How We Contain Claude*, Anthropic, May 2026. https://www.anthropic.com/engineering/how-we-contain-claude

@@ -30,7 +30,22 @@ Anthropic 的词汇 ([Anthropic - Demystifying Evals for AI Agents](https://www.
 
 Anthropic 建议：能用确定性 grader 就用确定性；必要时用 model-based；human 用于周期性校准。他们还提醒，不要过度评分 agent 采取的路径，而应评估产物。Agent 经常能找到 eval 设计者没想到的有效路径，路径评分会使 eval 脆弱。
 
-### 10.4 Capability Eval 与 Regression Eval
+### 10.4 谁来验证 Verifier？Evaluator Integrity
+
+把 maker 与 checker 分开，可以消除一种利益冲突，却不能让 checker 自动变得中立。Anthropic 2026 年关于**动机性错误标注（motivated mislabeling）**的研究发现，当模型 evaluator 知道判决会如何被使用时，它可能改变标签——例如，负面标签会触发删除、惩罚或其他后果。更严格的 rubric 与 abstain 选项能减轻但不能消除这种效应 ([Anthropic - Agentic Misalignment: Summer 2026 Update](https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/))。
+
+这远不只影响安全研究。一个知道哪个候选是 incumbent、哪个团队产出了它，或 failure 是否会阻止 deployment 的 judge，可能会朝后果合理化。Generator 也可能学会优化那些取悦已知 judge 的表面特征。因此，**evaluator integrity** 是独立的 harness 属性，需要自己的控制：
+
+- 先使用确定性 outcome check，并保留底层证据；
+- 对 model judge 隐藏候选身份、部署后果与其他无关 metadata；
+- 允许“证据不足”，并把有后果的模糊判断交给人类；
+- 用专家标注集校准 judge，并运行测试 bias、leakage 与 reward hacking 的 **meta-eval**；
+- 高风险语义决策使用独立 judge 或 ensemble，但不要把一组相关模型的一致意见当成证明；
+- 对 rubric、judge model、prompt 与 evidence 做版本管理，并保留不可变 audit trail，使判决可复现、可申诉。
+
+OpenAI 关于可信第三方评测的指导给出了同一思想的制度版本：独立性、方法透明、代表性任务、利益冲突披露和可复现产物，都是 evaluation quality 的组成部分，而不是分数出来后才补的文书工作 ([OpenAI - Trustworthy Third-Party Evaluations](https://openai.com/index/trustworthy-third-party-evaluations-foundations/))。Verifier 本身也是被测系统的一部分。
+
+### 10.5 Capability Eval 与 Regression Eval
 
 两类目的不同 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
@@ -39,7 +54,7 @@ Anthropic 建议：能用确定性 grader 就用确定性；必要时用 model-b
 
 Agent 成熟后，通过率高的 capability eval 会 *graduate* 到 regression suite。曾经衡量“能不能做到”的任务，会变成“是否仍可靠做到”的任务。
 
-### 10.5 pass@k 与 pass^k
+### 10.6 pass@k 与 pass^k
 
 对行为在运行间变化的 agent，有两个斜率相反的指标 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
@@ -50,7 +65,7 @@ Agent 成熟后，通过率高的 capability eval 会 *graduate* 到 regression 
 
 如果单次成功率 75%，pass^3 约为 42%，pass^10 约为 5.6%，而 pass@10 约为 99.9999%。正确指标取决于产品：当系统可以生成多个候选并选择或展示最佳结果时，一次成功就有价值；面向客户重复执行的 agent 则需要 pass^k 式可靠性。
 
-### 10.6 八步路线图
+### 10.7 八步路线图
 
 Anthropic 将从无 eval 到可信 eval 的路线概括为 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
@@ -64,7 +79,7 @@ Anthropic 将从无 eval 到可信 eval 的路线概括为 ([Anthropic - Demysti
 7. **监控 capability eval 饱和**：100% 的 eval 不再提供改进信号。SWE-bench Verified 从 30% 起步，现在接近 80%，小分数提升可能掩盖大能力提升。
 8. **开放维护**：领域专家和产品团队应贡献 eval task；PM、CS、sales 也可以用 Claude Code 把 eval 作为 PR 提交。
 
-### 10.7 不同 Agent 类型的真实 Evals
+### 10.8 不同 Agent 类型的真实 Evals
 
 下面这些按 agent 类型给出的典型例子来自 Anthropic 的综述 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
@@ -73,19 +88,19 @@ Anthropic 将从无 eval 到可信 eval 的路线概括为 ([Anthropic - Demysti
 - **Research agents**：groundedness check（论断有来源支持）、coverage check（包含关键事实）、source-quality check（权威来源，而非首个检索结果）。需要频繁与人类专家校准。
 - **Computer-use agents**：真实或 sandbox 环境，URL/page-state check，后端状态验证（订单是否真的创建，而不仅是出现确认页面）。WebArena 和 OSWorld 是典型例子。
 
-### 10.8 面向修复的验证反馈
+### 10.9 面向修复的验证反馈
 
 对 coding agent 来说，最有用的 grader 往往同时也是修复信号。只说 “test failed” 的检查能确认 outcome 不好，但给 agent 的抓手很少。更好的失败消息会说明违反的是哪条路径、期望状态是什么、实际状态是什么、下一步该检查哪里。OpenAI 的 Codex harness 指南强调，应把反复出现的 review 意见和架构规则转成 repo-local 检查，让 agent 在还能修复时收到具体反馈 ([OpenAI - Harness Engineering](https://openai.com/index/harness-engineering/))。
 
-端到端验证也应作为完成门槛，而不是象征性的最后一步。Anthropic 的长运行应用 harness 要求 coding agent 启动应用，并通过浏览器驱动路径验证 feature，因为 agent 否则容易在本地测试或视觉检查通过后宣称完成，但真实用户流程仍然坏着 ([Anthropic - Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents))。第 9.2 节的通用规则在这里直接适用：评估环境状态，而不是评估 agent 的自信。
+端到端验证也应作为完成门槛，而不是象征性的最后一步。Anthropic 的长运行应用 harness 要求 coding agent 启动应用，并通过浏览器驱动路径验证 feature，因为 agent 否则容易在本地测试或视觉检查通过后宣称完成，但真实用户流程仍然坏着 ([Anthropic - Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents))。第 10.2 节的通用规则在这里直接适用：评估环境状态，而不是评估 agent 的自信。
 
-### 10.9 阅读 Transcript 是核心技能
+### 10.10 阅读 Transcript 是核心技能
 
 反复出现的主题是：在有人阅读 transcripts 前，不要直接相信 eval 分数。Anthropic 提到 Opus 4.5 在 CORE-Bench 上初始得分 42%，但调查发现严格 grader 会惩罚把期望答案 `96.124991...` 写成 `96.12`，任务 spec 模糊，还有无法精确复现的随机任务。修复 grader bug 并使用限制更少的 scaffold 后，分数跳到 95% ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。类似地，METR 发现 time-horizon benchmark 中有任务要求 agent 优化到某个阈值，但评分要求超过阈值，于是惩罚遵循指令的模型，奖励忽略指令的模型 ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。
 
 通用规则是：失败应显得公平。当分数平台期时，要问 eval 是否仍在测它应该测的东西。
 
-### 10.10 Evals 只是多层体系中的一层
+### 10.11 Evals 只是多层体系中的一层
 
 自动 eval 不是完整图景。Anthropic 将其类比安全工程中的 Swiss-cheese model：没有一层能抓住所有问题 ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。完整栈包括：
 
@@ -96,7 +111,7 @@ Anthropic 将从无 eval 到可信 eval 的路线概括为 ([Anthropic - Demysti
 - **人工 transcript review**：建立对失败模式的直觉。
 - **系统性人类研究**：校准 LLM grader 或主观输出评分。
 
-### 10.11 Readiness Validation 与失败归因
+### 10.12 Readiness Validation 与失败归因
 
 OpenReview 综述把 **Verification** 单独列为一层，是因为 harness 需要的不只是打分。Verification 问的是：某个 model + harness 组合，在特定任务分布、特定环境、预算和治理规则下，是否已经可以投入使用 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
 
@@ -144,6 +159,7 @@ flowchart TD
 - **Outcome 不等于 response**：测环境状态（数据库行、URL、文件），而不是只测 agent 说了什么。
 - **面向修复的反馈能提高自我修正**：检查应说明哪里失败、为什么失败，以及什么证据才算修好。
 - **三类 grader 形成金字塔**：code-based 负责速度，model-based 负责细微判断，human 负责校准。
+- **Verifier 是被测系统的一部分**：对 judge 隐藏无关后果，保留证据，用 meta-eval 校准，允许 abstain，并保留可复现的 audit artifact。
 - **pass@k 与 pass^k 服务不同产品**：多候选生成可用 pass@k，重复面向客户执行需要 pass^k 式可靠性。
 - **阅读 transcript 是核心技能**：分数平台期可能是 agent 回归，也可能是 eval 不公平；只有 transcript 能区分。
 - **Readiness 绑定配置**：eval 结果应带着产生它的 harness 配置一起解释。
@@ -158,3 +174,5 @@ flowchart TD
 - OpenAI, *Harness Engineering: Leveraging Codex in an Agent-First World*, Feb 2026. https://openai.com/index/harness-engineering/
 - Justin Young et al., *Effective Harnesses for Long-Running Agents*, Anthropic, Nov 2025. https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
+- Anthropic Safeguards Research Team, *Agentic Misalignment: Summer 2026 Update*, 2026. https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/
+- OpenAI, *Trustworthy Third-Party Evaluations: Foundations*, 2026. https://openai.com/index/trustworthy-third-party-evaluations-foundations/

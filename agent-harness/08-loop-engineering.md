@@ -89,6 +89,12 @@ Because a loop compounds whatever it does, adoption should be staged. The commun
 
 The discipline exists because loop engineering does not remove the hard problem; it relocates it. Speed compounds both wins and mistakes: a loop running unattended is also a loop making mistakes unattended, and it can ship code faster than a human reads it, accumulating *comprehension debt* — a codebase whose owners no longer fully understand it ([The New Stack — Loop Engineering](https://thenewstack.io/loop-engineering/)). Verification and accountability remain human, at two irreducible endpoints: the *intent* that specifies what "good" means, and the *ownership* of what ships ([Loop Engineering Crash Course](https://agentfactory.panaversity.org/docs/loop-engineering-crash-course)). The corollary is a scoping rule: reach for a structured loop only for work that is repeated, unattended, scheduled, and consequential. For anything you are watching interactively, the check is your own eyes, and a plain conversation is the better tool — over-engineering a loop for a one-off is its own failure mode.
 
+### 8.9 Beyond the Loop: Control and Evaluator Integrity
+
+Loop engineering remains the right unit for one autonomous task, but a production system eventually runs many loops under many identities, versions, budgets, and policies. At that point the next design object is the **control plane**: the system that registers agents, grants authority, schedules and revokes runs, records lineage, and governs a fleet. Chapter 18 develops that layer.
+
+The verifier also needs governance of its own. A separate checker can still be biased by knowledge of downstream consequences, share the maker's blind spots, or be optimized against. Chapter 10 therefore treats **evaluator integrity**—blind judgment, deterministic evidence, calibration, abstention, and audit—as distinct from merely having a verifier. An engineered loop is only closed when the check itself is trustworthy.
+
 ---
 
 ## Diagram: The Engineered Loop
@@ -122,6 +128,7 @@ flowchart TB
 - **Stop rules are mandatory**: a max iteration count, no-progress detection, and a budget ceiling — because no human is present to notice a runaway.
 - **The Ralph lineage is the ancestry**: ReAct → AutoGPT → clean-context reset → verifiable completion → orchestration; memory lives on disk and state lives in an event log.
 - **Climb the maturity ladder slowly**: triage before draft before auto-merge, and only for work that is repeated, unattended, and consequential — unattended speed compounds mistakes and comprehension debt.
+- **The next unit after one loop is the fleet**: identity, lifecycle, policy, lineage, and revocation belong to a control plane, while verifier integrity belongs to the evaluation system.
 
 ## Further Reading
 

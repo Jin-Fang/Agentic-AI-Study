@@ -89,6 +89,12 @@ Loop 的好坏，取决于它所对着跑的那个代码库，这也是为什么
 
 这份纪律之所以存在，是因为 loop engineering 并没有消除那个难题；它只是把它挪了位置。速度把成与败一起复利放大：一个无人值守跑着的 loop，也是一个无人值守犯错的 loop，而它 ship 代码可以比人读代码更快，从而累积*comprehension debt（理解债）*——一个其主人不再完全理解的代码库 ([The New Stack — Loop Engineering](https://thenewstack.io/loop-engineering/))。验证与问责仍归人所有，在两个不可约的端点上：定义什么叫“好”的那个*意图*，以及对 ship 出去之物的*所有权* ([Loop Engineering Crash Course](https://agentfactory.panaversity.org/docs/loop-engineering-crash-course))。由此得到一条界定范围的规则：只对那些*重复、无人值守、被调度、有后果*的工作动用结构化 loop。对任何你正交互式盯着看的东西，check 就是你自己的眼睛，一次普通对话是更好的工具——为一次性任务过度工程化一个 loop，本身就是一种失败模式。
 
+### 8.9 超越单个 Loop：控制与 Evaluator Integrity
+
+Loop engineering 仍是单个自治任务的正确设计单元，但生产系统最终会在许多身份、版本、预算和策略之下运行许多 loop。此时，下一个设计对象是**控制平面（control plane）**：注册 agent、授予权限、调度和撤销运行、记录 lineage 并治理 fleet 的系统。第 18 章展开这一层。
+
+Verifier 自己也需要治理。一个独立 checker 仍可能因知道判决后果而产生偏差，也可能与 maker 共享盲点，或成为优化攻击的目标。因此，第 10 章把 **evaluator integrity**——盲评、确定性证据、校准、弃权与审计——和“有一个 verifier”区分开来。只有 check 本身值得信任时，一个 engineered loop 才算真正闭环。
+
 ---
 
 ## 图示：被工程化的 loop
@@ -122,6 +128,7 @@ flowchart TB
 - **stop rule 是必需的**：最大迭代次数、无进展检测、预算上限——因为没有人在场去注意失控。
 - **Ralph 谱系是它的血统**：ReAct → AutoGPT → 干净上下文 reset → 可验证完成 → orchestration；记忆活在磁盘上，状态活在 event log 里。
 - **慢慢爬成熟度阶梯**：triage 先于 draft、draft 先于 auto-merge，且只用于重复、无人值守、有后果的工作——无人值守的速度会把错误和理解债一起复利放大。
+- **单个 loop 之后的下一个单元是 fleet**：身份、生命周期、策略、lineage 与撤销属于控制平面；verifier 的可信度则属于评测系统。
 
 ## 延伸阅读
 

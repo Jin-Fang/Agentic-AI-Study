@@ -13,6 +13,8 @@ The combination practitioners worry about most is sometimes called the *lethal t
 
 The framing to carry into the rest of the chapter: the model is not a trusted component. It is a capable but steerable core, and the harness is what stands between a hostile instruction and a real-world consequence.
 
+Anthropic's later containment work sharpens the threat model along two dimensions ([Anthropic — How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude)). First, risk can originate with a **misusing user**, **model misbehavior**, or an **external attacker** steering the model through content. Second, defenses can be placed in the **model**, the **execution environment**, or at the **external-content boundary**. This matrix is useful because no one layer covers every origin: alignment cannot guarantee that a model will ignore an injection, and a sandbox cannot decide whether a permitted email is semantically harmful. Production containment is defense in depth across all three.
+
 ### 5.2 The Permission Fatigue Problem
 
 Coding agents that run with no oversight are dangerous; coding agents that ask permission for every action are unusable. Anthropic frames this as approval fatigue: "Constantly clicking 'approve' slows down development cycles and can lead to 'approval fatigue,' where users might not pay close attention to what they're approving, and in turn making development less safe" ([Anthropic — Beyond Permission Prompts: Making Claude Code More Secure and Autonomous](https://www.anthropic.com/engineering/claude-code-sandboxing)). The solution is structural: define boundaries within which the agent can act freely, and only ask for permission when those boundaries are crossed.
@@ -29,6 +31,14 @@ The OpenReview survey makes the sandbox's role broader than security. In agent s
 
 That third purpose is specific to the agent era. A sandbox is not just a cage; it is also a license. By moving permission from a per-action question to a session configuration, it makes long-horizon autonomy usable without collapsing into approval fatigue.
 
+Containment should scale with the work. Three recurring patterns form a useful ladder ([Anthropic — How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude)):
+
+- An **ephemeral container** is disposable, cheap, and appropriate for bounded tasks where the agent needs broad freedom inside a small blast radius.
+- A **human-in-the-loop sandbox** supports interactive work: safe operations proceed automatically, while boundary crossings suspend for approval.
+- A **sealed virtual machine** isolates higher-risk workloads behind a stronger kernel and network boundary, at greater startup and operational cost.
+
+The right question is not "is it sandboxed?" but "which resources remain reachable, which state survives reset, and what authority can cross the boundary?" Resettable compute does not neutralize a credential mounted inside it, a poisoned memory written outside it, or an egress path that can transmit private data.
+
 ### 5.4 Filesystem and Network Isolation Must Be Paired
 
 Claude Code's sandbox enforces two boundaries simultaneously, and Anthropic argues both are required. Filesystem isolation prevents a prompt-injected agent from modifying sensitive files; network isolation prevents it from leaking data or downloading malware. Without network isolation, a compromised agent could exfiltrate SSH keys; without filesystem isolation, a compromised agent could escape the sandbox and reach the network ([Anthropic — Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing)).
@@ -36,6 +46,10 @@ Claude Code's sandbox enforces two boundaries simultaneously, and Anthropic argu
 The implementation builds on OS-level primitives — Linux bubblewrap and macOS seatbelt — and covers not just direct Claude Code interactions but any subprocess. Network access is funneled through a Unix domain socket to a proxy that enforces domain restrictions and handles user confirmation for newly requested domains. The runtime is open-sourced.
 
 Claude Code on the web extends this to a cloud sandbox where sensitive credentials (git credentials, signing keys) are never inside the sandbox with the agent at all. A custom proxy handles git interactions, attaching scoped credentials only after validating that the operation is permitted (e.g., pushing only to the configured branch).
+
+An egress allowlist should be understood as a **capability grant**, not as a harmless list of destinations. Allowing a package registry permits downloading executable code; allowing a source host may permit publishing content; allowing a general web endpoint can complete the exfiltration leg of the lethal trifecta. Policies should therefore bind destination, protocol, operation, identity, and task—not domain alone—and log which rule authorized each connection.
+
+Containment must also begin **before trust is established**. Opening a repository can trigger configuration loading, dependency discovery, language servers, hooks, or local listeners before a user sees a trust dialog. Treat project-open and config-load paths as hostile: parse without executing where possible, disable automatic hooks and listeners, and delay credentials and egress until the workspace has been explicitly trusted ([Anthropic — How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude)).
 
 ### 5.5 Governance: Identity, Policy, and Audit
 
@@ -91,13 +105,23 @@ Continuous integration teaches that the earlier you find issues the cheaper they
 
 The OpenAI Codex team's harness, as Böckeler notes, follows the same shape: layered architecture enforced by custom linters and structural tests, plus recurring "garbage collection" passes that scan for drift and have agents suggest fixes.
 
-### 5.10 Harnessability and Ambient Affordances
+### 5.10 Harnessability, Agentic Readiness, and Ambient Affordances
 
 Not every codebase is equally amenable to harnessing. A strongly-typed language brings type-checking sensors for free; clear module boundaries afford architectural constraint rules; opinionated frameworks like Spring abstract away details the agent does not have to worry about ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
 
 A term Böckeler credits to Ned Letcher, *ambient affordances*, captures this: properties of the environment itself that make it legible, navigable, and tractable to agents ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)). Greenfield teams can engineer affordances in from day one; legacy teams face the inverse — the harness is most needed where it is hardest to build.
 
 Anticipating the future, Böckeler suggests *harness templates* — bundled guides and sensors per service topology (CRUD service in JVM, event processor in Go, dashboard in Node) — that ride along with existing service templates. Böckeler invokes Ashby's Law of Requisite Variety to make the case formally — a regulator must have at least as much variety as the system it governs — so committing to a constrained topology is itself a variety-reduction move that makes a comprehensive harness more achievable ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
+
+The broader production term is **agentic readiness**: can an autonomous caller understand, invoke, observe, retry, and—when necessary—undo the system safely? A service can be easy for a human developer yet hostile to an agent if its APIs have hidden side effects, ambiguous errors, or no stable operation identifiers. Readiness improves when:
+
+- mutations accept idempotency keys and expose operation status;
+- APIs distinguish read, propose, commit, and compensate rather than hiding them behind one opaque call;
+- machine identity and delegated authorization are first-class;
+- errors state what failed, whether a retry is safe, and what evidence would prove recovery;
+- state changes are observable, attributable, and reversible through compensating actions where literal undo is impossible.
+
+These are ambient affordances for autonomous software. They reduce the amount of probabilistic reasoning the model must do and give the control plane in Chapter 18 stable surfaces for policy, lifecycle, and audit.
 
 ### 5.11 Operational Safety: Circuit Breakers, Kill Switches, Budgets, and Canaries
 
@@ -142,11 +166,14 @@ quadrantChart
 - **Sandboxing reduces permission prompts by 84%** while maintaining safety — structural boundaries beat approval dialogs.
 - **Sandboxing has three jobs**: security, reproducibility, and liveness.
 - **Filesystem and network isolation must be paired**: each addresses a different attack vector, and either alone is insufficient.
+- **Containment is a matrix, not one sandbox**: cover misuse, model misbehavior, and external attack across model, environment, and content-boundary defenses; choose ephemeral containers, interactive sandboxes, or sealed VMs by risk.
+- **Egress is authority**: an allowed destination grants a real capability, so bind network access to operation, identity, and task—and establish no ambient trust while a project is merely being opened.
 - **Governance is more than approvals**: identity, scoped credentials, policy checks, provenance, and audit trails must compose across tools and sessions.
 - **Hooks and middleware are programmatic enforcement**: they run regardless of model memory, making them more reliable than prompt-only constraints.
 - **Feedforward and feedback are both required**: guides without sensors have no learning loop; sensors without guides react but don't prevent.
 - **Three categories of harness coverage**: maintainability (well-tooled), architecture fitness (achievable), and behavior (the unsolved problem).
 - **Ambient affordances matter**: strongly-typed languages and opinionated frameworks make harnessing easier from day one.
+- **Agentic readiness is an API property**: idempotency, explicit operation status, machine identity, retry semantics, observable state, and compensating actions make systems safer for autonomous callers.
 - **Runtime safety needs operational controls too**: circuit breakers, kill switches, action/cost budgets, and canary tokens bound misbehavior when it happens — they live in the harness because a steered agent cannot be trusted to stop itself.
 
 ## Further Reading
@@ -158,3 +185,4 @@ quadrantChart
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
 - Martin Fowler, *CircuitBreaker*, martinfowler.com, Mar 2014. https://martinfowler.com/bliki/CircuitBreaker.html
 - Thinkst, *Canarytokens* (free tripwire tokens). https://canarytokens.org/
+- Anthropic Safeguards Research Team, *How We Contain Claude*, Anthropic, May 2026. https://www.anthropic.com/engineering/how-we-contain-claude

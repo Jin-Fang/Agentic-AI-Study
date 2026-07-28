@@ -31,6 +31,8 @@ OpenReview 综述认为，生态正在从 agent framework 走向 agent platform 
 
 平台边界也改变责任。本地 agent 可以用临时 state files；共享平台需要状态所有权、保留策略、billing attribution、credential scoping 和可重放 audit trail。Harness 不再只是包住一次模型调用的东西，而是围绕许多 agents、许多 environments 和许多人类利益相关者的控制系统。
 
+这个控制系统不是另一个 agent framework，而是第 18 章展开的 **agent control plane**：registry 说明有哪些 agents 与 capabilities；identity layer 说明谁代表谁行动；policy enforcement 决定一次运行可以做什么；lifecycle、lineage 与 audit service 则跨 session 工作。十二要素仍是每个 agent program 内部的设计纪律；控制平面让这些 program 作为一个 fleet 变得可治理。
+
 ---
 
 ## 图：按主题分组的十二要素
@@ -64,6 +66,7 @@ mindmap
 - **Own your prompts**：framework 会隐藏 prompt；prompt 应作为一等代码纳入版本控制。
 - **Stateless reducer 模式**：把 agent 看作对 event log 的 fold，使其可序列化、可重放、可测试。
 - **平台范围会改变十二要素**：lifecycle、state、identity、billing、observability 和 human handoff 会变成共享基础设施问题。
+- **Fleet 需要控制平面**：十二要素塑造每个 agent program；registry、identity、policy、lifecycle 与 audit 治理整个集合。
 - **小而聚焦的 agent**：每个 agent 3-20 步；上下文越长，性能越差。
 - **用工具联系人类**：结构化 `request_human_input` 工具优于依赖模型自由文本选择。
 - **压缩错误，不要隐藏错误**：可见错误 trace 支持 self-healing，连续错误计数器提供安全升级路径。

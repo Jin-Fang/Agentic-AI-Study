@@ -25,7 +25,7 @@ The central design question is per action: should the agent do it, or ask first?
 - **Act and report** for actions that are consequential but observable and reversible — leave a clear trace the human can review after the fact rather than blocking on approval.
 - **Ask first** for irreversible or high–blast-radius actions: deleting data, sending an external message, spending money, touching production. This is exactly the *lethal trifecta* boundary (Ch 5) — the moment an agent is about to combine private data, untrusted input, and external reach is the moment a human should be in the loop.
 
-The map is the same capability–control tradeoff the book returns to in the [Outlook](./18-outlook.md): more autonomy is more capability and more control burden. The interface is where that tradeoff is made concrete, action by action.
+The map is the same capability–control tradeoff the book returns to in [Chapter 18](./18-agent-fleets-identity-control-plane.md): more autonomy is more capability and more control burden. The interface is where that tradeoff is made concrete, action by action.
 
 ### 15.4 Approval as a Tool Call
 
@@ -56,7 +56,9 @@ The goal of the human interface is *calibrated* trust: the human trusts the agen
 
 As agents proliferate, the human role shifts from doing the work to supervising agents that do it — and then to supervising *many* agents at once. This is the leverage the field is moving toward, and it changes the interface requirements. One human overseeing ten agents cannot read every trace; the interface must surface what needs attention: which agents are blocked on approval, which are uncertain, which produced results that failed verification.
 
-This raises supervision to a fleet-level concern that the [Outlook](./18-outlook.md) flags as open — human approval interfaces and harness coherence at scale are not solved. The principle that does hold: make supervision *cheap and meaningful*. Cheap, so a human can oversee many agents without drowning; meaningful, so the oversight is real and not a rubber stamp. Every technique in this chapter — stake-proportionate prompting, approval-as-tool-call, evidence-rich review surfaces, steering, calibrated transparency — is in service of that one goal.
+Code review becomes the bottleneck as agents produce changes faster than humans can inspect them. The queue should therefore be ordered by **risk and evidence**, not arrival time or raw trace length: failed deterministic checks, high-blast-radius actions, security-sensitive paths, novel tool use, policy-rule hits, weak or conflicting grader evidence, and large unexplained diffs rise to the top. Low-risk changes with strong verification can be summarized or sampled; consequential changes retain full artifacts. Custom scoped review rules (§13.8) make this routing more precise.
+
+This raises supervision to the fleet-level control-plane concern of [Chapter 18](./18-agent-fleets-identity-control-plane.md). The principle that does hold is to make supervision *cheap and meaningful*. Cheap, so a human can oversee many agents without drowning; meaningful, so the oversight is real and not a rubber stamp. Every technique in this chapter—stake-proportionate prompting, approval-as-tool-call, evidence-rich review surfaces, steering, calibrated transparency—is in service of that one goal.
 
 ---
 
@@ -90,6 +92,7 @@ flowchart TD
 - **Make interaction stake-proportionate**: act silently for reversible low-stakes actions, act-and-report for observable ones, ask first for irreversible or high–blast-radius ones — the lethal-trifecta boundary.
 - **Model approval as a tool call**: it becomes durable, replayable, auditable, and composes with long-running suspend/resume.
 - **Show evidence, not just conclusions**: an agent whose work is cheap to verify and reject is one a human can actually supervise — at one agent or at a fleet.
+- **Fleet review is a risk-ranked queue**: surface failed checks, sensitive paths, policy hits, novel actions, and weak evidence before low-risk, well-verified work.
 
 ## Further Reading
 
@@ -98,3 +101,4 @@ flowchart TD
 - David Dworken and Oliver Weller-Davies, *Beyond Permission Prompts: Making Claude Code More Secure and Autonomous*, Anthropic, Oct 2025. https://www.anthropic.com/engineering/claude-code-sandboxing
 - Saleema Amershi et al., *Guidelines for Human-AI Interaction*, CHI 2019. https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/
 - Eric Horvitz, *Principles of Mixed-Initiative User Interfaces*, CHI 1999. https://www.microsoft.com/en-us/research/publication/principles-of-mixed-initiative-user-interfaces/
+- OpenAI, *Custom Code Review Rules for Codex*, Jul 2026. https://developers.openai.com/blog/custom-code-review-rules-for-codex

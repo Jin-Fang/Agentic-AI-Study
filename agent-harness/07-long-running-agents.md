@@ -89,6 +89,14 @@ This split matters for long-running work:
 
 Seen this way, context reset is only one recovery mechanism. A production long-running harness also needs environment reset, credential isolation, resumable event logs, and migration rules for in-flight sessions.
 
+Three lifecycles should remain distinct even when a product presents them as one "agent":
+
+- the **session** is the durable conversation and event history;
+- the **harness run** is one execution of a model, policy, and orchestration configuration;
+- the **sandbox** is a replaceable compute environment with its own image, filesystem, and network lease.
+
+Conflating them makes recovery unsafe. Replacing a crashed sandbox should not erase the session; resetting model context should not silently preserve compromised process state; upgrading a harness should not rewrite the provenance of earlier events. Store explicit identifiers and versions for all three so the control plane can resume, migrate, or revoke each independently.
+
 ### 7.8 Multi-Agent Research Systems
 
 For tasks with parallel structure — research with many independent threads to explore — the orchestrator-worker pattern from chapter 6 applies. Anthropic's research feature uses Claude Opus 4 as the lead agent and Claude Sonnet 4 as sub-agents ([Anthropic — How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system)). The lead analyzes the query, develops a strategy, and spawns parallel sub-agents that each search and return condensed findings; the lead synthesizes; a citation agent then attributes claims to sources.
@@ -123,11 +131,15 @@ The design tension is *determinism vs. the model*. Replay-based durability assum
 
 Seen this way, durable execution is what turns the "clean exit, resumable from artifacts" discipline of §7.3 from a convention the agent must remember into a property the platform enforces. It also bounds cost — a crash mid-task does not waste all the tokens spent before it — and it is the substrate for the rollback that Chapter 17 requires when a harness change misbehaves in production.
 
+Google's Agent Executor makes several implications concrete at distributed scale ([Google Cloud — Agent Executor](https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/)). State is recovered from an event log and snapshots; connection loss does not imply task loss; and a **single-writer rule** protects each session from concurrent mutation while still allowing the platform to distribute many sessions. The runtime can also branch a trajectory from a prior checkpoint, which is useful for human intervention, counterfactual debugging, and trying a different model or policy without corrupting the original lineage.
+
+These features expose a general rule: durability is not merely retry. A robust runtime needs idempotent activities or recorded results, ownership leases, optimistic or single-writer concurrency control, reconnection semantics, and lineage for every branch. Without those, "resume" can duplicate side effects, and parallel workers can turn one coherent history into several incompatible ones.
+
 ### 7.11 How Long Is "Long"? The Time-Horizon Metric
 
 This chapter is about tasks that exceed a single context window, but "long" deserves a measure. METR proposes one: a model's *time horizon* is the length of task — measured by how long it takes a skilled human — that the model can complete with 50% reliability. A model with a "50-minute time horizon" succeeds, half the time, on tasks that take a human about fifty minutes. Measured across frontier models from 2019 to 2025, this horizon has roughly *doubled every seven months* ([Kwa et al. — Measuring AI Ability to Complete Long Tasks](https://arxiv.org/abs/2503.14499); [METR](https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/)).
 
-Two implications matter for this chapter. First, the horizon is a property of the *model plus its harness*, not the model alone: the handoff, checkpoint, and self-verification machinery here is how a harness stretches the effective horizon beyond what the raw model sustains solo — the model-harness coupling of Chapter 12, seen from the capability side. Second, the metric reframes when this machinery is worth building. As the intrinsic horizon grows, some scaffolding becomes unnecessary — Anthropic dropped context resets and, later, sprint decomposition as models improved (§7.6, Ch 12) — but the frontier of *interesting* long-horizon tasks moves out with it. The harness work relocates to harder problems rather than disappearing (Ch 18).
+Two implications matter for this chapter. First, the horizon is a property of the *model plus its harness*, not the model alone: the handoff, checkpoint, and self-verification machinery here is how a harness stretches the effective horizon beyond what the raw model sustains solo — the model-harness coupling of Chapter 12, seen from the capability side. Second, the metric reframes when this machinery is worth building. As the intrinsic horizon grows, some scaffolding becomes unnecessary — Anthropic dropped context resets and, later, sprint decomposition as models improved (§7.6, Ch 12) — but the frontier of *interesting* long-horizon tasks moves out with it. The harness work relocates to harder problems rather than disappearing (Ch 19).
 
 ---
 
@@ -172,8 +184,10 @@ sequenceDiagram
 - **Sprint contracts coordinate multi-agent work**: file-based communication with agreed success criteria before each build sprint.
 - **Context resets cure "context anxiety"**: sometimes a fresh start with a structured handoff outperforms compaction.
 - **Managed agents decouple brain, hands, and state**: model context, sandbox execution, credentials, and event logs should fail and recover independently.
+- **Session, harness run, and sandbox are separate lifecycles**: identify and version them independently so a reset, migration, or revocation affects only the intended layer.
 - **Self-verification is the headline lever**: forcing a verification pass before exit improved scores by 13.7 points with no model change.
 - **Durable execution makes resumability an infrastructure guarantee**: persisting each step to a log lets a fresh agent resume after a crash, context exhaustion, or deploy — treat non-deterministic model/tool calls as recorded side effects, not steps to recompute.
+- **Distributed durability needs ownership and lineage**: single-writer session state, reconnection, snapshots, idempotent activities, and trajectory branching turn retry into safe recovery.
 - **The time horizon measures "how long"**: METR's task-completion horizon (the human-task-length a model clears 50% of the time) has doubled roughly every seven months — and it is a model-plus-harness property, which is why this chapter's machinery extends it.
 
 ## Further Reading
@@ -188,3 +202,4 @@ sequenceDiagram
 - Temporal, *Durable Execution Meets AI: Why Temporal Is the Perfect Foundation for AI*, 2025. https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai
 - LangChain, *Durable Execution* (LangGraph documentation), 2025. https://docs.langchain.com/oss/python/langgraph/durable-execution
 - Thomas Kwa et al., *Measuring AI Ability to Complete Long Tasks*, METR / arXiv, Mar 2025. https://arxiv.org/abs/2503.14499
+- Google Cloud, *Agent Executor: Google's Distributed Agent Runtime*, 2026. https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/

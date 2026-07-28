@@ -70,6 +70,8 @@
 
 **Sleep-time compute(睡眠期计算)** — 在请求之间离线处理上下文——预判可能查询并预计算推断——以削减后续查询所需的计算(第 3 章)。
 
+**Persistent memory poisoning(持久记忆投毒)** — 不可信内容被提升进持久记忆、并在之后被当作可信状态的攻击,使一次注入能跨过 context reset 操纵未来运行(第 3、5 章)。
+
 ---
 
 ## 子代理与工作流
@@ -88,6 +90,8 @@
 
 **MAST(多代理系统失败分类法)** — 一套经验性的多代理失败分类,含 14 种失败模式,分三大类:规格问题、代理间错位、任务验证(第 3 章)。
 
+**Trust escalation(信任升级)** — 一种委派失败:高权限 parent 接受低权限 worker 的说法,再用 worker 不曾拥有的权限采取行动(第 3、18 章)。
+
 **推理 / 自我纠错模式** — 单个 agent 用 token 换可靠性的思考模式:Reflexion(自我批评记忆)、Self-Refine(批评并修订)、CRITIC(工具落地的批评)、Tree of Thoughts 与 LATS(分支搜索)、ReWOO(先规划再执行)(第 6 章)。
 
 ---
@@ -104,6 +108,8 @@
 
 **代码执行(作为元工具)** — 把工具呈现为 agent 通过写代码来调用的代码 API,而不是直接调用——大幅降低 token 成本(第 4 章)。
 
+**Programmatic tool calling(程序化工具调用)** — 让模型编写有界程序,在 runtime 内过滤、连接、排序、去重、聚合或验证工具结果,从而减少模型往返与上下文传输(第 4 章)。
+
 **Shell** — Bash、zsh 这类命令行接口。在 agent 系统中,shell 访问很强大,因为它让 agent 可以运行测试、检查文件、安装包,并临时组合工具(第 1、4、5 章)。
 
 **文件系统(filesystem)** — agent 可以读写的目录和文件。它既是工作区,也是持久记忆,还是 agent 与人类协作的界面(第 1、2、5 章)。
@@ -112,11 +118,13 @@
 
 **Sandbox liveness(沙箱活性)** — 沙箱作为授权区域的作用:agent 可在配置边界内行动而无需逐动作审批(第 5 章)。
 
-**Governance(治理)** — 管理身份、权限策略、scoped credentials、人类审批、审计日志和跨层安全问责的 harness 机制(第 5、17 章)。
+**Governance(治理)** — 管理身份、权限策略、scoped credentials、人类审批、审计日志和跨层安全问责的 harness 机制(第 5、18 章)。
+
+**Agentic readiness** — 一个系统是否适合自治调用者安全理解和操作的程度:幂等 mutation、明确 operation state、machine identity、清楚的 retry 语义、可观察 outcome 与补偿操作(第 5 章)。
 
 **Delegated auth(委托授权)** — Agent 通过 scoped credentials 或 proxy-authorized identity 行动,而不是继承用户完整环境权限的模式(第 5 章)。
 
-**Supply-chain provenance(供应链来源证据)** — 关于 agent 所依赖的 tools、packages、datasets、MCP servers 和 retrieval sources 的来源与完整性证据(第 5、17 章)。
+**Supply-chain provenance(供应链来源证据)** — 关于 agent 所依赖的 tools、packages、datasets、MCP servers 和 retrieval sources 的来源与完整性证据(第 5、18 章)。
 
 **Hook / middleware(中间件)** — 由 harness 在生命周期事件(启动、工具调用后、停止)自动执行的脚本或检查点,确定性地强制规则(第 5 章)。
 
@@ -150,13 +158,15 @@
 
 **Readiness validation(就绪验证)** — 验证某个具体 model + harness 配置是否适合特定任务分布、环境、预算和治理规则(第 10 章)。
 
-**Failure attribution(失败归因)** — 在选择修复方式前,先把 agent 失败标注到最可能的问题层:execution、tool interface、context、lifecycle、observability、verification 或 governance(第 9、11 章)。
+**Failure attribution(失败归因)** — 在选择修复方式前,先把 agent 失败标注到最可能的问题层:execution、tool interface、context、lifecycle、observability、verification 或 governance(第 10、12 章)。
 
 **Task / trial(任务/试验)** — *task* 有定义好的输入和成功标准;*trial* 是对它的一次尝试(第 10 章)。
 
 **Grader** — 为试验某个方面评分的组件:code-based、model-based 或 human(第 10 章)。
 
-**Transcript(trace、trajectory)** — 一次试验的完整记录:每条消息、工具调用和结果(第 9、11 章)。
+**Evaluator integrity** — 评测系统自身的可信度,由盲评、确定性证据、abstention、calibration、meta-eval、版本化与可复现 audit artifact 支撑(第 10 章)。
+
+**Transcript(trace、trajectory)** — 一次试验的完整记录:每条消息、工具调用和结果(第 10、12 章)。
 
 **Outcome(结果状态)** — 试验结束时的最终环境状态,区别于 agent 的文本回应(第 10 章)。
 
@@ -182,13 +192,13 @@
 
 **Event log(事件日志)** — 对消息、工具调用、结果、审批和错误的追加式记录。执行状态可以从中推导出来,因此 agent 更容易重放和调试(第 9 章)。
 
-**Agent platform** — 超出本地 framework 的基础设施:跨多次运行和多用户的 durable workspaces、managed sandboxes、identity、billing、observability、evaluation、governance 和 human handoff(第 8、17 章)。
+**Agent platform** — 超出本地 framework 的基础设施:跨多次运行和多用户的 durable workspaces、managed sandboxes、identity、billing、observability、evaluation、governance 和 human handoff(第 9、18 章)。
 
-**Checkpoint / resume(检查点/恢复)** — 一种可靠性模式:agent 定期保存足够状态,以便在失败或上下文重置后继续工作而不丢进度(第 7、8 章)。
+**Checkpoint / resume(检查点/恢复)** — 一种可靠性模式:agent 定期保存足够状态,以便在失败或上下文重置后继续工作而不丢进度(第 7、9 章)。
 
 **Durable execution(持久化执行)** — 一种基础设施保证:把每个工作流步骤持久化,使崩溃或被中断的 agent 从最后记录的一步恢复;非确定的模型/工具调用被记录并重放,而非重算(第 7 章)。
 
-**Time horizon(时间视野)** — METR 的能力指标:模型以 50% 可靠性能完成的人类任务长度;前沿值大约每七个月翻一番(第 7、18 章)。
+**Time horizon(时间视野)** — METR 的能力指标:模型以 50% 可靠性能完成的人类任务长度;前沿值大约每七个月翻一番(第 7、19 章)。
 
 **Stateless reducer(无状态归约器)** — 把 agent 建模为对 event log 的纯 fold,使其可序列化、可重放、可测试(第 9 章)。
 
@@ -200,11 +210,13 @@
 
 **Trace-to-eval loop** — 把真实生产失败转换成脱敏、可复现、带 outcome assertion 的 regression case(第 12 章)。
 
+**Controlled self-improvement(受控自我改进)** — 一条外部、版本化回路:把经过审查的生产纠正变成有界 change task,用 eval gate、canary 与 rollback 发布,而不是允许 deployed agent 原地修改自己(第 12、17 章)。
+
 **Meta-harness** — 把 harness 设计本身当作优化对象:用 eval feedback 消融或搜索 prompts、tools、retries、context policies、evaluators 和 control loops(第 12 章)。
 
-**Cost-quality-speed trilemma(成本-质量-速度三难)** — 更强 execution environment、observability、verification 和 governance 会提高可靠性,但也增加成本和延迟(第 18 章)。
+**Cost-quality-speed trilemma(成本-质量-速度三难)** — 更强 execution environment、observability、verification 和 governance 会提高可靠性,但也增加成本和延迟(第 19 章)。
 
-**Capability-control tradeoff(能力-控制权衡)** — 更多权限、工具、记忆和自治会提升能力,同时扩大控制、provenance 和审计问题(第 18 章)。
+**Capability-control tradeoff(能力-控制权衡)** — 更多权限、工具、记忆和自治会提升能力,同时扩大控制、provenance 和审计问题(第 18、19 章)。
 
 **Ralph Wiggum loop** — 一个 hook,拦截 agent 的退出尝试,并在干净的上下文窗口中重新注入原始 prompt,迫使它继续对照目标工作(第 7、8 章)。
 
@@ -268,6 +280,8 @@
 
 ## 成本与运维
 
+**AgentOps** — 跨 governance and security、build and operations、evaluation 与 observability 运行 agent 完整生命周期的纪律,覆盖 planning 到 retirement(第 17 章)。
+
 **Per-task budget(每任务预算)** — 对单次 agent 运行的 token、工具调用或成本设的明确上限,超过后 agent 停下来问,而不是无限循环(第 17 章)。
 
 **Cost attribution(成本归因)** — 给 trace 的每个 span 附上 token 和美元成本,把“agent 很贵”变成一个具体、可修的工程发现(第 17 章)。
@@ -281,3 +295,23 @@
 **AI 管理体系(ISO/IEC 42001)** — 首个用于治理组织 AI 的可认证标准:如何建立、运行并持续改进一套 AI 管理体系——ISO 27001 的 AI 对应物(第 17 章)。
 
 **欧盟 AI 法案(EU AI Act)** — Regulation (EU) 2024/1689,首部全面的 AI 法律;它按风险层级对系统分类,并对高风险用途施加有约束力的义务(第 17 章)。
+
+---
+
+## Fleet、身份与控制平面
+
+**Agent fleet** — 由 agent definition、version、run、sandbox、tool、identity 与 owner 组成的受治理集合,而不是一个本地配置的 agent(第 18 章)。
+
+**Agent control plane(agent 控制平面)** — 跨 fleet 注册 agent artifact、管理 identity 与 delegated authority、强制 policy、reconcile lifecycle 并保存 lineage 与 audit 的共享基础设施;区别于真正做工作的 data plane(第 18 章)。
+
+**Agent identity** — Agentic principal 的持久 machine identity,区别于 user、sponsor、runtime process、model 与单个 session(第 18 章)。
+
+**Agent registry** — Agent 与 capability definition、version、ownership、dependency、requested permission、attestation、deployment state 与 lineage 的被治理 source of truth(第 18 章)。
+
+**Delegated authorization(委派授权)** — 从 user 或 service 派生短期、audience-bound、purpose-bound 权限给 agent;后续每次 delegation 只能收窄 grant(第 5、18 章)。
+
+**Agent gateway** — Data-plane enforcement point:评估 model、tool、MCP、A2A、egress 或 memory request 的 identity 与 execution envelope,并能 allow、deny、redact、缩小 scope、强化 isolation 或要求 approval(第 18 章)。
+
+**Lineage(血缘/溯源链)** — 把一次 agent action 连接到 publisher、source 与 build、configuration、identity 与 delegation chain、policy decision、trace evidence、approval 与 environment outcome 的因果图(第 18 章)。
+
+**Non-repudiation(不可否认性)** — 用 signed 或 integrity-protected event、timestamp 与 immutable version,提供足以把 request 与 authorization 归因到特定 workload 与 policy identity 的证据;它不能证明人理解了 approval,也不能证明模型 rationale 真实(第 18 章)。

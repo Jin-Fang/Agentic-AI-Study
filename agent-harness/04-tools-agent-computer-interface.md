@@ -24,6 +24,8 @@ The value is composability. A team can connect a Google Drive server, a Salesfor
 
 The cost is that MCP made tool over-supply trivial. As Chapter 2 noted, MCP let users plug in hundreds of tools, and a context loaded with hundreds of tool definitions is exactly the bloat that Chapter 2's *mask, don't remove* rule and the consolidation advice above push back on. MCP is plumbing, not a substitute for tool design: a poorly designed MCP server simply delivers poorly designed tools at scale. The discipline of this chapter — consolidate frequently-chained operations, namespace, cap responses, write descriptions like onboarding docs — applies whether a tool is hand-written or arrives over MCP.
 
+MCP also creates a deployment boundary. An internal server should not be made public merely so a hosted agent can reach it. OpenAI's secure MCP tunnel uses an **outbound-only client** inside the private network: the client connects to an explicitly configured destination, preserves streaming and authentication, and leaves the customer in control of an inspectable process rather than opening an inbound port ([OpenAI — Connect Private MCP Servers to OpenAI Products](https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products)). This is a reusable pattern, not just a networking trick: cross-boundary tool access should be initiated from the side that owns the private capability, constrained to named destinations, and audited like any other delegated authority.
+
 ### 4.4 Four Integration Boundaries
 
 The OpenReview survey argues that tool and protocol standards are easier to compare by the boundary they cross, rather than by vendor or release date ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)):
@@ -73,7 +75,9 @@ The benefits compound:
 
 Cloudflare reported similar findings under the name "Code Mode," reinforcing the conclusion: LLMs are good at writing code, and developers should let them ([Anthropic — Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)).
 
-The catch: code execution requires sandboxing infrastructure, which has its own operational and security cost.
+OpenAI's **programmatic tool calling** generalizes the same idea inside a Responses API turn: the model writes a short program that calls allowed tools, filters or joins their results, and returns only the compact product to the model. It is a strong fit for bounded dataflow — filter, join, rank, deduplicate, aggregate, and validate — because deterministic runtime control replaces many model round-trips. It is a poor fit when each observation materially changes the next judgment, when an action needs per-call approval, or when every source result must remain visible for citation or review ([OpenAI — Programmatic Tool Calling](https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling)). In other words, use code to compress mechanical orchestration, not to hide consequential decisions.
+
+The catch: code execution requires sandboxing infrastructure, which has its own operational and security cost. It also changes the audit unit: the harness must record the program, the tools it was allowed to call, and the side effects it produced—not merely the final compact result.
 
 ### 4.10 Iterative Tool Refinement With Evals
 
@@ -93,6 +97,8 @@ Of the four integration boundaries in §4.4, three — model-to-function, agent-
 The mechanics are deliberately conventional so that existing web infrastructure applies: communication is JSON-RPC 2.0 over HTTP(S); each agent publishes an *Agent Card* describing its capabilities so others can discover it; and a task lifecycle covers submission, negotiation of interaction modality (text, files, structured data), and streaming of results back to the caller.
 
 The contrast with MCP is the useful part. MCP connects an agent *downward* to tools and resources it controls and can inspect; A2A connects an agent *across* to a peer it does not control and cannot see inside. That flips the primary engineering concern from tool-schema design to *trust and provenance across an organizational boundary*. Because you cannot inspect the other agent's context or sandbox, a response from an A2A peer is untrusted content in exactly the sense of Chapter 5 — the lethal-trifecta discipline applies to peer agents as much as to web pages — and governance (scoped identity, delegated auth, audit) must span the A2A call rather than stopping at your own process (Ch 5, Ch 17). A2A does not remove the trust problem; it standardizes where it has to be solved.
+
+The same boundary gives a practical topology rule. Native multi-agent execution is most useful when work is **independent, bounded, and mergeable**: parallel research threads, isolated reviews, or separate artifacts. It is usually the wrong abstraction for a sequential dependency chain or several writers mutating the same state, where coordination overhead and race conditions dominate. In those cases, keep one owner and use ordinary tools or a deterministic workflow. When peers are appropriate, the control plane in Chapter 18 must still resolve identity, delegated authority, version, lineage, and revocation for every call.
 
 ---
 
@@ -128,8 +134,11 @@ flowchart LR
 - **Namespacing is not cosmetic**: it enables logit-level masking of tool groups and prevents collision in large MCP environments.
 - **Tool responses are a major source of context bloat**: cap, paginate, filter, and truncate by default.
 - **Code execution as meta-tool is a step-change**: exposing MCP tools as a typed code API cut token usage by 98.7% in Anthropic's example.
+- **Programmatic tool calling is for bounded dataflow**: filter, join, rank, deduplicate, aggregate, and validate in code; keep adaptive judgment, approvals, and citation-bearing evidence visible to the agent.
+- **Private MCP connectivity should be outbound-only**: initiate the connection from the network that owns the capability, constrain its destination, and audit it as delegated authority.
 - **The four-stage eval loop is the recommended workflow**: prototype → build eval → run eval → analyze transcripts → iterate.
 - **A2A standardizes the agent-to-agent boundary**: it lets one agent delegate to an opaque peer over JSON-RPC + Agent Cards — shifting the concern from tool-schema design to trust and provenance across an organizational boundary, where the lethal-trifecta and governance rules of Ch 5 apply.
+- **Parallel agents need independent ownership**: shared mutable state and sequential dependencies usually call for one owner plus deterministic orchestration.
 
 ## Further Reading
 
@@ -141,3 +150,5 @@ flowchart LR
 - *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
 - *Agent2Agent (A2A) Protocol*, Google / Linux Foundation, 2025. https://github.com/a2aproject/A2A
 - Linux Foundation, *Linux Foundation Launches the Agent2Agent Protocol Project*, Jun 2025. https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents
+- OpenAI, *Connect Private MCP Servers to OpenAI Products*, Jun 2026. https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products
+- OpenAI, *Programmatic Tool Calling*, 2026. https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling

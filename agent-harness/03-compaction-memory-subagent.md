@@ -79,6 +79,20 @@ The temptation is to equate more agents with more capability. The empirical reco
 
 The practical guidance falls out of the taxonomy: prefer the simplest topology that works (§6.1); keep task boundaries explicit so workers do not overlap or drop work (§3.4, Ch 7); and treat verification as a first-class agent rather than an afterthought (the generator–evaluator split of Ch 7), because MAST identifies weak verification as one of the three leading failure families.
 
+### 3.10 Memory Poisoning and Trust Escalation
+
+Persistent memory changes the security model. An injected instruction in a web page normally threatens one run; if the agent summarizes that instruction into a durable note, preference store, or shared blackboard, the attack can survive a context reset and steer later runs. Anthropic calls this **persistent memory poisoning**: untrusted content crosses a write boundary into state that future agents treat as trusted ([Anthropic — How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude)).
+
+The defense is to treat memory as a provenance-bearing store, not as a neutral extension of context:
+
+- label each memory by source, authorizing identity, creation time, and trust class;
+- separate observations from instructions, and never promote retrieved content into policy automatically;
+- require review or deterministic validation before untrusted findings enter durable shared memory;
+- support expiry, supersession, and rollback so a poisoned fact can be removed from every future context;
+- re-check authorization at retrieval time, because a fact the writer could see is not necessarily a fact the reader may see.
+
+Multi-agent systems add **trust escalation**. A low-privilege worker can return a plausible summary to a higher-privilege coordinator, which then acts with authority the worker never had. Compression makes this especially dangerous because provenance and uncertainty are often the first details lost. A sub-agent result should therefore carry citations or artifact pointers, confidence or unresolved questions, and the identity and permissions under which it was produced. The parent must validate the evidence before turning the result into a privileged action. Chapter 5 develops the containment controls; Chapter 18 develops the identity and control-plane model that makes them enforceable across a fleet.
+
 ---
 
 ## Diagram: Parent Agent → Sub-Agent → Compressed Result (Context Firewall)
@@ -114,6 +128,8 @@ sequenceDiagram
 - **Cost and latency are design variables**: route cheap work to small models, keep the KV-cache warm, and parallelize for wall-clock speed.
 - **Named memory systems package the memory patterns**: MemGPT (OS-style virtual context), Mem0 (extract–consolidate–retrieve), and sleep-time compute (offline pre-processing) are worth knowing — but each adds its own retrieval and staleness failure surface.
 - **More agents multiply coordination failure, not just cost**: the MAST taxonomy finds that specification gaps, inter-agent misalignment, and weak verification — all harness-owned surfaces — dominate multi-agent failures; prefer the simplest topology and make verification first-class.
+- **Durable memory is a trust boundary**: retain provenance, separate data from instructions, and validate before promoting untrusted findings into shared state; otherwise one injected page can steer many future runs.
+- **Delegation must not silently escalate authority**: a parent should verify a worker's evidence before acting with privileges the worker did not possess.
 
 ## Further Reading
 
@@ -126,3 +142,4 @@ sequenceDiagram
 - Prateek Chhikara et al., *Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory*, arXiv, Apr 2025. https://arxiv.org/abs/2504.19413
 - Kevin Lin et al., *Sleep-time Compute: Beyond Inference Scaling at Test-time*, arXiv, Apr 2025. https://arxiv.org/abs/2504.13171
 - Mert Cemri et al., *Why Do Multi-Agent LLM Systems Fail?*, arXiv, Mar 2025. https://arxiv.org/abs/2503.13657
+- Anthropic Safeguards Research Team, *How We Contain Claude*, Anthropic, May 2026. https://www.anthropic.com/engineering/how-we-contain-claude

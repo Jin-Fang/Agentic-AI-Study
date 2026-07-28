@@ -1,17 +1,18 @@
-# Chapter 18: Outlook
+# Chapter 19: Outlook
 
-### 18.1 The Field Is Young
+### 19.1 The Field Is Young
 
 Much of the vocabulary used in this book — initializer agents, context firewalls, sprint contracts, reasoning sandwiches, ambient affordances, computational vs. inferential controls — entered the mainstream agent-engineering conversation within the last twelve to eighteen months. Some underlying ideas are older, but the shared language is recent. Most of the source articles for this textbook were published in 2025 and 2026. The field is moving faster than any single book can document — and there is a number attached to that pace: METR finds the task-completion *time horizon* of frontier models (the human-task-length they clear 50% of the time) has doubled roughly every seven months (§7.11) ([Kwa et al. — Measuring AI Ability to Complete Long Tasks](https://arxiv.org/abs/2503.14499)). A book about what a harness must supply is, in part, a book about a moving target.
 
 LangChain frames the trajectory honestly: as models improve, some of what lives in the harness today will be absorbed into the model. Models will get better at planning, self-verification, and long-horizon coherence natively, requiring less context injection. But the space of interesting harness combinations does not shrink as models improve. It moves ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/); [Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)).
 
-### 18.2 Open Problems
+### 19.2 Open Problems
 
 Several recur across the literature:
 
 - **Behavioral harnesses for functional correctness**. Maintainability and architecture-fitness harnesses have decades of pre-existing tooling. Behavior harnesses — does the application functionally do what the user wants? — do not. Today most teams rely on AI-generated tests, and the consensus is that this is not yet good enough ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
 - **Harness coherence at scale**. As guides and sensors multiply, how do they stay consistent? How do we know when sensors that never fire indicate quality versus inadequate detection? There is no equivalent of code coverage or mutation testing for harness coverage yet.
+- **Control-plane portability**. Registries, identities, policies, gateways, and audit systems now exist, but their schemas and authority models remain platform-specific. Moving an agent between clouds or organizations without losing provenance, policy meaning, or revocation semantics is still hard (Ch 18).
 - **Cross-layer governance coherence**. The OpenReview survey highlights that policy, permission prompts, audit logs, constitutional instructions, and runtime hooks often live in separate layers and may interfere rather than compose. Portable policy and audit languages are still missing ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
 - **Standardized readiness reporting**. If model scores depend on execution environment, tool surface, context policy, retry rules, and governance gates, benchmark reports need a harness bill of materials. Today there is no widely adopted format for publishing that configuration ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
 - **Cost-quality-speed trilemma**. Stronger sandboxes, richer observability, deeper verification, and stricter governance usually increase cost and latency. Mature harnesses need explicit policy for which checks run synchronously, which run offline, and which risks justify expensive controls ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
@@ -22,8 +23,9 @@ Several recur across the literature:
 - **Just-in-time tool assembly**. Harnesses that dynamically assemble the right tools and context for a given task, rather than pre-configuring everything, are explored by LangChain among others ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
 - **Tracing as documentation**. LangChain's observation that "in software, the code documents the app; in AI, the traces do" hints at a different model of system documentation that the field has not fully worked out ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)).
 - **End-to-end supply-chain governance**. Tool integrity is only one piece. Agents also depend on MCP servers, external packages, datasets, retrieval sources, and generated dependency names. Provenance across that full chain is still underdeveloped ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
+- **Evaluator integrity under consequence**. Model judges can be influenced by how their verdict will be used, while generators can learn to optimize against known graders. Blinding, abstention, ensembles, and meta-evals help, but no general method makes a semantic verifier both scalable and consequence-independent (Ch 10).
 
-### 18.3 The Standing Advice
+### 19.3 The Standing Advice
 
 A few principles repeat across nearly every article in the corpus:
 
@@ -46,7 +48,9 @@ mindmap
       Behavioral harnesses for functional correctness
       AI-generated tests not yet good enough
       No mutation testing equivalent for harnesses
+      Evaluator integrity under consequence
     Governance
+      Control-plane portability
       Cross-layer policy coherence
       Portable audit and policy languages
       Human approval interfaces
@@ -79,7 +83,7 @@ mindmap
 
 - **The shared vocabulary is young**: many terms became common in 2025–2026, even when the underlying ideas are older.
 - **Models absorb harness, but harness moves**: as models improve and take on more native capabilities, the interesting harness work moves to harder problems, not away.
-- **Open problems now span the full ETCLOVG stack**: behavioral correctness, harness coherence, governance coherence, readiness reporting, cost-quality-speed, capability-control, async coordination, continual learning, just-in-time tool assembly, and traces-as-documentation.
+- **Open problems now span the full ETCLOVG stack**: behavioral correctness, evaluator integrity, control-plane portability, harness and governance coherence, readiness reporting, cost-quality-speed, capability-control, async coordination, continual learning, just-in-time tool assembly, and traces-as-documentation.
 - **Five standing principles cut across all contexts**: finite context, simplest-that-works, read-the-transcripts, iterate-load-bearing, tailor-to-model.
 - **Harness engineering is permanent work**: not scaffolding to discard once models improve, but the ongoing craft of building effective systems around increasingly capable cores.
 

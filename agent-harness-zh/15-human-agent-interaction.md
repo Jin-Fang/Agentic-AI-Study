@@ -25,7 +25,7 @@ Agent–computer interface 那一章主张：投入到“agent 如何使用工�
 - **执行并报告**：对要紧但可观察、可逆的动作——留下清晰 trace 供人事后 review，而不是阻塞等批准。
 - **先问**：对不可逆或高影响半径的动作：删数据、发外部消息、花钱、动生产。这正是 *lethal trifecta* 边界（第 5 章）——agent 即将把私有数据、不可信输入和外部触达结合起来的那一刻，正是人该在 loop 里的那一刻。
 
-这张图就是本书在[展望](./18-outlook.md)里反复回到的 capability–control 权衡：更多自治是更多能力，也是更多控制负担。接口正是这个权衡被逐动作落地的地方。
+这张图就是本书在[第 18 章](./18-agent-fleets-identity-control-plane.md)反复回到的 capability–control 权衡：更多自治是更多能力，也是更多控制负担。接口正是这个权衡被逐动作落地的地方。
 
 ### 15.4 把批准建模为一次工具调用
 
@@ -56,7 +56,9 @@ HumanLayer 的十二要素宣言做了最干净的结构性动作：*用工具�
 
 随着 agent 增多，人的角色从做这份工作，转为监督做这份工作的 agent——再转为*同时*监督*许多* agent。这正是这个领域在走向的杠杆，它改变了接口需求。一个人监督十个 agent，不可能读完每条 trace；接口必须浮现出需要注意的东西：哪些 agent 卡在批准上、哪些没把握、哪些产出的结果没过验证。
 
-这把监督提升为一个 fleet 级关切，而[展望](./18-outlook.md)把它标记为开放问题——人类批准接口和规模化的 harness 一致性都还没解决。仍然成立的原则是：让监督*便宜且有意义*。便宜，使一个人能监督许多 agent 而不被淹没；有意义，使监督是真实的而非橡皮图章。本章的每一项技术——与风险成比例的询问、批准即工具调用、富证据的 review 界面、引导、校准过的透明——都服务于这一个目标。
+当 agent 产出变更的速度超过人类检查速度时，code review 会成为瓶颈。因此，队列应按**风险与证据**排序，而不是按到达时间或 trace 长度排序：确定性检查失败、高 blast radius 动作、安全敏感路径、新工具使用、policy rule 命中、薄弱或冲突的 grader 证据，以及巨大却没有解释的 diff，都应优先浮现。低风险且验证充分的变更可以摘要或抽样；有后果的变更保留完整 artifact。第 13.8 节的 scoped review rule 能让这种路由更精确。
+
+这把监督提升为[第 18 章](./18-agent-fleets-identity-control-plane.md)的 fleet 级控制平面关切。仍然成立的原则是：让监督*便宜且有意义*。便宜，使一个人能监督许多 agent 而不被淹没；有意义，使监督是真实的而非橡皮图章。本章的每一项技术——与风险成比例的询问、批准即工具调用、富证据的 review 界面、引导、校准过的透明——都服务于这一个目标。
 
 ---
 
@@ -70,7 +72,7 @@ flowchart TD
     Q -->|"要紧但<br/>可观察且可逆"| REPORT["执行并报告<br/>（留下可 review 的 trace）"]
     Q -->|"不可逆 / 高风险<br/>（删、发、花钱、生产）"| ASK["request_human_approval()<br/>—— 批准即工具调用"]
 
-    ASK --> WAIT["挂起；回应时<br/>从 event log 恢复（第 7、8 章）"]
+    ASK --> WAIT["挂起；回应时<br/>从 event log 恢复（第 7、9 章）"]
     SILENT --> LOG["Event log + trace"]
     REPORT --> LOG
     WAIT --> LOG
@@ -90,6 +92,7 @@ flowchart TD
 - **让交互与风险成比例**：可逆低风险静默执行、可观察的执行并报告、不可逆或高影响半径的先问——即 lethal-trifecta 边界。
 - **把批准建模为工具调用**：它就变得持久、可重放、可审计，并与长运行的挂起/恢复组合。
 - **展示证据，而非只是结论**：一个工作便于验证、便于否决的 agent，才是人真正能监督的——无论是一个还是一队。
+- **Fleet review 是按风险排序的队列**：让失败检查、敏感路径、policy hit、新动作和薄弱证据，排在低风险、验证充分的工作之前。
 
 ## 延伸阅读
 
@@ -98,3 +101,4 @@ flowchart TD
 - David Dworken and Oliver Weller-Davies, *Beyond Permission Prompts: Making Claude Code More Secure and Autonomous*, Anthropic, Oct 2025. https://www.anthropic.com/engineering/claude-code-sandboxing
 - Saleema Amershi et al., *Guidelines for Human-AI Interaction*, CHI 2019. https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/
 - Eric Horvitz, *Principles of Mixed-Initiative User Interfaces*, CHI 1999. https://www.microsoft.com/en-us/research/publication/principles-of-mixed-initiative-user-interfaces/
+- OpenAI, *Custom Code Review Rules for Codex*, Jul 2026. https://developers.openai.com/blog/custom-code-review-rules-for-codex

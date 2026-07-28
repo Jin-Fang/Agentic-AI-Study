@@ -81,6 +81,12 @@
 - Linux Foundation, *Linux Foundation Launches the Agent2Agent Protocol Project*, Jun 2025.
   https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents
 
+- OpenAI, *Connect Private MCP Servers to OpenAI Products*, Jun 2026.
+  https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products
+
+- OpenAI, *Programmatic Tool Calling*, 2026.
+  https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling
+
 ---
 
 ## 规格与工作流设计
@@ -135,6 +141,12 @@
 - Thinkst, *Canarytokens* (free tripwire tokens).
   https://canarytokens.org/
 
+- Anthropic Safeguards Research Team, *How We Contain Claude*, May 2026.
+  https://www.anthropic.com/engineering/how-we-contain-claude
+
+- Google Cloud, *Agent Executor: Google's Distributed Agent Runtime*, 2026.
+  https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/
+
 ---
 
 ## Agent 能力度量
@@ -183,6 +195,15 @@
 - OpenTelemetry, *Semantic conventions for generative AI spans*.
   https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
 
+- Anthropic Safeguards Research Team, *Agentic Misalignment: Summer 2026 Update*, 2026.
+  https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/
+
+- OpenAI, *Trustworthy Third-Party Evaluations: Foundations*, 2026.
+  https://openai.com/index/trustworthy-third-party-evaluations-foundations/
+
+- OpenAI, *Building Self-Improving Tax Agents with Codex*, 2026.
+  https://openai.com/index/building-self-improving-tax-agents-with-codex/
+
 ---
 
 ## 运行时、Harness 与参考实现
@@ -199,6 +220,9 @@
 
 - Eric Wallace et al., *The Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions*, OpenAI, Apr 2024.
   https://arxiv.org/abs/2404.13208
+
+- OpenAI, *Custom Code Review Rules for Codex*, Jul 2026.
+  https://developers.openai.com/blog/custom-code-review-rules-for-codex
 
 ---
 
@@ -258,6 +282,9 @@
 
 ## 成本、隐私与治理框架
 
+- AWS, *AgentOps: Operationalize Agentic AI at Scale with Amazon Bedrock AgentCore*, 2026.
+  https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/
+
 - OWASP, *Top 10 for Large Language Model Applications*, 2025.
   https://genai.owasp.org/llm-top-10/
 
@@ -272,6 +299,25 @@
 
 - Fu Bang, *GPTCache: An Open-Source Semantic Cache for LLM Applications*, NLP-OSS @ EMNLP 2023.
   https://github.com/zilliztech/GPTCache
+
+---
+
+## Agent Fleet、身份与控制平面
+
+- NIST, *Identity and Authorization for Software Agents*, Feb 2026.
+  https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents
+
+- Google Cloud, *Agent Registry Overview*, 2026.
+  https://docs.cloud.google.com/agent-registry/overview
+
+- AWS, *AWS Agent Registry in Amazon Bedrock AgentCore (Preview)*, Apr 2026.
+  https://aws.amazon.com/about-aws/whats-new/2026/04/aws-agent-registry-in-agentcore-preview/
+
+- AWS, *Introducing Amazon Bedrock AgentCore Identity: Securing Agentic AI at Scale*, 2026.
+  https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-agentcore-identity-securing-agentic-ai-at-scale/
+
+- Microsoft, *Agent Registry in the Microsoft 365 Admin Center*, 2026.
+  https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry?view=o365-worldwide
 
 ---
 

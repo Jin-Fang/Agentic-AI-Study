@@ -1,6 +1,10 @@
-# Chapter 17: Cost, Privacy, and Production Operations
+# Chapter 17: AgentOps — Cost, Privacy, and Production Operations
 
 The chapters so far have built an agent that works. Running it in production for real users adds three concerns that the agent loop itself hides: what each run *costs*, what it does with *sensitive data*, and how the harness is *changed safely* once people depend on it. None is glamorous, and each is where a working demo quietly fails to become a working product. [Chapter 5](./05-sandboxing-guardrails.md) covered the security threat model and [Chapter 11](./11-infrastructure-noise.md) covered measurement noise; this chapter covers the operational economics, data governance, and release discipline around them.
+
+The emerging name for this operating discipline is **AgentOps**. AWS groups it into four connected pillars: **governance and security**, **build and operations**, **evaluation**, and **observability** ([AWS — AgentOps](https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/)). The useful part of the term is lifecycle scope. An agent is planned, developed, built, tested, deployed, maintained, monitored, and eventually retired; production ownership spans that whole path rather than beginning at the monitoring dashboard.
+
+AgentOps also changes the unit of release. The deployable artifact is not just model code or a prompt. It is a versioned bundle of model and inference settings, system and project instructions, tool catalog and schemas, memory policy, sandbox image, identity and authorization policy, graders, budgets, and routing rules. A release record should name that complete configuration so an incident can be attributed and rolled back. Chapter 18 moves one level up: the control plane registers these artifacts and governs their identities and fleet lifecycle, while AgentOps operates and improves them.
 
 ### 17.1 Cost: Budgeting the Agent
 
@@ -66,7 +70,7 @@ These concerns are not only internal engineering; for many deployments they are 
 - **ISO/IEC 42001:2023**, the first AI management-system standard, is the AI analogue of ISO 27001: it specifies how an organization establishes, operates, and continually improves a management system for its AI, and it is certifiable ([ISO/IEC 42001:2023](https://www.iso.org/standard/42001)).
 - **The EU AI Act** (Regulation (EU) 2024/1689) is the first comprehensive AI law. It classifies systems by risk tier and imposes binding obligations — risk management, data governance, transparency, human oversight, logging — on high-risk uses, with provisions phasing in through 2026–2027 ([EU AI Act — Regulation (EU) 2024/1689](https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng)). Note that the two are complementary but distinct: ISO 42001 certification is evidence of good process, not automatic proof of AI Act compliance.
 
-None of these replaces the engineering in this book; they organize it and make it legible to auditors, customers, and regulators. The [Outlook](./18-outlook.md) flags cross-layer governance coherence as an open problem precisely because policy, audit, and runtime enforcement still live in separate layers — these frameworks are the current best scaffolding for keeping them aligned.
+None of these replaces the engineering in this book; they organize it and make it legible to auditors, customers, and regulators. The [Outlook](./19-outlook.md) flags cross-layer governance coherence as an open problem precisely because policy, audit, and runtime enforcement still live in separate layers — these frameworks are the current best scaffolding for keeping them aligned.
 
 ---
 
@@ -104,6 +108,7 @@ flowchart TD
 - **Multi-tenancy demands isolation**: scope workspaces, credentials, memory, and prefix caches per tenant, and carry tenant identity in the event log — state bleed and authority bleed are catastrophic.
 - **Two caches, two risk profiles**: the prefix cache serves identical context cheaply; a semantic cache serves *similar* queries and can skip whole calls, but a false hit returns a wrong answer — tune its threshold and eval it like any harness change.
 - **Releasing a harness change is a statistical deploy**: gate on evals, canary gradually, version the whole configuration together, and turn production failures into regression cases.
+- **AgentOps owns the whole lifecycle**: governance/security, build/operations, evaluation, and observability apply from planning through retirement; release the model, tools, memory, policy, sandbox, graders, and budgets as one versioned configuration.
 - **Governance frameworks span guidance to law**: OWASP LLM Top 10 and NIST AI RMF organize the controls; ISO/IEC 42001 certifies the process; the EU AI Act makes obligations binding for high-risk uses.
 
 ## Further Reading
@@ -117,3 +122,4 @@ flowchart TD
 - Fu Bang, *GPTCache: An Open-Source Semantic Cache for LLM Applications*, NLP-OSS @ EMNLP 2023. https://github.com/zilliztech/GPTCache
 - *ISO/IEC 42001:2023 — Information technology — Artificial intelligence — Management system*, ISO, 2023. https://www.iso.org/standard/42001
 - *Regulation (EU) 2024/1689 (Artificial Intelligence Act)*, European Union, Jun 2024. https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng
+- AWS, *AgentOps: Operationalize Agentic AI at Scale with Amazon Bedrock AgentCore*, 2026. https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/

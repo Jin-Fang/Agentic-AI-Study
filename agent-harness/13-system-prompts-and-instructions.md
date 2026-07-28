@@ -55,6 +55,12 @@ The instruction layer is not monolithic; it mirrors the inner/outer harness stru
 
 These compose at runtime into the effective instruction set the model sees. The lesson of [Chapter 12](./12-trace-driven-iteration.md) carries over: do not assume more project instruction is always better. The evidence on sprawling `AGENTS.md` files is mixed, and an over-specified project layer can fight the builder harness it sits on top of. The instruction architecture is something to measure, not to maximize.
 
+### 13.8 Scoped Review Rules as an Instruction Interface
+
+Repository instructions can target not only code generation but review. OpenAI's custom Codex review guidance treats concise `AGENTS.md` rules as a **review interface**: each rule should describe a specific defect, where it applies, and how a reviewer can recognize it; directory-scoped files narrow rules to the code they govern ([OpenAI — Custom Code Review Rules for Codex](https://developers.openai.com/blog/custom-code-review-rules-for-codex)).
+
+Good review rules are short, testable, and high signal—"flag a new endpoint that bypasses `authorize()`" rather than "follow security best practices." They point to the relevant code or policy and, when possible, to a deterministic check. Rules should be versioned and evaluated like any other instruction, because noisy rules create false positives and teach humans to ignore the review surface. This is progressive disclosure applied to quality policy: load the rule near the code it governs, keep global instructions universal, and graduate stable invariants into linters or tests.
+
 ---
 
 ## Diagram: The Instruction Stack
@@ -89,6 +95,7 @@ flowchart TD
 - **Separate what belongs where**: role and policy in the system prompt, mechanics in tool descriptions, changing facts in just-in-time retrieval.
 - **Assemble for the cache**: stable instructions first, volatile material last, or prefix caching silently breaks.
 - **Aim for the right altitude**: specific enough to steer, general enough to transfer; resist patching every trace with a new hardcoded rule.
+- **Review rules are an instruction interface**: scope concise, testable defect rules near the code they govern, measure their signal, and move stable invariants into deterministic checks.
 
 ## Further Reading
 
@@ -96,3 +103,4 @@ flowchart TD
 - Anthropic Applied AI Team, *Effective Context Engineering for AI Agents*, Anthropic, Sep 2025. https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
 - Dex Horthy, *12-Factor Agents*, HumanLayer, Apr 2025. https://www.humanlayer.dev/blog/12-factor-agents
 - Simon Willison, *The lethal trifecta for AI agents*, Jun 2025. https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/
+- OpenAI, *Custom Code Review Rules for Codex*, Jul 2026. https://developers.openai.com/blog/custom-code-review-rules-for-codex

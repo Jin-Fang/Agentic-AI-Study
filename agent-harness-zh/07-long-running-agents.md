@@ -90,6 +90,14 @@ OpenReview 综述强调了一个平台化方向，Anthropic 后续称为 managed
 
 这样看，context reset 只是恢复机制之一。生产级长运行 harness 还需要环境重置、凭据隔离、可恢复 event log，以及 in-flight session 的迁移规则。
 
+即使产品界面把它们统称为一个“agent”，也应保持三套生命周期彼此独立：
+
+- **session** 是持久的对话与 event history；
+- **harness run** 是某组 model、policy 与 orchestration 配置的一次执行；
+- **sandbox** 是可替换的计算环境，有自己的 image、filesystem 与 network lease。
+
+混淆它们会让恢复变得不安全。替换崩溃的 sandbox 不应抹掉 session；重置模型上下文不应静默保留已经受损的进程状态；升级 harness 也不应改写早期事件的 provenance。三者都应有明确 ID 与版本，使控制平面能分别 resume、migrate 或 revoke。
+
 ### 7.8 多代理研究系统
 
 对具有并行结构的任务，例如有许多独立线索要探索的研究，第 6 章的 orchestrator-worker 模式适用。Anthropic 的研究功能用 Claude Opus 4 做 lead agent，用 Claude Sonnet 4 做 sub-agents ([Anthropic - How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system))。Lead 分析查询、制定策略、派生并行 sub-agents；每个 sub-agent 搜索并返回浓缩发现；lead 综合；citation agent 再为论断标注来源。
@@ -124,11 +132,15 @@ Anthropic 的研究系统文章记录了 agent 长时间运行后的工程挑战
 
 如此看来，持久化执行把第 7.3 节“干净退出、可从产物恢复”的纪律，从一个 agent 必须自觉记住的约定，变成了平台强制的性质。它也约束成本——任务中途崩溃，不必把此前花掉的 token 从头重付一遍——并且它也是第 17 章所需回滚能力的底座：当某次 harness 变更在生产中行为异常时，回滚正是建立在它之上。
 
+Google 的 Agent Executor 把这些含义落实到了分布式规模 ([Google Cloud - Agent Executor](https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/))。状态从 event log 与 snapshot 恢复；连接丢失不等于任务丢失；**single-writer rule** 保护每个 session 不被并发修改，同时平台仍能分布式执行许多 session。runtime 还可以从过去 checkpoint 分叉一条 trajectory，用于人类干预、反事实调试，或在不污染原始 lineage 的前提下尝试另一模型或策略。
+
+这些能力揭示出一条一般规则：durability 不只是 retry。稳健 runtime 需要幂等 activity 或已记录结果、ownership lease、optimistic 或 single-writer concurrency control、重连语义，以及每个分支的 lineage。否则，“resume”可能重复副作用，并行 worker 也可能把一条连贯历史写成几条彼此冲突的历史。
+
 ### 7.11 “长”到底有多长？时间视野指标
 
 本章讲的是超出单个上下文窗口的任务，但“长”值得有个度量。METR 提出了一个：一个模型的*时间视野（time horizon）*是它以 50% 可靠性能完成的任务长度——以人类完成该任务所需时间来衡量。一个“50 分钟时间视野”的模型，在需要人类约五十分钟的任务上有一半时间能成功。在 2019 至 2025 年的前沿模型上测量，这个视野大约*每七个月翻一番* ([Kwa et al. - Measuring AI Ability to Complete Long Tasks](https://arxiv.org/abs/2503.14499); [METR](https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/))。
 
-对本章有两点意义。第一，这个视野是*模型加其 harness* 的性质，而非模型自身的性质：本章的 handoff、checkpoint、自我验证机制，正是 harness 把有效视野拉长到超出裸模型自身所能维持的手段——这是第 12 章模型-harness 耦合从能力侧看到的样子。第二，该指标重新框定了何时值得构建本章这套机制。随着内在视野增长，一些脚手架变得不再必要——Anthropic 随模型进步先后去掉了 context reset 与 sprint 分解（第 7.6 节、第 12 章）——但*有趣*的长视野任务前沿也随之外移。harness 的工作会迁移到更难的问题，而非消失（第 18 章）。
+对本章有两点意义。第一，这个视野是*模型加其 harness* 的性质，而非模型自身的性质：本章的 handoff、checkpoint、自我验证机制，正是 harness 把有效视野拉长到超出裸模型自身所能维持的手段——这是第 12 章模型-harness 耦合从能力侧看到的样子。第二，该指标重新框定了何时值得构建本章这套机制。随着内在视野增长，一些脚手架变得不再必要——Anthropic 随模型进步先后去掉了 context reset 与 sprint 分解（第 7.6 节、第 12 章）——但*有趣*的长视野任务前沿也随之外移。harness 的工作会迁移到更难的问题，而非消失（第 19 章）。
 
 ---
 
@@ -173,8 +185,10 @@ sequenceDiagram
 - **Sprint contracts 协调多 agent 工作**：构建前用文件沟通并约定成功标准。
 - **Context reset 可以缓解 context anxiety**：有时带结构化 handoff 的全新开始优于压缩。
 - **Managed agents 解耦 brain、hands 和状态**：模型上下文、沙箱执行、凭据和 event log 应能独立失败并恢复。
+- **Session、harness run 与 sandbox 是三套不同生命周期**：分别标识和版本化它们，使 reset、migration 或 revocation 只作用于目标层。
 - **自验证是头号杠杆**：退出前强制验证，在不换模型的情况下提升 13.7 分。
 - **持久化执行把可恢复性变成基础设施保证**：把每一步持久化到日志，使全新 agent 能在崩溃、上下文耗尽或部署后恢复——把非确定的模型/工具调用当作已记录的副作用，而非要重算的步骤。
+- **分布式 durability 需要 ownership 与 lineage**：single-writer session state、重连、snapshot、幂等 activity 与 trajectory branching，才能把 retry 变成安全恢复。
 - **时间视野度量“多长”**：METR 的任务完成视野（模型有 50% 时间能完成的人类任务长度）大约每七个月翻一番——而它是模型加 harness 的性质，这正是本章机制能拉长它的原因。
 
 ## 延伸阅读
@@ -189,3 +203,4 @@ sequenceDiagram
 - Temporal, *Durable Execution Meets AI: Why Temporal Is the Perfect Foundation for AI*, 2025. https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai
 - LangChain, *Durable Execution* (LangGraph documentation), 2025. https://docs.langchain.com/oss/python/langgraph/durable-execution
 - Thomas Kwa et al., *Measuring AI Ability to Complete Long Tasks*, METR / arXiv, Mar 2025. https://arxiv.org/abs/2503.14499
+- Google Cloud, *Agent Executor: Google's Distributed Agent Runtime*, 2026. https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/

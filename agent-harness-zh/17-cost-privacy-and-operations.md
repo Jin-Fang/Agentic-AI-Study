@@ -1,6 +1,10 @@
-# 第 17 章：成本、隐私与生产运维
+# 第 17 章：AgentOps——成本、隐私与生产运维
 
 到目前为止各章搭出了一个能工作的 agent。把它放到生产、服务真实用户，会多出三个被 agent loop 本身掩盖的关切：每次运行*花多少钱*、它如何处理*敏感数据*、以及一旦有人依赖它之后 harness 如何被*安全地改动*。没有一个光鲜，而每一个都是“能跑的 demo”悄悄无法变成“能用的产品”的地方。[第 5 章](./05-sandboxing-guardrails.md)讲了安全威胁模型，[第 11 章](./11-infrastructure-noise.md)讲了测量噪声；本章讲围绕它们的运维经济学、数据治理和发布纪律。
+
+这套运行纪律正在形成一个名字：**AgentOps**。AWS 把它分成四个相互连接的支柱：**governance and security**、**build and operations**、**evaluation** 与 **observability** ([AWS - AgentOps](https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/))。这个词真正有用的是它的生命周期范围。一个 agent 会被规划、开发、构建、测试、部署、维护、监控，最终退役；生产 ownership 覆盖整条路径，而不是从 monitoring dashboard 才开始。
+
+AgentOps 也改变了发布单元。Deployable artifact 不只是模型代码或一段 prompt，而是一个版本化 bundle：model 与 inference settings、system 与 project instructions、tool catalog 与 schemas、memory policy、sandbox image、identity 与 authorization policy、graders、budgets 和 routing rules。Release record 应命名这份完整配置，使事件能被归因、版本能被 rollback。第 18 章再向上一层：控制平面注册这些 artifact，并治理其身份与 fleet lifecycle；AgentOps 则运行和改进它们。
 
 ### 17.1 成本：给 agent 做预算
 
@@ -66,7 +70,7 @@ Eval 在发布前跑；监控在发布后跑。两者互补：eval 测量一个�
 - **ISO/IEC 42001:2023**，首个 AI 管理体系标准，是 ISO 27001 的 AI 对应物：它规定组织如何为其 AI 建立、运行并持续改进一套管理体系，且可认证 ([ISO/IEC 42001:2023](https://www.iso.org/standard/42001))。
 - **欧盟《AI 法案》（EU AI Act）**（Regulation (EU) 2024/1689）是首部全面的 AI 法律。它按风险层级对系统分类，并对高风险用途施加有约束力的义务——风险管理、数据治理、透明度、人类监督、日志记录——相关条款在 2026-2027 年间分阶段生效 ([EU AI Act - Regulation (EU) 2024/1689](https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng))。注意两者互补但不同：ISO 42001 认证是良好流程的证据，而非 AI 法案合规的自动证明。
 
-这些框架都不替代本书里的工程；它们组织这些工程，并让它对审计方、客户和监管者可读。[展望](./18-outlook.md)把跨层治理一致性标记为开放问题，恰恰因为 policy、审计和运行时强制仍然活在分离的层里——这些框架是当下让它们保持对齐的最好脚手架。
+这些框架都不替代本书里的工程；它们组织这些工程，并让它对审计方、客户和监管者可读。[展望](./19-outlook.md)把跨层治理一致性标记为开放问题，恰恰因为 policy、审计和运行时强制仍然活在分离的层里——这些框架是当下让它们保持对齐的最好脚手架。
 
 ---
 
@@ -104,6 +108,7 @@ flowchart TD
 - **多租户要求隔离**：按租户划界工作区、凭据、记忆和前缀缓存，并在 event log 里携带租户身份——状态串味和权限串味都是灾难性的。
 - **两种缓存，两种风险画像**：前缀缓存廉价地服务相同上下文；语义缓存服务*相似*查询、能省掉整次调用，但一次错误命中会返回错误答案——调好它的阈值，并像任何 harness 变更一样对它做 eval。
 - **发布 harness 改动是一次统计性部署**：用 eval 把关、逐步 canary、把整个配置一起版本化、把生产失败变成回归案例。
+- **AgentOps 负责整个生命周期**：governance/security、build/operations、evaluation 与 observability 从 planning 一直作用到 retirement；model、tools、memory、policy、sandbox、graders 与 budgets 应作为一份版本化配置发布。
 - **治理框架横跨指南到法律**：OWASP LLM Top 10 和 NIST AI RMF 组织这些控制；ISO/IEC 42001 认证流程；欧盟《AI 法案》让高风险用途的义务具有约束力。
 
 ## 延伸阅读
@@ -117,3 +122,4 @@ flowchart TD
 - Fu Bang, *GPTCache: An Open-Source Semantic Cache for LLM Applications*, NLP-OSS @ EMNLP 2023. https://github.com/zilliztech/GPTCache
 - *ISO/IEC 42001:2023 - Information technology - Artificial intelligence - Management system*, ISO, 2023. https://www.iso.org/standard/42001
 - *Regulation (EU) 2024/1689 (Artificial Intelligence Act)*, European Union, Jun 2024. https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng
+- AWS, *AgentOps: Operationalize Agentic AI at Scale with Amazon Bedrock AgentCore*, 2026. https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/

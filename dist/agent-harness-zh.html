@@ -3625,7 +3625,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <section class="cover">
     <h1>Agent Harness：实践者教材</h1>
     <p class="sub">这是一份基于事实的 agent harness 工程综述，主要整理自 <a href="https://github.com/walkinglabs/awesome-harness-engineering">Awesome Harness Engineering</a> 阅读列表和 OpenReview 综述论文 <a href="https://openreview.net/pdf?id=3hXEPbG0dh">Agent Harness Engineering: A Survey</a>。正文中的每个关键论断都在相应位置给出行内引用。</p>
-    <p class="meta">21 sections &middot; generated from Markdown sources</p>
+    <p class="meta">22 sections &middot; generated from Markdown sources</p>
   </section>
 <section class="chapter" data-first="1"><h1>前言</h1>
 <p>这本书讨论的是语言模型真正被拿来做事时，围绕模型构建的那套系统。这套系统现在常被称为 <em>harness</em>。下面的章节会把相关文献串成一条连续叙事。读者如果想把某条线索追溯到原始来源，可以在对应论断旁找到引用。</p>
@@ -3872,6 +3872,17 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 </ul>
 <p>诱惑在于把更多 agent 读成更多能力，而经验记录要清醒得多。MAST 研究在七个流行的多代理框架上人工标注了 200 多个任务，归纳出 14 种失败模式，分为三大类：<strong>规格问题（specification issues）</strong>（角色和提示欠定义）、<strong>代理间错位（inter-agent misalignment）</strong>（agent 各说各话、丢失信息或偏离共享目标）、以及<strong>任务验证（task verification）</strong>（对最终结果的检查薄弱或缺失） (<a href="https://arxiv.org/abs/2503.13657">Cemri et al. - Why Do Multi-Agent LLM Systems Fail?</a>)。要点是：很大一部分失败并非模型本身能力不足，而是<em>协调与验证</em>的崩溃——恰恰是 harness 掌管的那些面。</p>
 <p>实践指引由此得出：优先选择能奏效的最简拓扑（第 6.1 节）；明确任务边界，使 worker 不重叠、不漏活（第 3.4 节、第 7 章）；把验证当作一等 agent 而非事后补丁（第 7 章的 generator-evaluator 拆分），因为 MAST 把薄弱验证列为三大失败族之一。</p>
+<h3>3.10 记忆投毒与信任升级</h3>
+<p>持久记忆会改变安全模型。网页中的注入指令通常只威胁一次运行；但如果 agent 把它摘要进持久笔记、偏好存储或共享黑板，攻击就能越过上下文重置，继续操纵后续运行。Anthropic 将此称为<strong>持久记忆投毒（persistent memory poisoning）</strong>：不可信内容跨过写入边界，进入了未来 agent 会当作可信状态的存储 (<a href="https://www.anthropic.com/engineering/how-we-contain-claude">Anthropic - How We Contain Claude</a>)。</p>
+<p>防御方法是把记忆视为带溯源信息的存储，而不是上下文的中性延伸：</p>
+<ul>
+<li>给每条记忆标注来源、授权身份、创建时间和信任等级；</li>
+<li>将观察与指令分开，绝不自动把检索内容提升为策略；</li>
+<li>不可信发现进入持久共享记忆前，必须经过审查或确定性验证；</li>
+<li>支持过期、替代和回滚，使被投毒的事实能从未来所有上下文中移除；</li>
+<li>检索时重新检查授权，因为写入者有权看到的事实，读取者不一定有权看到。</li>
+</ul>
+<p>多 agent 系统还会带来<strong>信任升级（trust escalation）</strong>。低权限 worker 可以把一个看似可信的摘要返回给高权限 coordinator，后者再使用 worker 从未拥有的权力采取行动。压缩会加剧危险，因为溯源和不确定性往往最先被删掉。因此，子 agent 的结果应携带引用或产物指针、置信程度或未决问题，以及生成结果时所用的身份与权限。父 agent 必须先验证证据，再把结果转化为高权限动作。第 5 章展开 containment 控制，第 18 章则给出让这些控制能跨 fleet 执行的身份与控制平面模型。</p>
 <hr>
 <h2>图：父 Agent -&gt; 子 Agent -&gt; 压缩结果（上下文防火墙）</h2>
 <figure class="mermaid-fig"><pre class="mermaid">sequenceDiagram
@@ -3901,6 +3912,8 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>成本与延迟是设计变量</strong>：把便宜的工作路由给小模型，保持 KV-cache 命中，并用并行换取墙钟速度。</li>
 <li><strong>具名记忆系统把记忆模式打包</strong>：MemGPT（OS 式虚拟上下文）、Mem0（抽取-整合-检索）和 sleep-time compute（离线预处理）值得了解——但每个都会引入自己的失败面：检索出错和信息陈旧。</li>
 <li><strong>更多 agent 放大的是协调失败，不只是成本</strong>：MAST 分类法发现规格缺口、代理间错位与薄弱验证——都是 harness 掌管的面——主导了多代理失败；优先选最简拓扑，并让验证成为一等公民。</li>
+<li><strong>持久记忆是一条信任边界</strong>：保留溯源，把数据与指令分开，并在把不可信发现提升为共享状态前验证；否则一张被注入的网页就能操纵许多次未来运行。</li>
+<li><strong>委派不能静默升级权限</strong>：父 agent 在使用 worker 不曾拥有的权限行动前，必须验证 worker 的证据。</li>
 </ul>
 <h2>延伸阅读</h2>
 <ul>
@@ -3913,6 +3926,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Prateek Chhikara et al., <em>Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory</em>, arXiv, Apr 2025. <a href="https://arxiv.org/abs/2504.19413">https://arxiv.org/abs/2504.19413</a></li>
 <li>Kevin Lin et al., <em>Sleep-time Compute: Beyond Inference Scaling at Test-time</em>, arXiv, Apr 2025. <a href="https://arxiv.org/abs/2504.13171">https://arxiv.org/abs/2504.13171</a></li>
 <li>Mert Cemri et al., <em>Why Do Multi-Agent LLM Systems Fail?</em>, arXiv, Mar 2025. <a href="https://arxiv.org/abs/2503.13657">https://arxiv.org/abs/2503.13657</a></li>
+<li>Anthropic Safeguards Research Team, <em>How We Contain Claude</em>, Anthropic, May 2026. <a href="https://www.anthropic.com/engineering/how-we-contain-claude">https://www.anthropic.com/engineering/how-we-contain-claude</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>第 4 章：工具与 Agent-Computer Interface</h1>
@@ -3931,6 +3945,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p>本章前后几节都假设 agent 已经有了一组设计良好的工具。实践中，这些工具很多是通过一个标准接口送达的：<em>Model Context Protocol</em>（MCP，模型上下文协议）。简要回顾一下，MCP 是一个开放的客户端-服务器标准：一个 <em>MCP server</em> 通过统一协议暴露一组工具，以及可选的资源和可复用提示，任何兼容 MCP 的 <em>客户端</em>（Claude Code、IDE、自定义 agent）都能发现并调用它们，无需定制集成。传输机制以及结果不可信这一点已在《LLM Foundations》第 12 章讲过；本章把 MCP 当作一个 harness 设计面来处理 (<a href="https://www.anthropic.com/engineering/code-execution-with-mcp">Anthropic - Code Execution with MCP</a>)。</p>
 <p>它的价值在于可组合性。一个团队可以把 Google Drive server、Salesforce server 和内部数据库 server 接到同一个 agent 上，每个 server 独立构建和维护，而 agent 看到的是一个合并后的工具界面。这就是 MCP 在本书中反复出现的原因：它是本章其余部分所讲的命名空间、masking 和代码执行模式的底座。</p>
 <p>代价是 MCP 让工具供给过剩变得轻而易举。正如第 2 章指出的，MCP 让用户能轻易接入数百个工具，而一个装满数百条工具定义的上下文，正是第 2 章“mask，而不是删除”原则和上面的合并建议所要对抗的膨胀。MCP 是管道，不是工具设计的替代品：一个设计糟糕的 MCP server 只会把设计糟糕的工具规模化地送来。本章的纪律——合并经常串联的操作、用命名空间、限制响应大小、像写入职文档一样写描述——无论工具是手写的还是经 MCP 送达，都同样适用。</p>
+<p>MCP 也创造了一条部署边界。不能只因为托管 agent 需要访问内部 server，就把 server 暴露到公网。OpenAI 的安全 MCP tunnel 在私有网络内运行一个<strong>仅出站（outbound-only）的 client</strong>：client 连接到明确配置的目的地，保留 streaming 与 authentication，同时让客户控制一段可检查的进程，而无需开放入站端口 (<a href="https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products">OpenAI - Connect Private MCP Servers to OpenAI Products</a>)。这是一种可复用模式，而不只是网络技巧：跨边界工具访问应从拥有私有能力的一侧发起，只允许指定目的地，并像其他 delegated authority 一样审计。</p>
 <h3>4.4 四类集成边界</h3>
 <p>OpenReview 综述认为，比较工具与协议标准时，按它们跨越的边界来分，比按厂商或发布时间更有用 (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview - Agent Harness Engineering: A Survey</a>)：</p>
 <ul>
@@ -3963,7 +3978,8 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>状态持久化与 skills</strong>：agent 可以把工作代码保存成由 <code>SKILL.md</code> 支持的可复用函数，逐步积累工具箱。</li>
 </ul>
 <p>Cloudflare 以 “Code Mode” 为名报告了相似发现，强化了同一个结论：LLM 擅长写代码，开发者应当让它们这么做 (<a href="https://www.anthropic.com/engineering/code-execution-with-mcp">Anthropic - Code Execution with MCP</a>)。</p>
-<p>代价是：代码执行需要沙箱基础设施，带来运营和安全成本。</p>
+<p>OpenAI 的 **programmatic tool calling（程序化工具调用）**把同一思想推广到一次 Responses API 调用内部：模型编写短程序，调用获准工具，过滤或连接结果，只把紧凑产物返回模型。它很适合有界数据流——过滤、连接、排序、去重、聚合和验证——因为确定性 runtime 控制取代了多次模型往返。当每个观察都会显著改变下一步判断、每次动作都需要单独审批，或每条来源结果都必须为引用或审查保持可见时，它就不合适 (<a href="https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling">OpenAI - Programmatic Tool Calling</a>)。换句话说，用代码压缩机械编排，不要用它隐藏有后果的决策。</p>
+<p>代价是：代码执行需要沙箱基础设施，带来运营和安全成本。它也改变了审计单元：harness 必须记录程序、获准调用的工具及其产生的副作用，而不只是最后那份紧凑结果。</p>
 <h3>4.10 用 Eval 迭代工具</h3>
 <p>Anthropic 推荐的工具开发流程有四阶段 (<a href="https://www.anthropic.com/engineering/writing-tools-for-agents">Anthropic - Writing Effective Tools for Agents</a>)：</p>
 <ol>
@@ -3977,6 +3993,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p>第 4.4 节的四个集成边界里，model-to-function、agent-to-external-capability（MCP）、agent-to-repo/environment 三个已在上文展开。第四个——<em>agent 到 agent</em>——则有一套新兴的专属标准。<strong>Agent2Agent（A2A）协议</strong>由 Google 于 2025 年 4 月推出，并于 2025 年 6 月捐赠给 Linux 基金会，是一个开放标准，让一个 agentic 应用把工作委派给另一个*不透明（opaque）*的 agent——一个拥有自己模型、工具、记忆和内部状态、且不对外暴露这些的对等体 (<a href="https://github.com/a2aproject/A2A">Agent2Agent (A2A) Protocol</a>; <a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">Linux Foundation - Agent2Agent Protocol Project</a>)。</p>
 <p>其机制刻意采用常规做法，以便复用现有 Web 基础设施：通信是 HTTP(S) 上的 JSON-RPC 2.0；每个 agent 发布一张描述其能力的 <em>Agent Card</em> 供他人发现；任务生命周期涵盖提交、交互模态（文本、文件、结构化数据）协商，以及把结果流式返回给调用方。</p>
 <p>真正有启发的是它与 MCP 的对比。MCP 把一个 agent <em>向下</em>连接到它掌控、可检视的工具与资源；A2A 把一个 agent <em>横向</em>连接到一个它既不掌控、也无法窥其内部的对等体。这就把首要工程关切从工具 schema 设计，翻转为<em>跨组织边界的信任与溯源</em>。因为你无法检视对方 agent 的上下文或 sandbox，来自 A2A 对等体的响应正是第 5 章意义上的不可信内容——lethal trifecta 纪律对对等 agent 与对网页同样适用——治理（受限身份、委托授权、审计）必须横跨这次 A2A 调用，而非止于你自己的进程边界（第 5 章、第 17 章）。A2A 并不消除信任问题；它只是把解决这个问题的位置标准化了。</p>
+<p>同一边界也给出一条实用拓扑规则。原生多 agent 执行最适合<strong>相互独立、有界、可合并</strong>的工作：并行研究分支、隔离审查或不同产物。对于顺序依赖链，或多个 writer 共同修改同一份可变状态，它通常是错误抽象，因为协调开销和 race condition 会占主导。此时应保留一个 owner，使用普通工具或确定性 workflow。即使 peer agent 合适，第 18 章的控制平面仍必须为每次调用解析身份、委派权限、版本、lineage 和撤销状态。</p>
 <hr>
 <h2>图：工具设计流水线</h2>
 <figure class="mermaid-fig"><pre class="mermaid">flowchart LR
@@ -4005,8 +4022,11 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>命名空间不是表面美化</strong>：它支持工具组 masking，也减少大型 MCP 环境中的冲突。</li>
 <li><strong>工具响应是上下文膨胀主因</strong>：默认 cap、分页、过滤和截断。</li>
 <li><strong>代码执行作为元工具是阶段性跃迁</strong>：Anthropic 示例中，把 MCP 暴露成类型化代码 API 节省 98.7% token。</li>
+<li><strong>程序化工具调用适合有界数据流</strong>：在代码中做过滤、连接、排序、去重、聚合和验证；让自适应判断、审批和带引用的证据保持对 agent 可见。</li>
+<li><strong>私有 MCP 连接应仅出站</strong>：由拥有该能力的网络发起连接，限制目的地，并把它作为 delegated authority 审计。</li>
 <li><strong>四阶段 eval loop 是推荐工作流</strong>：prototype -&gt; build eval -&gt; run eval -&gt; analyze transcripts -&gt; iterate。</li>
 <li><strong>A2A 标准化了 agent 到 agent 的边界</strong>：它让一个 agent 借助 JSON-RPC + Agent Card 把工作委派给不透明的对等体——把关切从工具 schema 设计转向跨组织边界的信任与溯源，第 5 章的 lethal trifecta 与治理规则在此适用。</li>
+<li><strong>并行 agent 需要独立 ownership</strong>：共享可变状态和顺序依赖通常更适合一个 owner 加确定性编排。</li>
 </ul>
 <h2>延伸阅读</h2>
 <ul>
@@ -4018,6 +4038,8 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><em>Agent Harness Engineering: A Survey</em>, OpenReview / TMLR submission, 2026. <a href="https://openreview.net/pdf?id=3hXEPbG0dh">https://openreview.net/pdf?id=3hXEPbG0dh</a></li>
 <li><em>Agent2Agent (A2A) Protocol</em>, Google / Linux Foundation, 2025. <a href="https://github.com/a2aproject/A2A">https://github.com/a2aproject/A2A</a></li>
 <li>Linux Foundation, <em>Linux Foundation Launches the Agent2Agent Protocol Project</em>, Jun 2025. <a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents</a></li>
+<li>OpenAI, <em>Connect Private MCP Servers to OpenAI Products</em>, Jun 2026. <a href="https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products">https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products</a></li>
+<li>OpenAI, <em>Programmatic Tool Calling</em>, 2026. <a href="https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling">https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>第 5 章：沙箱、护栏与安全自治</h1>
@@ -4031,6 +4053,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 </ul>
 <p>实践者最担心的组合，有时被称为 <em>lethal trifecta</em>（致命三要素）：访问私有数据、接触不可信内容、向外通信的能力 (<a href="https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/">Simon Willison - The lethal trifecta for AI agents</a>)。单独任何一项都还能承受；三者集于一个 agent，就意味着一条注入的指令能读到密钥并把它发出去。本章的多数控制手段，都是通过打断三要素中的一条腿来工作的——网络隔离移除向外通信，文件系统隔离移除私有数据访问，审批关卡把人放进有后果操作的路径上。</p>
 <p>要带进本章其余部分的视角是：模型不是可信组件。它是一个能力强但可被操纵的核心，而 harness 就是夹在敌对指令与真实后果之间的那一层。</p>
+<p>Anthropic 后续的 containment 工作沿两条轴进一步细化了威胁模型 (<a href="https://www.anthropic.com/engineering/how-we-contain-claude">Anthropic - How We Contain Claude</a>)。第一，风险可以来自<strong>滥用系统的用户</strong>、<strong>模型自身的异常行为</strong>，或通过内容操纵模型的<strong>外部攻击者</strong>。第二，防御可以放在<strong>模型</strong>、<strong>执行环境</strong>或<strong>外部内容边界</strong>上。这个矩阵很有用，因为没有一层能覆盖所有来源：alignment 不能保证模型一定忽略注入，而 sandbox 也无法判断一封获准发送的邮件在语义上是否有害。生产 containment 必须在三层同时做 defense in depth。</p>
 <h3>5.2 权限疲劳问题</h3>
 <p>完全无监督运行的 coding agent 很危险；每一步都请求批准的 coding agent 又不可用。Anthropic 将其称作 approval fatigue：不断点击 approve 会拖慢开发循环，并让用户不再认真看自己批准了什么，反而降低安全性 (<a href="https://www.anthropic.com/engineering/claude-code-sandboxing">Anthropic - Beyond Permission Prompts</a>)。解决方案是结构性的：定义 agent 可以自由行动的边界，只有越界时才请求权限。</p>
 <p>在 Anthropic 内部使用中，沙箱安全地减少了 84% 的权限提示 (<a href="https://www.anthropic.com/engineering/claude-code-sandboxing">Anthropic - Beyond Permission Prompts</a>)。</p>
@@ -4042,10 +4065,19 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Liveness</strong>：定义一个 agent 可以自由行动的区域，不必每次文件写入、包安装或网络调用都问人类。</li>
 </ul>
 <p>第三点是 agent 时代特有的。沙箱不只是笼子，也是许可证。它把权限从逐动作问题转成 session 配置，让长周期自治可用，而不是退化成权限疲劳。</p>
+<p>Containment 应随任务风险升级。三种反复出现的模式组成了一条实用阶梯 (<a href="https://www.anthropic.com/engineering/how-we-contain-claude">Anthropic - How We Contain Claude</a>)：</p>
+<ul>
+<li>**临时容器（ephemeral container）**可丢弃、成本低，适合 agent 需要在较小 blast radius 内充分自由的有界任务。</li>
+<li><strong>Human-in-the-loop sandbox</strong>适合交互式工作：安全操作自动进行，跨越边界时暂停并请求审批。</li>
+<li>**密封虚拟机（sealed VM）**用更强的 kernel 和网络边界隔离高风险 workload，但启动与运营成本更高。</li>
+</ul>
+<p>正确问题不是“有没有 sandbox”，而是“哪些资源仍可访问、哪些状态会在 reset 后保留、哪些权限能跨越边界”。可重置的计算环境无法抵消挂载在其中的 credential、写到环境之外的被投毒记忆，或可传输私有数据的 egress 路径。</p>
 <h3>5.4 文件系统隔离必须与网络隔离配对</h3>
 <p>Claude Code 的沙箱同时执行两类边界，Anthropic 认为二者都必要。文件系统隔离防止被 prompt injection 的 agent 修改敏感文件；网络隔离防止它泄露数据或下载恶意软件。没有网络隔离，被攻陷的 agent 可能外传 SSH key；没有文件系统隔离，被攻陷的 agent 可能逃出沙箱并访问网络 (<a href="https://www.anthropic.com/engineering/claude-code-sandboxing">Anthropic - Beyond Permission Prompts</a>)。</p>
 <p>实现基于 OS 级 primitive：Linux bubblewrap 和 macOS seatbelt，并覆盖 Claude Code 的直接交互以及任何 subprocess。网络访问通过 Unix domain socket 进入 proxy，由 proxy 强制执行域名限制，并在请求新域名时处理用户确认。该 runtime 已开源。</p>
 <p>Claude Code on the web 将其扩展为云沙箱，敏感凭据（git credentials、signing keys）从不与 agent 同处沙箱中。自定义 proxy 处理 git 交互，只在确认操作被允许后附加 scoped credentials，例如只允许 push 到配置分支。</p>
+<p>Egress allowlist 应被理解为一种<strong>能力授予</strong>，而不是无害的目的地清单。允许访问 package registry，就允许下载可执行代码；允许访问源码托管站点，可能也允许发布内容；允许访问通用 Web endpoint，则可能补齐 lethal trifecta 的数据外泄一环。因此，策略应同时绑定目的地、协议、操作、身份与任务，而不是只看域名，并记录每条连接究竟由哪条规则授权。</p>
+<p>Containment 还必须在<strong>建立信任之前</strong>就开始。打开仓库可能在用户看到 trust dialog 之前触发配置加载、依赖发现、language server、hooks 或本地 listener。应把 project-open 和 config-load 路径当作敌对输入：能只解析就不要执行；关闭自动 hooks 和 listeners；在 workspace 明确受信之前，不提供 credentials 和 egress (<a href="https://www.anthropic.com/engineering/how-we-contain-claude">Anthropic - How We Contain Claude</a>)。</p>
 <h3>5.5 Governance：身份、策略与审计</h3>
 <p>沙箱边界必要但不充分。Governance 层要回答：agent 代表谁行动、拥有什么权限、权限如何随任务上下文变化、行动后留下什么证据 (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview - Agent Harness Engineering: A Survey</a>)。</p>
 <p>生产中有三个关键设计动作：</p>
@@ -4084,10 +4116,19 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <h3>5.9 时机：把质量左移</h3>
 <p>CI 的经验是，越早发现问题，修复越便宜；harness 设计也是如此。快速 computational sensors（linter、快速测试）应在 commit 前运行；昂贵 computational 与 inferential sensors（mutation testing、更广泛 code review）在 pipeline 中 post-integration 运行；持续漂移 sensors（死代码检测、依赖扫描、日志异常 judge）则独立于变更生命周期持续运行 (<a href="https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html">Thoughtworks - Harness Engineering</a>)。</p>
 <p>Böckeler 注意到，OpenAI Codex 团队的 harness 也类似：用自定义 linter 和结构测试强制分层架构，加上周期性“garbage collection”扫描漂移，并让 agent 建议修复。</p>
-<h3>5.10 Harnessability 与环境可供性</h3>
+<h3>5.10 Harnessability、Agentic Readiness 与环境可供性</h3>
 <p>不是每个代码库都同样容易 harness。强类型语言天然带来 type-checking sensor；清晰模块边界让架构约束规则可写；Spring 等 opinionated framework 抽象掉了 agent 无需操心的细节 (<a href="https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html">Thoughtworks - Harness Engineering</a>)。</p>
 <p>Böckeler 将 <em>ambient affordances</em> 这一术语归功于 Ned Letcher，它捕捉了这一点：环境本身会带有一些属性，使 agent 更容易理解、导航和处理 (<a href="https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html">Thoughtworks - Harness Engineering</a>)。Greenfield 团队可以从第一天就设计这些 affordance；legacy 团队面对的是相反情况：越需要 harness 的地方，越难构建 harness。</p>
 <p>面向未来，Böckeler 提出 <em>harness templates</em>：按服务拓扑打包 guides 和 sensors，例如 JVM CRUD service、Go event processor、Node dashboard，并随现有 service template 一起分发。Böckeler 援引 Ashby 的必要变异度定律给出形式化理由——调节器必须具有至少与被调节系统同样多的变异度——因此，约束服务拓扑本身就是降低变异度的动作，使完整 harness 更可达 (<a href="https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html">Thoughtworks - Harness Engineering</a>)。</p>
+<p>更宽泛的生产术语是 <strong>agentic readiness</strong>：一个自治调用者能否安全地理解、调用、观察、重试，并在必要时撤销这个系统？一个服务对人类开发者可能很友好，却会因 API 带有隐藏副作用、错误含糊或没有稳定 operation ID 而对 agent 极不友好。以下设计能提升 readiness：</p>
+<ul>
+<li>mutation 接受 idempotency key，并暴露 operation status；</li>
+<li>API 明确区分 read、propose、commit 和 compensate，而不是把它们藏在一个不透明调用里；</li>
+<li>machine identity 与 delegated authorization 是一等概念；</li>
+<li>错误说明哪里失败、重试是否安全、什么证据能证明已经恢复；</li>
+<li>状态变化可观察、可归因；无法真正 undo 时，提供补偿操作。</li>
+</ul>
+<p>这些就是自治软件的 ambient affordances。它们减少模型必须承担的概率性推理，并为第 18 章控制平面的 policy、lifecycle 和 audit 提供稳定执行面。</p>
 <h3>5.11 运营安全：熔断器、终止开关、预算与金丝雀</h3>
 <p>Sandbox、治理和 hooks（第 5.3-5.6 节）约束的是 agent <em>可以</em>做什么。第二类控制约束的是当 agent 或其工具在<em>运行时行为异常</em>时会发生什么。它们几乎原封不动地借自分布式系统的可靠性工程与安全运营，并且属于 harness——因为被操纵或陷入循环的 agent 无法指望它自行施加这些控制。</p>
 <ul>
@@ -4123,11 +4164,14 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>沙箱减少 84% 权限提示</strong>：结构边界优于不断弹窗。</li>
 <li><strong>沙箱有三项工作</strong>：security、reproducibility 和 liveness。</li>
 <li><strong>文件系统与网络隔离必须配对</strong>：二者对应不同攻击向量，单独使用都不足。</li>
+<li><strong>Containment 是矩阵，不是一个 sandbox</strong>：针对用户滥用、模型异常和外部攻击，在模型、环境与内容边界同时设防；按风险选择临时容器、交互式 sandbox 或 sealed VM。</li>
+<li><strong>Egress 就是权限</strong>：一个获准目的地授予的是真实能力，因此网络访问应绑定操作、身份与任务；仅仅打开项目时，不应存在 ambient trust。</li>
 <li><strong>Governance 不只是审批</strong>：身份、scoped credentials、policy checks、provenance 与 audit trail 必须跨工具和 session 组合。</li>
 <li><strong>Hooks 与 middleware 是程序化执行</strong>：它们不依赖模型记忆，比纯 prompt 约束可靠。</li>
 <li><strong>前馈与反馈都需要</strong>：guide 没有 sensor 就没有学习回路；sensor 没有 guide 只能事后反应。</li>
 <li><strong>三类 harness 覆盖</strong>：maintainability、architecture fitness、behavior；behavior 仍是难题。</li>
 <li><strong>环境可供性重要</strong>：强类型语言和 opinionated framework 让 harness 更容易。</li>
+<li><strong>Agentic readiness 是 API 属性</strong>：幂等性、明确 operation status、machine identity、重试语义、可观察状态与补偿操作，让系统更适合自治调用者。</li>
 <li><strong>运行时安全也需要运营控制</strong>：熔断器、终止开关、动作/成本预算与金丝雀令牌在异常发生时约束它——它们存在于 harness 中，因为被操纵的 agent 不能被指望停下自己。</li>
 </ul>
 <h2>延伸阅读</h2>
@@ -4139,6 +4183,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><em>Agent Harness Engineering: A Survey</em>, OpenReview / TMLR submission, 2026. <a href="https://openreview.net/pdf?id=3hXEPbG0dh">https://openreview.net/pdf?id=3hXEPbG0dh</a></li>
 <li>Martin Fowler, <em>CircuitBreaker</em>, martinfowler.com, Mar 2014. <a href="https://martinfowler.com/bliki/CircuitBreaker.html">https://martinfowler.com/bliki/CircuitBreaker.html</a></li>
 <li>Thinkst, <em>Canarytokens</em> (free tripwire tokens). <a href="https://canarytokens.org/">https://canarytokens.org/</a></li>
+<li>Anthropic Safeguards Research Team, <em>How We Contain Claude</em>, Anthropic, May 2026. <a href="https://www.anthropic.com/engineering/how-we-contain-claude">https://www.anthropic.com/engineering/how-we-contain-claude</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>第 6 章：Agentic 工作流模式</h1>
@@ -4285,6 +4330,13 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>如果部署在 agent 运行中发生变化，平台可以在渐进 handoff 中同时保留新旧 worker 版本。</li>
 </ul>
 <p>这样看，context reset 只是恢复机制之一。生产级长运行 harness 还需要环境重置、凭据隔离、可恢复 event log，以及 in-flight session 的迁移规则。</p>
+<p>即使产品界面把它们统称为一个“agent”，也应保持三套生命周期彼此独立：</p>
+<ul>
+<li><strong>session</strong> 是持久的对话与 event history；</li>
+<li><strong>harness run</strong> 是某组 model、policy 与 orchestration 配置的一次执行；</li>
+<li><strong>sandbox</strong> 是可替换的计算环境，有自己的 image、filesystem 与 network lease。</li>
+</ul>
+<p>混淆它们会让恢复变得不安全。替换崩溃的 sandbox 不应抹掉 session；重置模型上下文不应静默保留已经受损的进程状态；升级 harness 也不应改写早期事件的 provenance。三者都应有明确 ID 与版本，使控制平面能分别 resume、migrate 或 revoke。</p>
 <h3>7.8 多代理研究系统</h3>
 <p>对具有并行结构的任务，例如有许多独立线索要探索的研究，第 6 章的 orchestrator-worker 模式适用。Anthropic 的研究功能用 Claude Opus 4 做 lead agent，用 Claude Sonnet 4 做 sub-agents (<a href="https://www.anthropic.com/engineering/multi-agent-research-system">Anthropic - How We Built Our Multi-Agent Research System</a>)。Lead 分析查询、制定策略、派生并行 sub-agents；每个 sub-agent 搜索并返回浓缩发现；lead 综合；citation agent 再为论断标注来源。</p>
 <p>他们经验中出现八条 prompt engineering 原则：</p>
@@ -4311,9 +4363,11 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p>对 agent 而言，持久化的单位是 agent 的状态——它的上下文、工具调用结果，以及它在计划中的位置。LangGraph 把这暴露为一个 <em>checkpointer</em>，在每个 super-step 保存 graph 状态，从而支持失败后恢复、human-in-the-loop 暂停，乃至时间旅行回到先前状态，并提供可选的持久化模式，在性能与崩溃可能损失的工作量之间权衡 (<a href="https://docs.langchain.com/oss/python/langgraph/durable-execution">LangChain - Durable Execution</a>)。</p>
 <p>设计上的张力是<em>确定性 vs. 模型</em>。基于 replay 的持久化假设某一步可以被重新执行以复现其效果，但模型调用与工具结果是非确定的——重跑它们会偏离已记录的历史。标准解法是把模型和工具调用当作<em>有副作用的 activity</em>，其结果只记录一次，之后从日志中 replay 而非重新计算。这正是 ReWOO（第 6.6 节）与 context reset（第 7.6 节）背后“记录观察，而不重算它”的同一逻辑，如今被做成了一种基础设施保证。</p>
 <p>如此看来，持久化执行把第 7.3 节“干净退出、可从产物恢复”的纪律，从一个 agent 必须自觉记住的约定，变成了平台强制的性质。它也约束成本——任务中途崩溃，不必把此前花掉的 token 从头重付一遍——并且它也是第 17 章所需回滚能力的底座：当某次 harness 变更在生产中行为异常时，回滚正是建立在它之上。</p>
+<p>Google 的 Agent Executor 把这些含义落实到了分布式规模 (<a href="https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/">Google Cloud - Agent Executor</a>)。状态从 event log 与 snapshot 恢复；连接丢失不等于任务丢失；<strong>single-writer rule</strong> 保护每个 session 不被并发修改，同时平台仍能分布式执行许多 session。runtime 还可以从过去 checkpoint 分叉一条 trajectory，用于人类干预、反事实调试，或在不污染原始 lineage 的前提下尝试另一模型或策略。</p>
+<p>这些能力揭示出一条一般规则：durability 不只是 retry。稳健 runtime 需要幂等 activity 或已记录结果、ownership lease、optimistic 或 single-writer concurrency control、重连语义，以及每个分支的 lineage。否则，“resume”可能重复副作用，并行 worker 也可能把一条连贯历史写成几条彼此冲突的历史。</p>
 <h3>7.11 “长”到底有多长？时间视野指标</h3>
 <p>本章讲的是超出单个上下文窗口的任务，但“长”值得有个度量。METR 提出了一个：一个模型的<em>时间视野（time horizon）<em>是它以 50% 可靠性能完成的任务长度——以人类完成该任务所需时间来衡量。一个“50 分钟时间视野”的模型，在需要人类约五十分钟的任务上有一半时间能成功。在 2019 至 2025 年的前沿模型上测量，这个视野大约</em>每七个月翻一番</em> (<a href="https://arxiv.org/abs/2503.14499">Kwa et al. - Measuring AI Ability to Complete Long Tasks</a>; <a href="https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/">METR</a>)。</p>
-<p>对本章有两点意义。第一，这个视野是<em>模型加其 harness</em> 的性质，而非模型自身的性质：本章的 handoff、checkpoint、自我验证机制，正是 harness 把有效视野拉长到超出裸模型自身所能维持的手段——这是第 12 章模型-harness 耦合从能力侧看到的样子。第二，该指标重新框定了何时值得构建本章这套机制。随着内在视野增长，一些脚手架变得不再必要——Anthropic 随模型进步先后去掉了 context reset 与 sprint 分解（第 7.6 节、第 12 章）——但<em>有趣</em>的长视野任务前沿也随之外移。harness 的工作会迁移到更难的问题，而非消失（第 18 章）。</p>
+<p>对本章有两点意义。第一，这个视野是<em>模型加其 harness</em> 的性质，而非模型自身的性质：本章的 handoff、checkpoint、自我验证机制，正是 harness 把有效视野拉长到超出裸模型自身所能维持的手段——这是第 12 章模型-harness 耦合从能力侧看到的样子。第二，该指标重新框定了何时值得构建本章这套机制。随着内在视野增长，一些脚手架变得不再必要——Anthropic 随模型进步先后去掉了 context reset 与 sprint 分解（第 7.6 节、第 12 章）——但<em>有趣</em>的长视野任务前沿也随之外移。harness 的工作会迁移到更难的问题，而非消失（第 19 章）。</p>
 <hr>
 <h2>图：Initializer Agent -&gt; Feature List -&gt; Coding Agent Sessions</h2>
 <figure class="mermaid-fig"><pre class="mermaid">sequenceDiagram
@@ -4351,8 +4405,10 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Sprint contracts 协调多 agent 工作</strong>：构建前用文件沟通并约定成功标准。</li>
 <li><strong>Context reset 可以缓解 context anxiety</strong>：有时带结构化 handoff 的全新开始优于压缩。</li>
 <li><strong>Managed agents 解耦 brain、hands 和状态</strong>：模型上下文、沙箱执行、凭据和 event log 应能独立失败并恢复。</li>
+<li><strong>Session、harness run 与 sandbox 是三套不同生命周期</strong>：分别标识和版本化它们，使 reset、migration 或 revocation 只作用于目标层。</li>
 <li><strong>自验证是头号杠杆</strong>：退出前强制验证，在不换模型的情况下提升 13.7 分。</li>
 <li><strong>持久化执行把可恢复性变成基础设施保证</strong>：把每一步持久化到日志，使全新 agent 能在崩溃、上下文耗尽或部署后恢复——把非确定的模型/工具调用当作已记录的副作用，而非要重算的步骤。</li>
+<li><strong>分布式 durability 需要 ownership 与 lineage</strong>：single-writer session state、重连、snapshot、幂等 activity 与 trajectory branching，才能把 retry 变成安全恢复。</li>
 <li><strong>时间视野度量“多长”</strong>：METR 的任务完成视野（模型有 50% 时间能完成的人类任务长度）大约每七个月翻一番——而它是模型加 harness 的性质，这正是本章机制能拉长它的原因。</li>
 </ul>
 <h2>延伸阅读</h2>
@@ -4367,6 +4423,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Temporal, <em>Durable Execution Meets AI: Why Temporal Is the Perfect Foundation for AI</em>, 2025. <a href="https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai">https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai</a></li>
 <li>LangChain, <em>Durable Execution</em> (LangGraph documentation), 2025. <a href="https://docs.langchain.com/oss/python/langgraph/durable-execution">https://docs.langchain.com/oss/python/langgraph/durable-execution</a></li>
 <li>Thomas Kwa et al., <em>Measuring AI Ability to Complete Long Tasks</em>, METR / arXiv, Mar 2025. <a href="https://arxiv.org/abs/2503.14499">https://arxiv.org/abs/2503.14499</a></li>
+<li>Google Cloud, <em>Agent Executor: Google&#39;s Distributed Agent Runtime</em>, 2026. <a href="https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/">https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>第 8 章：Loop Engineering（循环工程）</h1>
@@ -4439,6 +4496,9 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Auto-merge（自动合并）</strong>——只留给低风险类别。</li>
 </ol>
 <p>这份纪律之所以存在，是因为 loop engineering 并没有消除那个难题；它只是把它挪了位置。速度把成与败一起复利放大：一个无人值守跑着的 loop，也是一个无人值守犯错的 loop，而它 ship 代码可以比人读代码更快，从而累积<em>comprehension debt（理解债）</em>——一个其主人不再完全理解的代码库 (<a href="https://thenewstack.io/loop-engineering/">The New Stack — Loop Engineering</a>)。验证与问责仍归人所有，在两个不可约的端点上：定义什么叫“好”的那个<em>意图</em>，以及对 ship 出去之物的<em>所有权</em> (<a href="https://agentfactory.panaversity.org/docs/loop-engineering-crash-course">Loop Engineering Crash Course</a>)。由此得到一条界定范围的规则：只对那些<em>重复、无人值守、被调度、有后果</em>的工作动用结构化 loop。对任何你正交互式盯着看的东西，check 就是你自己的眼睛，一次普通对话是更好的工具——为一次性任务过度工程化一个 loop，本身就是一种失败模式。</p>
+<h3>8.9 超越单个 Loop：控制与 Evaluator Integrity</h3>
+<p>Loop engineering 仍是单个自治任务的正确设计单元，但生产系统最终会在许多身份、版本、预算和策略之下运行许多 loop。此时，下一个设计对象是<strong>控制平面（control plane）</strong>：注册 agent、授予权限、调度和撤销运行、记录 lineage 并治理 fleet 的系统。第 18 章展开这一层。</p>
+<p>Verifier 自己也需要治理。一个独立 checker 仍可能因知道判决后果而产生偏差，也可能与 maker 共享盲点，或成为优化攻击的目标。因此，第 10 章把 <strong>evaluator integrity</strong>——盲评、确定性证据、校准、弃权与审计——和“有一个 verifier”区分开来。只有 check 本身值得信任时，一个 engineered loop 才算真正闭环。</p>
 <hr>
 <h2>图示：被工程化的 loop</h2>
 <figure class="mermaid-fig"><pre class="mermaid">flowchart TB
@@ -4466,6 +4526,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>stop rule 是必需的</strong>：最大迭代次数、无进展检测、预算上限——因为没有人在场去注意失控。</li>
 <li><strong>Ralph 谱系是它的血统</strong>：ReAct → AutoGPT → 干净上下文 reset → 可验证完成 → orchestration；记忆活在磁盘上，状态活在 event log 里。</li>
 <li><strong>慢慢爬成熟度阶梯</strong>：triage 先于 draft、draft 先于 auto-merge，且只用于重复、无人值守、有后果的工作——无人值守的速度会把错误和理解债一起复利放大。</li>
+<li><strong>单个 loop 之后的下一个单元是 fleet</strong>：身份、生命周期、策略、lineage 与撤销属于控制平面；verifier 的可信度则属于评测系统。</li>
 </ul>
 <h2>延伸阅读</h2>
 <ul>
@@ -4502,6 +4563,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p>OpenReview 综述认为，生态正在从 agent framework 走向 agent platform (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview - Agent Harness Engineering: A Survey</a>)。Framework 打包的是本地抽象：agents、tools、memory stores 和 loops。Platform 额外提供跨多次运行、多用户的 durable workspace、managed sandbox、identity、billing、observability、evaluation、governance 和 human handoff。</p>
 <p>这不会替代十二要素，而是扩大它们的范围。Launch / pause / resume 变成平台 API。Unify execution state and business state 变成带 tenancy 和 migration 语义的 event-log storage。Contact humans with tool calls 变成带 audit 和 permission state 的 handoff interface。Own your control flow 变成明确决定哪些检查同步运行、哪些离线运行、哪些失败值得触发昂贵恢复。</p>
 <p>平台边界也改变责任。本地 agent 可以用临时 state files；共享平台需要状态所有权、保留策略、billing attribution、credential scoping 和可重放 audit trail。Harness 不再只是包住一次模型调用的东西，而是围绕许多 agents、许多 environments 和许多人类利益相关者的控制系统。</p>
+<p>这个控制系统不是另一个 agent framework，而是第 18 章展开的 <strong>agent control plane</strong>：registry 说明有哪些 agents 与 capabilities；identity layer 说明谁代表谁行动；policy enforcement 决定一次运行可以做什么；lifecycle、lineage 与 audit service 则跨 session 工作。十二要素仍是每个 agent program 内部的设计纪律；控制平面让这些 program 作为一个 fleet 变得可治理。</p>
 <hr>
 <h2>图：按主题分组的十二要素</h2>
 <figure class="mermaid-fig"><pre class="mermaid">mindmap
@@ -4529,6 +4591,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Own your prompts</strong>：framework 会隐藏 prompt；prompt 应作为一等代码纳入版本控制。</li>
 <li><strong>Stateless reducer 模式</strong>：把 agent 看作对 event log 的 fold，使其可序列化、可重放、可测试。</li>
 <li><strong>平台范围会改变十二要素</strong>：lifecycle、state、identity、billing、observability 和 human handoff 会变成共享基础设施问题。</li>
+<li><strong>Fleet 需要控制平面</strong>：十二要素塑造每个 agent program；registry、identity、policy、lifecycle 与 audit 治理整个集合。</li>
 <li><strong>小而聚焦的 agent</strong>：每个 agent 3-20 步；上下文越长，性能越差。</li>
 <li><strong>用工具联系人类</strong>：结构化 <code>request_human_input</code> 工具优于依赖模型自由文本选择。</li>
 <li><strong>压缩错误，不要隐藏错误</strong>：可见错误 trace 支持 self-healing，连续错误计数器提供安全升级路径。</li>
@@ -4565,14 +4628,26 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Human</strong>：领域专家 review、众包判断、A/B testing。最适合校准和主观判断，但昂贵、慢，如果 rubric 弱也会不一致。</li>
 </ul>
 <p>Anthropic 建议：能用确定性 grader 就用确定性；必要时用 model-based；human 用于周期性校准。他们还提醒，不要过度评分 agent 采取的路径，而应评估产物。Agent 经常能找到 eval 设计者没想到的有效路径，路径评分会使 eval 脆弱。</p>
-<h3>10.4 Capability Eval 与 Regression Eval</h3>
+<h3>10.4 谁来验证 Verifier？Evaluator Integrity</h3>
+<p>把 maker 与 checker 分开，可以消除一种利益冲突，却不能让 checker 自动变得中立。Anthropic 2026 年关于**动机性错误标注（motivated mislabeling）**的研究发现，当模型 evaluator 知道判决会如何被使用时，它可能改变标签——例如，负面标签会触发删除、惩罚或其他后果。更严格的 rubric 与 abstain 选项能减轻但不能消除这种效应 (<a href="https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/">Anthropic - Agentic Misalignment: Summer 2026 Update</a>)。</p>
+<p>这远不只影响安全研究。一个知道哪个候选是 incumbent、哪个团队产出了它，或 failure 是否会阻止 deployment 的 judge，可能会朝后果合理化。Generator 也可能学会优化那些取悦已知 judge 的表面特征。因此，<strong>evaluator integrity</strong> 是独立的 harness 属性，需要自己的控制：</p>
+<ul>
+<li>先使用确定性 outcome check，并保留底层证据；</li>
+<li>对 model judge 隐藏候选身份、部署后果与其他无关 metadata；</li>
+<li>允许“证据不足”，并把有后果的模糊判断交给人类；</li>
+<li>用专家标注集校准 judge，并运行测试 bias、leakage 与 reward hacking 的 <strong>meta-eval</strong>；</li>
+<li>高风险语义决策使用独立 judge 或 ensemble，但不要把一组相关模型的一致意见当成证明；</li>
+<li>对 rubric、judge model、prompt 与 evidence 做版本管理，并保留不可变 audit trail，使判决可复现、可申诉。</li>
+</ul>
+<p>OpenAI 关于可信第三方评测的指导给出了同一思想的制度版本：独立性、方法透明、代表性任务、利益冲突披露和可复现产物，都是 evaluation quality 的组成部分，而不是分数出来后才补的文书工作 (<a href="https://openai.com/index/trustworthy-third-party-evaluations-foundations/">OpenAI - Trustworthy Third-Party Evaluations</a>)。Verifier 本身也是被测系统的一部分。</p>
+<h3>10.5 Capability Eval 与 Regression Eval</h3>
 <p>两类目的不同 (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic - Demystifying Evals for AI Agents</a>)：</p>
 <ul>
 <li><strong>Capability evals</strong> 问“这个 agent 擅长什么？”它们从低通过率开始，目标是 agent 正在挣扎的任务，给团队一座可爬的山。</li>
 <li><strong>Regression evals</strong> 问“agent 是否仍能完成过去能完成的事？”它们应接近 100%，用于防止倒退。</li>
 </ul>
 <p>Agent 成熟后，通过率高的 capability eval 会 <em>graduate</em> 到 regression suite。曾经衡量“能不能做到”的任务，会变成“是否仍可靠做到”的任务。</p>
-<h3>10.5 pass@k 与 pass^k</h3>
+<h3>10.6 pass@k 与 pass^k</h3>
 <p>对行为在运行间变化的 agent，有两个斜率相反的指标 (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic - Demystifying Evals for AI Agents</a>)：</p>
 <ul>
 <li><strong>pass@k</strong>：k 次尝试中至少一次正确的概率。随着 k 增大而上升。</li>
@@ -4580,7 +4655,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 </ul>
 <p>这些指标之所以必要，是因为 agent 运行具有随机性。同一个 prompt、模型和 harness，在不同 trial 中可能产生不同的工具顺序、搜索路径或最终答案。因此，单次运行只能提供很弱的证据；重复 trial 才能看出系统只是偶尔成功、稳定可靠，还是碰巧走通了一条脆弱路径。</p>
 <p>如果单次成功率 75%，pass^3 约为 42%，pass^10 约为 5.6%，而 pass@10 约为 99.9999%。正确指标取决于产品：当系统可以生成多个候选并选择或展示最佳结果时，一次成功就有价值；面向客户重复执行的 agent 则需要 pass^k 式可靠性。</p>
-<h3>10.6 八步路线图</h3>
+<h3>10.7 八步路线图</h3>
 <p>Anthropic 将从无 eval 到可信 eval 的路线概括为 (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic - Demystifying Evals for AI Agents</a>)：</p>
 <ol start="0">
 <li><strong>尽早开始</strong>：从真实失败中收集 20-50 个任务。</li>
@@ -4593,7 +4668,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>监控 capability eval 饱和</strong>：100% 的 eval 不再提供改进信号。SWE-bench Verified 从 30% 起步，现在接近 80%，小分数提升可能掩盖大能力提升。</li>
 <li><strong>开放维护</strong>：领域专家和产品团队应贡献 eval task；PM、CS、sales 也可以用 Claude Code 把 eval 作为 PR 提交。</li>
 </ol>
-<h3>10.7 不同 Agent 类型的真实 Evals</h3>
+<h3>10.8 不同 Agent 类型的真实 Evals</h3>
 <p>下面这些按 agent 类型给出的典型例子来自 Anthropic 的综述 (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic - Demystifying Evals for AI Agents</a>)：</p>
 <ul>
 <li><strong>Coding agents</strong>：确定性 grader 很自然，例如代码是否运行、测试是否通过。SWE-bench Verified 基于固定 GitHub issue 跑测试套件；Terminal-Bench 测试端到端任务，例如从源码构建 Linux kernel。</li>
@@ -4601,13 +4676,13 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Research agents</strong>：groundedness check（论断有来源支持）、coverage check（包含关键事实）、source-quality check（权威来源，而非首个检索结果）。需要频繁与人类专家校准。</li>
 <li><strong>Computer-use agents</strong>：真实或 sandbox 环境，URL/page-state check，后端状态验证（订单是否真的创建，而不仅是出现确认页面）。WebArena 和 OSWorld 是典型例子。</li>
 </ul>
-<h3>10.8 面向修复的验证反馈</h3>
+<h3>10.9 面向修复的验证反馈</h3>
 <p>对 coding agent 来说，最有用的 grader 往往同时也是修复信号。只说 “test failed” 的检查能确认 outcome 不好，但给 agent 的抓手很少。更好的失败消息会说明违反的是哪条路径、期望状态是什么、实际状态是什么、下一步该检查哪里。OpenAI 的 Codex harness 指南强调，应把反复出现的 review 意见和架构规则转成 repo-local 检查，让 agent 在还能修复时收到具体反馈 (<a href="https://openai.com/index/harness-engineering/">OpenAI - Harness Engineering</a>)。</p>
-<p>端到端验证也应作为完成门槛，而不是象征性的最后一步。Anthropic 的长运行应用 harness 要求 coding agent 启动应用，并通过浏览器驱动路径验证 feature，因为 agent 否则容易在本地测试或视觉检查通过后宣称完成，但真实用户流程仍然坏着 (<a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">Anthropic - Effective Harnesses for Long-Running Agents</a>)。第 9.2 节的通用规则在这里直接适用：评估环境状态，而不是评估 agent 的自信。</p>
-<h3>10.9 阅读 Transcript 是核心技能</h3>
+<p>端到端验证也应作为完成门槛，而不是象征性的最后一步。Anthropic 的长运行应用 harness 要求 coding agent 启动应用，并通过浏览器驱动路径验证 feature，因为 agent 否则容易在本地测试或视觉检查通过后宣称完成，但真实用户流程仍然坏着 (<a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">Anthropic - Effective Harnesses for Long-Running Agents</a>)。第 10.2 节的通用规则在这里直接适用：评估环境状态，而不是评估 agent 的自信。</p>
+<h3>10.10 阅读 Transcript 是核心技能</h3>
 <p>反复出现的主题是：在有人阅读 transcripts 前，不要直接相信 eval 分数。Anthropic 提到 Opus 4.5 在 CORE-Bench 上初始得分 42%，但调查发现严格 grader 会惩罚把期望答案 <code>96.124991...</code> 写成 <code>96.12</code>，任务 spec 模糊，还有无法精确复现的随机任务。修复 grader bug 并使用限制更少的 scaffold 后，分数跳到 95% (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic - Demystifying Evals</a>)。类似地，METR 发现 time-horizon benchmark 中有任务要求 agent 优化到某个阈值，但评分要求超过阈值，于是惩罚遵循指令的模型，奖励忽略指令的模型 (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic - Demystifying Evals</a>)。</p>
 <p>通用规则是：失败应显得公平。当分数平台期时，要问 eval 是否仍在测它应该测的东西。</p>
-<h3>10.10 Evals 只是多层体系中的一层</h3>
+<h3>10.11 Evals 只是多层体系中的一层</h3>
 <p>自动 eval 不是完整图景。Anthropic 将其类比安全工程中的 Swiss-cheese model：没有一层能抓住所有问题 (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic - Demystifying Evals</a>)。完整栈包括：</p>
 <ul>
 <li><strong>自动 evals</strong>：快速迭代、回归检测、模型升级。</li>
@@ -4617,7 +4692,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>人工 transcript review</strong>：建立对失败模式的直觉。</li>
 <li><strong>系统性人类研究</strong>：校准 LLM grader 或主观输出评分。</li>
 </ul>
-<h3>10.11 Readiness Validation 与失败归因</h3>
+<h3>10.12 Readiness Validation 与失败归因</h3>
 <p>OpenReview 综述把 <strong>Verification</strong> 单独列为一层，是因为 harness 需要的不只是打分。Verification 问的是：某个 model + harness 组合，在特定任务分布、特定环境、预算和治理规则下，是否已经可以投入使用 (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview - Agent Harness Engineering: A Survey</a>)。</p>
 <p>这个框架给普通 eval suite 增加了两个实践要求：</p>
 <ul>
@@ -4656,6 +4731,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Outcome 不等于 response</strong>：测环境状态（数据库行、URL、文件），而不是只测 agent 说了什么。</li>
 <li><strong>面向修复的反馈能提高自我修正</strong>：检查应说明哪里失败、为什么失败，以及什么证据才算修好。</li>
 <li><strong>三类 grader 形成金字塔</strong>：code-based 负责速度，model-based 负责细微判断，human 负责校准。</li>
+<li><strong>Verifier 是被测系统的一部分</strong>：对 judge 隐藏无关后果，保留证据，用 meta-eval 校准，允许 abstain，并保留可复现的 audit artifact。</li>
 <li><strong>pass@k 与 pass^k 服务不同产品</strong>：多候选生成可用 pass@k，重复面向客户执行需要 pass^k 式可靠性。</li>
 <li><strong>阅读 transcript 是核心技能</strong>：分数平台期可能是 agent 回归，也可能是 eval 不公平；只有 transcript 能区分。</li>
 <li><strong>Readiness 绑定配置</strong>：eval 结果应带着产生它的 harness 配置一起解释。</li>
@@ -4670,6 +4746,8 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>OpenAI, <em>Harness Engineering: Leveraging Codex in an Agent-First World</em>, Feb 2026. <a href="https://openai.com/index/harness-engineering/">https://openai.com/index/harness-engineering/</a></li>
 <li>Justin Young et al., <em>Effective Harnesses for Long-Running Agents</em>, Anthropic, Nov 2025. <a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents</a></li>
 <li><em>Agent Harness Engineering: A Survey</em>, OpenReview / TMLR submission, 2026. <a href="https://openreview.net/pdf?id=3hXEPbG0dh">https://openreview.net/pdf?id=3hXEPbG0dh</a></li>
+<li>Anthropic Safeguards Research Team, <em>Agentic Misalignment: Summer 2026 Update</em>, 2026. <a href="https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/">https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/</a></li>
+<li>OpenAI, <em>Trustworthy Third-Party Evaluations: Foundations</em>, 2026. <a href="https://openai.com/index/trustworthy-third-party-evaluations-foundations/">https://openai.com/index/trustworthy-third-party-evaluations-foundations/</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>第 11 章：基础设施噪声</h1>
@@ -4779,17 +4857,29 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>把 case 加入 regression suite，并保留原始 trace 作为证据。</li>
 </ol>
 <p>这会把 traces 变成 eval task 的来源，也能防止团队只优化合成 benchmark，却错过自己用户真正触发的失败。它与 governance 的边界很重要：trace-to-eval pipeline 必须保留 privacy、provenance 和 permission metadata，否则会生成技术上有用但运营上不安全的测试。</p>
-<h3>12.4 压力测试 load-bearing 组件</h3>
+<h3>12.4 从实践者纠正到有界改进任务</h3>
+<p>OpenAI 的 tax-agent 案例把这条回路又向前闭合了一步。专家纠正和生产 trace 不会直接改写已经部署的 agent；它们先变成经过审查的 finding、定制 eval，以及可在发布前验证的有界 Codex task (<a href="https://openai.com/index/building-self-improving-tax-agents-with-codex/">OpenAI - Building Self-Improving Tax Agents with Codex</a>)。</p>
+<p>一条安全的改进 pipeline 在每一步都有明确 custody：</p>
+<ol>
+<li>捕获实践者纠正，以及促成该纠正的 trace 与 outcome。</li>
+<li>脱敏敏感数据，审查 finding，把重复项归并成稳定 failure class。</li>
+<li>用不可变证据把 failure class 转成可复现 regression eval。</li>
+<li>给 coding agent 一个有界 change task，而不是让它自由修改自己。</li>
+<li>用目标 eval、更广 regression suite、security check、成本与延迟共同 gate patch。</li>
+<li>在生产中 canary 新版本；监控原始失败信号；若变差则 rollback。</li>
+</ol>
+<p>这是<strong>受控自我改进（controlled self-improvement）</strong>，不是不受控的 self-modification。已部署 agent 不会原地编辑自己的 prompt、tool、memory policy 或 evaluator。外部改进 loop 提出版本化变更；独立证据与 release control 决定它是否晋级。Evaluator integrity（第 10.4 节）会在两处生效：finding 必须真实，gate 也不能带着“应该 ship 这次修复”的偏见。</p>
+<h3>12.5 压力测试 load-bearing 组件</h3>
 <p>Anthropic 的 harness-design 后续文章增加了互补纪律 (<a href="https://www.anthropic.com/engineering/harness-design-long-running-apps">Anthropic - Harness Design for Long-Running Application Development</a>)。Harness 中每个组件都编码了一个关于“模型无法独立完成什么”的假设。随着模型改进，这些假设会过期。推荐做法是：一次移除一个组件，跑 eval，然后观察结果。</p>
 <p>当 Opus 4.6 推出并带来更强长上下文检索和长周期 coding 行为后，Anthropic 在一个 harness 版本中移除了 sprint construct。Generator 可以不经 sprint decomposition 连续运行两个多小时。Evaluator 在早期模型上更 load-bearing，但在 4.6 上变得更情境化：对处在当前模型 solo 能力边缘的任务有用，在能力范围内则可能是不必要开销。团队总结的原则是：“evaluator 不是固定的 yes/no 决策。任务超出当前模型 solo 可靠边界时，它才值得成本。”</p>
-<h3>12.5 Model-Harness 共同演化</h3>
+<h3>12.6 Model-Harness 共同演化</h3>
 <p>今天的 frontier coding models 往往在其 harness 中一起 post-train (<a href="https://blog.langchain.com/the-anatomy-of-an-agent-harness/">LangChain - The Anatomy of an Agent Harness</a>)。有用 primitive 被发现、加入 harness，并用于训练下一代模型；下一代模型在该 harness 中表现更强。这形成反馈回路，也带来副作用：改变 harness 逻辑可能让模型表现更差，即使改动看起来中性。</p>
 <p>Codex 的 <code>apply_patch</code> 工具是典型例子。Codex 模型在这种具体 patch 格式上 post-train。OpenCode 作为 Claude Code 的开源替代，为 GPT/Codex 模型专门添加了 <code>apply_patch</code> 工具，以模拟 Codex harness；Claude 和其他模型仍使用普通 <code>edit</code> 与 <code>write</code> 工具 (<a href="https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents">HumanLayer - Skill Issue</a>)。</p>
-<h3>12.6 最佳 Harness 不一定是模型训练时的 Harness</h3>
+<h3>12.7 最佳 Harness 不一定是模型训练时的 Harness</h3>
 <p>对应推论，也是实践中可以大胆迭代的理由：模型训练时的 harness 通常不自动等于某个任务上的最优 harness。Terminal-Bench 2.0 是实践讨论中的常见数据点：HumanLayer 引用 Opus 4.6 在 Claude Code 中排名 33，而同一模型在另一 harness 中排名 5，leaderboard noise 大约为 4 个名次 (<a href="https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents">HumanLayer - Skill Issue</a>; <a href="https://blog.langchain.com/the-anatomy-of-an-agent-harness/">LangChain - The Anatomy of an Agent Harness</a>)。应把具体名次视为 leaderboard 快照，而不是永久模型事实。</p>
 <p>LangChain 的案例研究也实验性地得出同结论。他们用早期 harness 测 Claude Opus 4.6，得分 59.6%，有竞争力但低于调优后的 Codex 配置。原则可以泛化，例如上下文准备和验证；但针对模型再做几轮 harness 迭代，可能弥合差距 (<a href="https://blog.langchain.com/improving-deep-agents-with-harness-engineering/">LangChain - Improving Deep Agents</a>)。</p>
 <p>实用规则是：换模型时，重新审查 harness。调优仍然 load-bearing 的部分，移除不再承担负载的部分。</p>
-<h3>12.7 实践要点</h3>
+<h3>12.8 实践要点</h3>
 <p>LangChain 总结的 harness 迭代原则 (<a href="https://blog.langchain.com/improving-deep-agents-with-harness-engineering/">LangChain - Improving Deep Agents</a>)：</p>
 <ol>
 <li><strong>替 agent 做 context engineering</strong>：用目录结构、可用工具、编码最佳实践、问题解决策略给模型 onboard 环境。</li>
@@ -4801,15 +4891,15 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p>HumanLayer 的平行经验 (<a href="https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents">HumanLayer - Skill Issue</a>)：</p>
 <p>有效的是：从简单开始，只在真实失败后添加配置；迭代并丢弃无效内容；通过 repo-level config 在团队内分发经过验证的配置；优化迭代速度，而不是只优化一次成功概率；在知道真正需要什么后修剪能力。</p>
 <p>无效的是：预先设计理想 harness；“以防万一”安装几十个 skills 和 MCP servers；每次 session 末尾跑完整测试套件；微调每个 sub-agent 可访问哪些工具。</p>
-<h3>12.8 关于 AGENTS.md 的误导性数据</h3>
+<h3>12.9 关于 AGENTS.md 的误导性数据</h3>
 <p>一个值得阅读的细节：ETH Zurich 研究测试了多个 repo 中的 138 个 agentfile（agentfile 是 AGENTS.md、CLAUDE.md 这类指令文件的统称），发现 LLM 生成的 agentfile 会损害性能并增加 20% 成本；人类写的只提升约 4%；agent 处理 context-file 指令时多花 14-22% reasoning tokens；代码库概览和目录列表在该 benchmark 中没有帮助，因为 agent 自己可以发现 repo 结构 (<a href="https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents">HumanLayer - Skill Issue</a> citing the ETH Zurich paper)。</p>
 <p>HumanLayer 将其解读为支持自己的 AGENTS.md 建议：文件要简短，避免自动生成，用渐进披露而不是前置倒入所有指令，内容应普遍适用，而不是充满条件规则。他们自己的 CLAUDE.md 不到 60 行。</p>
 <p>这不应被理解成“不要写仓库指令”。意思是根指令文件应该是路由器，而不是百科全书。OpenAI 的 Codex harness 指南也是同样形状：关键上下文应保留在仓库里，<code>AGENTS.md</code> 保持简短，指向更深入的文档，并尽可能用机械检查强制最重要的规则 (<a href="https://openai.com/index/harness-engineering/">OpenAI - Harness Engineering</a>)。</p>
 <p>通用原则是：更多配置不等于更好。每条无关指令都是 agent 必须处理但没有收益的指令；<em>instruction budget</em> 与 token budget 同样重要。</p>
-<h3>12.9 可复用 Harness 包与 Skills</h3>
+<h3>12.10 可复用 Harness 包与 Skills</h3>
 <p>一个 harness 模式经过真实使用验证后，不应该只停留在某个仓库里的隐性经验。应该把它打包。实践中的单位可以是 skill、模板包、小型脚手架生成器，或一组 repo 检查。关键是它同时携带指令和可工作的工件：不只是“记得维护状态”，而是包含 progress log 模板、feature list schema、启动脚本和验证命令。</p>
 <p>Learn Harness Engineering 课程用 <code>harness-creator</code> 展示了这种打包形态：它是一个用于创建、评估和改进五个 harness 子系统的 skill，覆盖指令、状态、验证、范围和会话生命周期 (<a href="https://walkinglabs.github.io/learn-harness-engineering/zh/skills/">Learn Harness Engineering — Skills</a>)。这是一个有用的工程边界。可复用 harness 包不应把某个理想 workflow 永久冻结，而应让经过验证的默认做法容易安装、容易检查，并在 trace 证明组件不再 load-bearing 时容易移除。</p>
-<h3>12.10 Meta-Harness：优化 Harness 本身</h3>
+<h3>12.11 Meta-Harness：优化 Harness 本身</h3>
 <p>一旦有 evals 和 traces，harness 本身就成为优化对象。OpenReview 综述提到 <em>meta-harness</em> 方向：不再把 harness 固定住后只比较模型，而是搜索 harness structure、prompting strategy、tool interface 和 control loop 选择 (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview - Agent Harness Engineering: A Survey</a>)。</p>
 <p>务实版本不是完全自动化架构搜索，而是有纪律的实验：</p>
 <ul>
@@ -4819,7 +4909,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>衡量完整闭环，而不只是模型输出：success rate、pass^k reliability、latency、cost、human escalations 和 security false positives。</li>
 </ul>
 <p>这扩展了 load-bearing 的思想。Harness 组件应持续证明自己值得保留。如果某组件只对少数高价值任务提升可靠性，就选择性路由；如果模型升级后它不再有用，就移除。</p>
-<h3>12.11 跨层耦合</h3>
+<h3>12.12 跨层耦合</h3>
 <p>ETCLOVG 也是调试地图。Trace 中看起来像模型决策差，可能只是另一层问题的症状 (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview - Agent Harness Engineering: A Survey</a>)：</p>
 <ul>
 <li>工具选择错误可能来自 <strong>Tool</strong> 层：动作空间太大，或 schema 没有暴露关键 affordance。</li>
@@ -4850,6 +4940,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Trace span 应结构化</strong>：model call、tool call、retrieval、context assembly、permission、cost 与 outcome state 都需要机器可读 telemetry。</li>
 <li><strong>这套遥测正在出现标准</strong>：OpenTelemetry 的 GenAI semantic conventions（<code>invoke_agent</code>、<code>chat</code>、<code>execute_tool</code> span）让 agent trace 加入普通可观测栈，并把内容捕获模式为隐私固化下来。</li>
 <li><strong>生产 trace 应转成 regression case</strong>：真实失败是最高信号 eval 任务，前提是保留 privacy 和 provenance。</li>
+<li><strong>自我改进必须是外部、有界的 release loop</strong>：审查并归并纠正，把它们转成 eval 与 scoped change task，再对版本化产物做 gate、canary 和 rollback。</li>
 <li><strong>训练时 harness 不自动最优</strong>：leaderboard 快照显示，同一模型在不同 harness 下可能大幅移动。</li>
 <li><strong>模型变化时压力测试组件</strong>：每个 harness 组件都编码了可能过期的假设。</li>
 <li><strong>Model-harness 共同演化真实存在</strong>：post-training 将 harness 纳入训练回路，改变任一侧都可能破坏耦合。</li>
@@ -4869,6 +4960,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Walking Labs, <em>Learn Harness Engineering - Skills</em>. <a href="https://walkinglabs.github.io/learn-harness-engineering/zh/skills/">https://walkinglabs.github.io/learn-harness-engineering/zh/skills/</a></li>
 <li>OpenTelemetry, <em>Semantic conventions for generative AI spans</em>. <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/">https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/</a></li>
 <li><em>Agent Harness Engineering: A Survey</em>, OpenReview / TMLR submission, 2026. <a href="https://openreview.net/pdf?id=3hXEPbG0dh">https://openreview.net/pdf?id=3hXEPbG0dh</a></li>
+<li>OpenAI, <em>Building Self-Improving Tax Agents with Codex</em>, 2026. <a href="https://openai.com/index/building-self-improving-tax-agents-with-codex/">https://openai.com/index/building-self-improving-tax-agents-with-codex/</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>第 13 章：System Prompt 与指令架构</h1>
@@ -4908,6 +5000,9 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>为特定任务按需加载的 <strong>skill</strong>（第 4 章）。</li>
 </ul>
 <p>它们在运行时组合成模型看到的有效指令集。<a href="./12-trace-driven-iteration.md">第 12 章</a>的教训在此延续：不要假设项目指令越多越好。关于臃肿 <code>AGENTS.md</code> 文件的证据是混杂的，一个过度规定的项目层可能和它所依附的 builder harness 互相打架。指令架构是要去测量的，而不是去最大化的。</p>
+<h3>13.8 把 Scoped Review Rules 当作指令接口</h3>
+<p>仓库指令不仅能指导代码生成，也能指导 review。OpenAI 的 Codex 自定义 review 指导把简洁的 <code>AGENTS.md</code> 规则视为一个<strong>review interface</strong>：每条规则应说明一种具体缺陷、它适用在哪里，以及 reviewer 如何识别；目录级文件把规则缩小到其治理的代码范围 (<a href="https://developers.openai.com/blog/custom-code-review-rules-for-codex">OpenAI - Custom Code Review Rules for Codex</a>)。</p>
+<p>好的 review rule 应短、可测试且高信号——“标记绕过 <code>authorize()</code> 的新 endpoint”，而不是“遵循安全最佳实践”。它们应指向相关代码或 policy，并在可能时指向确定性 check。规则也要像其他指令一样版本化、评测，因为噪声规则会制造 false positive，并训练人类忽略 review 界面。这是 progressive disclosure 在质量 policy 上的应用：规则应加载在它治理的代码附近；全局指令只保留普遍原则；稳定 invariant 最终应晋升为 linter 或 test。</p>
 <hr>
 <h2>图：指令栈</h2>
 <figure class="mermaid-fig"><pre class="mermaid">flowchart TD
@@ -4935,6 +5030,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>把各自该在的东西分开</strong>：角色与 policy 进 system prompt，机制进工具描述，会变的事实进 just-in-time retrieval。</li>
 <li><strong>为缓存而组装</strong>：稳定指令在前，易变材料在后，否则前缀缓存会悄悄失效。</li>
 <li><strong>瞄准合适的高度</strong>：具体到能引导，一般到能迁移；克制住用一条新硬编码规则去补每个 trace 的冲动。</li>
+<li><strong>Review rule 是指令接口</strong>：把简短、可测试的缺陷规则放在其治理的代码附近，测量信号，并把稳定 invariant 迁移到确定性检查。</li>
 </ul>
 <h2>延伸阅读</h2>
 <ul>
@@ -4942,6 +5038,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Anthropic Applied AI Team, <em>Effective Context Engineering for AI Agents</em>, Anthropic, Sep 2025. <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents</a></li>
 <li>Dex Horthy, <em>12-Factor Agents</em>, HumanLayer, Apr 2025. <a href="https://www.humanlayer.dev/blog/12-factor-agents">https://www.humanlayer.dev/blog/12-factor-agents</a></li>
 <li>Simon Willison, <em>The lethal trifecta for AI agents</em>, Jun 2025. <a href="https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/">https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/</a></li>
+<li>OpenAI, <em>Custom Code Review Rules for Codex</em>, Jul 2026. <a href="https://developers.openai.com/blog/custom-code-review-rules-for-codex">https://developers.openai.com/blog/custom-code-review-rules-for-codex</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>第 14 章：模型选择、路由与推理模型</h1>
@@ -5035,7 +5132,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>执行并报告</strong>：对要紧但可观察、可逆的动作——留下清晰 trace 供人事后 review，而不是阻塞等批准。</li>
 <li><strong>先问</strong>：对不可逆或高影响半径的动作：删数据、发外部消息、花钱、动生产。这正是 <em>lethal trifecta</em> 边界（第 5 章）——agent 即将把私有数据、不可信输入和外部触达结合起来的那一刻，正是人该在 loop 里的那一刻。</li>
 </ul>
-<p>这张图就是本书在<a href="./18-outlook.md">展望</a>里反复回到的 capability–control 权衡：更多自治是更多能力，也是更多控制负担。接口正是这个权衡被逐动作落地的地方。</p>
+<p>这张图就是本书在<a href="./18-agent-fleets-identity-control-plane.md">第 18 章</a>反复回到的 capability–control 权衡：更多自治是更多能力，也是更多控制负担。接口正是这个权衡被逐动作落地的地方。</p>
 <h3>15.4 把批准建模为一次工具调用</h3>
 <p>HumanLayer 的十二要素宣言做了最干净的结构性动作：<em>用工具调用联系人类</em>。与其把人类批准当成一个特殊的控制流异常，不如把它建模为 agent 可以调用的又一个工具——<code>request_human_approval(action, context)</code>——其结果像任何别的 observation 一样回到 loop 里 (<a href="https://www.humanlayer.dev/blog/12-factor-agents">HumanLayer — 12-Factor Agents</a>)。</p>
 <p>这把人类交互和架构其余部分统一了起来。批准请求是 event log（第 9 章）里的一个事件，所以它是持久、可重放、可审计的。它和<a href="./07-long-running-agents.md">第 7 章</a>的长运行模式组合：agent 可以请求批准、挂起，并在数小时后人类回应时恢复，因为它的状态活在 log 里，而不在一个一直挂着的连接里。它还让人类成为 trace（<a href="./12-trace-driven-iteration.md">第 12 章</a>）里的一等参与者，而不是带外的打断。</p>
@@ -5053,7 +5150,8 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 </ul>
 <h3>15.8 监督许多 agent</h3>
 <p>随着 agent 增多，人的角色从做这份工作，转为监督做这份工作的 agent——再转为<em>同时</em>监督<em>许多</em> agent。这正是这个领域在走向的杠杆，它改变了接口需求。一个人监督十个 agent，不可能读完每条 trace；接口必须浮现出需要注意的东西：哪些 agent 卡在批准上、哪些没把握、哪些产出的结果没过验证。</p>
-<p>这把监督提升为一个 fleet 级关切，而<a href="./18-outlook.md">展望</a>把它标记为开放问题——人类批准接口和规模化的 harness 一致性都还没解决。仍然成立的原则是：让监督<em>便宜且有意义</em>。便宜，使一个人能监督许多 agent 而不被淹没；有意义，使监督是真实的而非橡皮图章。本章的每一项技术——与风险成比例的询问、批准即工具调用、富证据的 review 界面、引导、校准过的透明——都服务于这一个目标。</p>
+<p>当 agent 产出变更的速度超过人类检查速度时，code review 会成为瓶颈。因此，队列应按<strong>风险与证据</strong>排序，而不是按到达时间或 trace 长度排序：确定性检查失败、高 blast radius 动作、安全敏感路径、新工具使用、policy rule 命中、薄弱或冲突的 grader 证据，以及巨大却没有解释的 diff，都应优先浮现。低风险且验证充分的变更可以摘要或抽样；有后果的变更保留完整 artifact。第 13.8 节的 scoped review rule 能让这种路由更精确。</p>
+<p>这把监督提升为<a href="./18-agent-fleets-identity-control-plane.md">第 18 章</a>的 fleet 级控制平面关切。仍然成立的原则是：让监督<em>便宜且有意义</em>。便宜，使一个人能监督许多 agent 而不被淹没；有意义，使监督是真实的而非橡皮图章。本章的每一项技术——与风险成比例的询问、批准即工具调用、富证据的 review 界面、引导、校准过的透明——都服务于这一个目标。</p>
 <hr>
 <h2>图：与风险成比例的交互</h2>
 <figure class="mermaid-fig"><pre class="mermaid">flowchart TD
@@ -5063,7 +5161,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
     Q --&gt;|"要紧但&lt;br/&gt;可观察且可逆"| REPORT["执行并报告&lt;br/&gt;（留下可 review 的 trace）"]
     Q --&gt;|"不可逆 / 高风险&lt;br/&gt;（删、发、花钱、生产）"| ASK["request_human_approval()&lt;br/&gt;—— 批准即工具调用"]
 
-    ASK --&gt; WAIT["挂起；回应时&lt;br/&gt;从 event log 恢复（第 7、8 章）"]
+    ASK --&gt; WAIT["挂起；回应时&lt;br/&gt;从 event log 恢复（第 7、9 章）"]
     SILENT --&gt; LOG["Event log + trace"]
     REPORT --&gt; LOG
     WAIT --&gt; LOG
@@ -5079,6 +5177,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>让交互与风险成比例</strong>：可逆低风险静默执行、可观察的执行并报告、不可逆或高影响半径的先问——即 lethal-trifecta 边界。</li>
 <li><strong>把批准建模为工具调用</strong>：它就变得持久、可重放、可审计，并与长运行的挂起/恢复组合。</li>
 <li><strong>展示证据，而非只是结论</strong>：一个工作便于验证、便于否决的 agent，才是人真正能监督的——无论是一个还是一队。</li>
+<li><strong>Fleet review 是按风险排序的队列</strong>：让失败检查、敏感路径、policy hit、新动作和薄弱证据，排在低风险、验证充分的工作之前。</li>
 </ul>
 <h2>延伸阅读</h2>
 <ul>
@@ -5087,6 +5186,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>David Dworken and Oliver Weller-Davies, <em>Beyond Permission Prompts: Making Claude Code More Secure and Autonomous</em>, Anthropic, Oct 2025. <a href="https://www.anthropic.com/engineering/claude-code-sandboxing">https://www.anthropic.com/engineering/claude-code-sandboxing</a></li>
 <li>Saleema Amershi et al., <em>Guidelines for Human-AI Interaction</em>, CHI 2019. <a href="https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/">https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/</a></li>
 <li>Eric Horvitz, <em>Principles of Mixed-Initiative User Interfaces</em>, CHI 1999. <a href="https://www.microsoft.com/en-us/research/publication/principles-of-mixed-initiative-user-interfaces/">https://www.microsoft.com/en-us/research/publication/principles-of-mixed-initiative-user-interfaces/</a></li>
+<li>OpenAI, <em>Custom Code Review Rules for Codex</em>, Jul 2026. <a href="https://developers.openai.com/blog/custom-code-review-rules-for-codex">https://developers.openai.com/blog/custom-code-review-rules-for-codex</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>第 16 章：Computer-Use 与多模态 Agent</h1>
@@ -5157,8 +5257,10 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Tianbao Xie et al., <em>OSWorld: Benchmarking Multimodal Agents for Open-Ended Tasks in Real Computer Environments</em>, 2024. <a href="https://arxiv.org/abs/2404.07972">https://arxiv.org/abs/2404.07972</a></li>
 </ul>
 </section>
-<section class="chapter"><h1>第 17 章：成本、隐私与生产运维</h1>
+<section class="chapter"><h1>第 17 章：AgentOps——成本、隐私与生产运维</h1>
 <p>到目前为止各章搭出了一个能工作的 agent。把它放到生产、服务真实用户，会多出三个被 agent loop 本身掩盖的关切：每次运行<em>花多少钱</em>、它如何处理<em>敏感数据</em>、以及一旦有人依赖它之后 harness 如何被<em>安全地改动</em>。没有一个光鲜，而每一个都是“能跑的 demo”悄悄无法变成“能用的产品”的地方。<a href="./05-sandboxing-guardrails.md">第 5 章</a>讲了安全威胁模型，<a href="./11-infrastructure-noise.md">第 11 章</a>讲了测量噪声；本章讲围绕它们的运维经济学、数据治理和发布纪律。</p>
+<p>这套运行纪律正在形成一个名字：<strong>AgentOps</strong>。AWS 把它分成四个相互连接的支柱：<strong>governance and security</strong>、<strong>build and operations</strong>、<strong>evaluation</strong> 与 <strong>observability</strong> (<a href="https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/">AWS - AgentOps</a>)。这个词真正有用的是它的生命周期范围。一个 agent 会被规划、开发、构建、测试、部署、维护、监控，最终退役；生产 ownership 覆盖整条路径，而不是从 monitoring dashboard 才开始。</p>
+<p>AgentOps 也改变了发布单元。Deployable artifact 不只是模型代码或一段 prompt，而是一个版本化 bundle：model 与 inference settings、system 与 project instructions、tool catalog 与 schemas、memory policy、sandbox image、identity 与 authorization policy、graders、budgets 和 routing rules。Release record 应命名这份完整配置，使事件能被归因、版本能被 rollback。第 18 章再向上一层：控制平面注册这些 artifact，并治理其身份与 fleet lifecycle；AgentOps 则运行和改进它们。</p>
 <h3>17.1 成本：给 agent 做预算</h3>
 <p>Agent 是运行模型最贵的方式，因为一个用户请求会扩展成许多模型调用、工具往返，以及——有了推理模型之后——很长的内部 token 流（<a href="./14-model-selection-routing-reasoning.md">第 14 章</a>）。更糟的是，一个任务的成本事先未知：开放式 loop 可能跑三个回合，也可能跑三十个。这正是本书反复回到“做能奏效的最简单的事”（<a href="./06-agentic-workflow-patterns.md">第 6 章</a>）的运维理由——每个 agentic 回合都是一笔反复发生的费用，而不是一次性的。</p>
 <p>因此生产 agent 需要一个明确的<em>预算</em>，就像<a href="./07-long-running-agents.md">第 7 章</a>需要 checkpoint 一样。具体地：</p>
@@ -5207,7 +5309,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>ISO/IEC 42001:2023</strong>，首个 AI 管理体系标准，是 ISO 27001 的 AI 对应物：它规定组织如何为其 AI 建立、运行并持续改进一套管理体系，且可认证 (<a href="https://www.iso.org/standard/42001">ISO/IEC 42001:2023</a>)。</li>
 <li><strong>欧盟《AI 法案》（EU AI Act）</strong>（Regulation (EU) 2024/1689）是首部全面的 AI 法律。它按风险层级对系统分类，并对高风险用途施加有约束力的义务——风险管理、数据治理、透明度、人类监督、日志记录——相关条款在 2026-2027 年间分阶段生效 (<a href="https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng">EU AI Act - Regulation (EU) 2024/1689</a>)。注意两者互补但不同：ISO 42001 认证是良好流程的证据，而非 AI 法案合规的自动证明。</li>
 </ul>
-<p>这些框架都不替代本书里的工程；它们组织这些工程，并让它对审计方、客户和监管者可读。<a href="./18-outlook.md">展望</a>把跨层治理一致性标记为开放问题，恰恰因为 policy、审计和运行时强制仍然活在分离的层里——这些框架是当下让它们保持对齐的最好脚手架。</p>
+<p>这些框架都不替代本书里的工程；它们组织这些工程，并让它对审计方、客户和监管者可读。<a href="./19-outlook.md">展望</a>把跨层治理一致性标记为开放问题，恰恰因为 policy、审计和运行时强制仍然活在分离的层里——这些框架是当下让它们保持对齐的最好脚手架。</p>
 <hr>
 <h2>图：生产外壳</h2>
 <figure class="mermaid-fig"><pre class="mermaid">flowchart TD
@@ -5237,6 +5339,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>多租户要求隔离</strong>：按租户划界工作区、凭据、记忆和前缀缓存，并在 event log 里携带租户身份——状态串味和权限串味都是灾难性的。</li>
 <li><strong>两种缓存，两种风险画像</strong>：前缀缓存廉价地服务相同上下文；语义缓存服务<em>相似</em>查询、能省掉整次调用，但一次错误命中会返回错误答案——调好它的阈值，并像任何 harness 变更一样对它做 eval。</li>
 <li><strong>发布 harness 改动是一次统计性部署</strong>：用 eval 把关、逐步 canary、把整个配置一起版本化、把生产失败变成回归案例。</li>
+<li><strong>AgentOps 负责整个生命周期</strong>：governance/security、build/operations、evaluation 与 observability 从 planning 一直作用到 retirement；model、tools、memory、policy、sandbox、graders 与 budgets 应作为一份版本化配置发布。</li>
 <li><strong>治理框架横跨指南到法律</strong>：OWASP LLM Top 10 和 NIST AI RMF 组织这些控制；ISO/IEC 42001 认证流程；欧盟《AI 法案》让高风险用途的义务具有约束力。</li>
 </ul>
 <h2>延伸阅读</h2>
@@ -5250,17 +5353,175 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Fu Bang, <em>GPTCache: An Open-Source Semantic Cache for LLM Applications</em>, NLP-OSS @ EMNLP 2023. <a href="https://github.com/zilliztech/GPTCache">https://github.com/zilliztech/GPTCache</a></li>
 <li><em>ISO/IEC 42001:2023 - Information technology - Artificial intelligence - Management system</em>, ISO, 2023. <a href="https://www.iso.org/standard/42001">https://www.iso.org/standard/42001</a></li>
 <li><em>Regulation (EU) 2024/1689 (Artificial Intelligence Act)</em>, European Union, Jun 2024. <a href="https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng">https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng</a></li>
+<li>AWS, <em>AgentOps: Operationalize Agentic AI at Scale with Amazon Bedrock AgentCore</em>, 2026. <a href="https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/">https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/</a></li>
 </ul>
 </section>
-<section class="chapter"><h1>第 18 章：展望</h1>
-<h3>18.1 这个领域仍然年轻</h3>
+<section class="chapter"><h1>第 18 章：Agent Fleet、身份与控制平面</h1>
+<p>Loop engineering 追问一个自治任务应如何启动、行动、验证与停止。生产系统如今面对下一个设计单元：由许多团队创建、跨许多环境和组织运行的许多 agent。难题向上移动了。有哪些 agent？这个版本由谁发布？它代表谁行动？它能访问哪些工具、数据、资金和网络目的地？一个运行中的 agent 如何被暂停、升级或撤销？什么证据能把一次动作连接到产生它的确切身份、策略、模型与 artifact？</p>
+<p>正在形成的答案是 <strong>agent control plane（agent 控制平面）</strong>。借用分布式系统的区分，*数据平面（data plane）*执行工作——模型调用、工具调用、代码执行与 agent-to-agent 消息；*控制平面（control plane）*则声明并强制工作周围的目标运行状态：registry、identity、authorization、routing、lifecycle、policy、lineage 与 audit。它不会让单个 agent 更聪明；它让一个 fleet 变得可治理。</p>
+<h3>18.1 从 Agent Program 到 Agent Fleet</h3>
+<p>单个 agent 可以用一段 prompt、几个 tool 和本地 state file 配置。Fleet 会引入本地配置无法解决的问题：</p>
+<ul>
+<li>重复或废弃的 agent，ownership 不清；</li>
+<li>多个版本共用名称，但行为不同；</li>
+<li>credential 被复制进 prompt、sandbox 或环境变量；</li>
+<li>tool access 比授权它的 task 或 user 活得更久；</li>
+<li>policy 在 chat、scheduled run 与 A2A delegation 上以不同方式执行；</li>
+<li>事件发生后，无人能重建究竟是哪份 artifact 或哪项 authority 导致了动作。</li>
+</ul>
+<p>第 9.2 节的平台化转向已经预示了这个范围。Fleet 需要 agents 与 capabilities 的 source of truth，需要能铸造和撤销 task-scoped access 的 runtime authority，也需要让“<em>应该</em>运行什么”和“<em>正在</em>运行什么”保持一致的 lifecycle service。AgentOps（第 17 章）跨完整生命周期运行和改进系统；控制平面则提供这些运维所依赖的共享治理底座。</p>
+<p>边界应保持明确：</p>
+<ul>
+<li><strong>数据平面：</strong> inference、retrieval、tool execution、sandbox process、message 与 result。</li>
+<li><strong>控制平面：</strong> definition、identity、policy decision、placement、version、budget、revocation 与 audit。</li>
+</ul>
+<p>只要可能，就把 policy 放在概率性 data path 之外，这是最核心的设计动作。Agent 可以提议一项 action；确定性的控制平面服务决定，具名身份在当前 context 下是否可以执行该 operation。</p>
+<h3>18.2 Agent Identity：谁——或什么——在行动？</h3>
+<p>仅有 user identity 不够。同一个用户可以启动多个目的与权限不同的 agent；agent 可以在发起 session 结束后按 schedule 继续运行；一个 agent 可以向另一个委派；多个 agent 版本也可以共存。<strong>Agent identity</strong> 是 agentic principal 的持久 machine identity，不同于它使用的人类、service account、runtime process 与 model。</p>
+<p>NIST 关于软件 agent 身份与权限的 concept paper，把问题分为 identification、authentication、authorization、delegation、audit 与 non-repudiation，并指出 prompt injection 与 confused-deputy behavior 是普通 service identity 不足以应对这一问题的原因 (<a href="https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents">NIST - Identity and Authorization for Software Agents</a>)。一份实用 identity record 应回答：</p>
+<ul>
+<li><strong>Principal：</strong> 哪个 agent definition 与 version 正在行动？</li>
+<li><strong>Sponsor：</strong> 哪个人或组织拥有它？</li>
+<li><strong>Delegator：</strong> 这次运行具体代表谁行动？</li>
+<li><strong>Purpose：</strong> 哪项有界任务或 workflow 为这项 authority 提供理由？</li>
+<li><strong>Runtime：</strong> 哪些 harness、model、sandbox image 与 policy version 正在执行？</li>
+<li><strong>Lifetime：</strong> identity 何时签发，何时过期或变得可撤销？</li>
+</ul>
+<p>不要把这些压成一把长期 API key。Fleet 应使用 workload identity 与短期 task token，并保留明确 delegation chain。Agent 以自身身份认证；authorization decision 则把该身份与 delegating user、tenant、purpose、environment 和 requested operation 结合。这能防止低风险 research agent 静默继承启动它的人类的全部权限。</p>
+<h3>18.3 Agent Registry</h3>
+<p><strong>Agent registry</strong> 是 fleet 的 inventory 与 discovery 层。它向人类、orchestrator、gateway 和其他 agent 说明有什么，以及它们即将信任哪份 artifact。Google Cloud Agent Registry 把 agent 与 MCP server、endpoint、skill、skill revision 和 publisher 一起建模；AWS Agent Registry 与 Microsoft 365 Agent Registry 也体现了同一转向：从散落的 deployment URL，转向被治理的 catalog (<a href="https://docs.cloud.google.com/agent-registry/overview">Google Cloud - Agent Registry Overview</a>; <a href="https://aws.amazon.com/about-aws/whats-new/2026/04/aws-agent-registry-in-agentcore-preview/">AWS - Agent Registry in AgentCore</a>; <a href="https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry?view=o365-worldwide">Microsoft - Agent Registry</a>)。</p>
+<p>一条有用 registry entry 不只包含名称和描述：</p>
+<ul>
+<li>immutable agent 与 version identifier；</li>
+<li>publisher 与 accountable owner；</li>
+<li>支持的 task、input/output contract 与 endpoint；</li>
+<li>tool、MCP、skill、memory、model 与 sandbox dependency；</li>
+<li>requested permission、data class、network destination 与 budget class；</li>
+<li>当前版本的 eval 与 security attestation；</li>
+<li>deployment status、deprecation date 与 revocation state；</li>
+<li>指向 source、build、configuration 与 policy bundle 的 lineage。</li>
+</ul>
+<p>Discovery 与 governance 必须在 registry 汇合。搜索结果应按调用方可调用的内容过滤，orchestration 应解析 immutable version，而不是 mutable display name。注册不等于批准：新 entry 可以以 draft 形式可见，但尚未获准承接 production traffic。Promotion 应经过 ownership、eval、security 与 policy gate；deprecation 则应在 removal 前识别 dependent。</p>
+<h3>18.4 Runtime Authorization 与 Delegation</h3>
+<p>Registration 说明一个 agent <em>是什么</em>。Authorization 决定一次具体运行<em>此刻能做什么</em>。这个决定必须窄于 agent 可能需要的所有能力的并集。</p>
+<p>一条稳健流程如下：</p>
+<ol>
+<li>User 或 service 带着声明的 purpose 与 tenant 启动 run。</li>
+<li>控制平面解析一个已批准的 agent version。</li>
+<li>Policy 计算 agent capability、delegator authority、task need、environment 与 risk 的交集。</li>
+<li>Identity broker 签发短期、audience-bound credential 或 capability token。</li>
+<li>Proxy 在 tool boundary 附加 credential；raw secret 不进入 model context 或 sandbox。</li>
+<li>每次使用都记录 identity、delegation chain、policy version、operation、resource 与 result。</li>
+<li>Completion、timeout、policy change 或 incident 撤销 lease。</li>
+</ol>
+<p>AWS AgentCore Identity 描述了这一模式的产品形态：agent identity、credential provider，以及在不把 user credential 嵌入 agent code 的前提下委派访问外部资源 (<a href="https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-agentcore-identity-securing-agentic-ai-at-scale/">AWS - AgentCore Identity</a>)。架构要点不依赖厂商：authority just in time 签发，只在边界 just in time 呈现。</p>
+<p>A2A delegation 会让链条显式化。Agent A 不应把拥有自身全部权限的 bearer token 发给 Agent B，而应请求一份更窄 token，明确 B 是 audience、delegated task 是 purpose、允许的 operation 与 resource，以及很短的 expiry。如果 B 再次委派，新 authority 不能超过已有链条的交集。这能阻断第 3 章的<strong>信任升级</strong>：低信任 worker 无法仅靠说服高权限 parent，就把自己的结果洗成一次高权限 action，而不触发新 policy decision。</p>
+<h3>18.5 Agent Gateway 与 Policy Enforcement</h3>
+<p><strong>Agent gateway</strong> 是 data-plane path 上的 enforcement point。它可以 broker model call、MCP 与 API tool call、A2A message、egress，有时也包括 memory access。Gateway 的价值在于，“绝不发送 secret”这类指令是概率性的；gateway 则能确定性地拒绝未授权目的地、剥离 credential、执行 budget 或要求 human approval。</p>
+<p>每条请求都应带有一份经过签名或可验证的 execution envelope：</p>
+<pre><code class="language-text">agent identity + version
+delegating principal + tenant
+task purpose + run/session id
+requested action + resource
+policy and configuration versions
+budget and expiry
+trace/span correlation id
+</code></pre>
+<p>Policy 不应只返回 allow 或 deny。实用结果还包括 <strong>allow</strong>、<strong>deny</strong>、<strong>allow with redaction</strong>、<strong>allow in a stronger sandbox</strong>、<strong>require human approval</strong>，以及 <strong>allow with a lower budget or read-only scope</strong>。Decision 与输入成为 trace 的一部分。这会把第 15 章与风险成比例的交互，以及第 5 章的 containment matrix，变成所有 agent 一致执行的系统，而不是每支团队各自重写的 convention。</p>
+<p>Gateway placement 很重要。Central gateway 能带来统一 enforcement 与 visibility，但也可能成为 latency bottleneck 和 single point of failure。Local sidecar 降低延迟，并能在局部断连时存活，但会让 policy distribution 与 evidence collection 更困难。成熟设计通常把集中式 policy administration 与分布式 enforcement 分开，用 signed policy bundle；对有后果 action fail closed，仅对低风险 read 谨慎选择 fail open。</p>
+<h3>18.6 Fleet Lifecycle：Reconcile、Suspend、Upgrade、Revoke</h3>
+<p>Agent 不只处于 deployed 或 stopped 两种状态。一套实用 fleet state machine 包含 <strong>draft</strong>、<strong>evaluated</strong>、<strong>approved</strong>、<strong>deployed</strong>、<strong>suspended</strong>、<strong>deprecated</strong>、<strong>revoked</strong> 与 <strong>retired</strong>。Run 有独立 state machine——queued、active、waiting for approval、checkpointed、completed、failed 或 canceled——sandbox 则还有另一套（第 7 章）。控制平面连接这些 lifecycle，但不混淆它们。</p>
+<p>治理模式是 reconciliation：比较 declared state 与 observed state，再采取确定性 action。</p>
+<ul>
+<li>如果 agent version 被 revoked，阻止新 run、撤销 credential，并按风险 suspend 或 terminate 受影响的 in-flight run。</li>
+<li>如果 policy 改变，识别哪些 session 需要重新 authorization，而不是让旧 authority 无限存续。</li>
+<li>如果 version upgrade，先对有界 traffic slice 做 canary，同时保留旧版本以 rollback（第 17 章）。</li>
+<li>如果 owner 离职或 publisher 被攻陷，遍历 registry dependency graph，找出继承该信任的 agent、skill、MCP server 与 schedule。</li>
+<li>如果 run 失去连接，保留 durable session，重新获取 sandbox 或 worker，而不是复制一份任务（第 7 章）。</li>
+</ul>
+<p>Fleet kill switch 属于这一层。它应在 gateway 与 identity broker 撤销 capability，而不只是向模型发送一句“stop”。Scope 也很重要：operator 需要能停止一个 run、一个 version、一个 publisher、一个 tenant、一个 tool dependency 或整个 fleet，而不是每次 incident 都只能动用最大开关。</p>
+<h3>18.7 Lineage、Audit 与 Non-Repudiation</h3>
+<p>普通日志回答“哪个请求打到了这个 service？”Agent audit 必须回答一条更长的因果问题：</p>
+<blockquote>
+<p>哪个 user 或 service，把什么 purpose 委派给了哪个 agent version；它在什么 model、harness、tool、memory、sandbox 与 policy 下运行；哪些 evidence 导致哪项 decision；哪项 authority 允许了 side effect；又是谁批准或 override 了它？</p>
+</blockquote>
+<p>答案是一张 lineage graph：连接 registry artifact、build attestation、identity、delegation event、session 与 run ID、trace span、policy decision、human approval、tool result、memory write 和最终 environment outcome。Stable content hash 或 immutable version identifier 能防止后来的编辑改写“当时究竟运行了什么”的历史。</p>
+<p>**Non-repudiation（不可否认性）**需要谨慎使用。Signed event 可以说明某个 workload identity 产生了请求、某个 policy service 授权了它；却不能证明一个人理解了 approval dialog，也不能证明模型的自然语言 rationale 真实。因此，强 audit 要把 cryptographic integrity 与 operational evidence 组合：append-only log、trusted timestamp、credential 与 policy version、outcome check、approval identity 与 retention rule。要保存足够调查的信息，同时遵循第 17 章的隐私纪律——一个不加选择保留 prompt、secret 与 personal data 的 audit 系统，会制造第二个安全问题。</p>
+<p>Lineage 还能让 evaluation 与 improvement 更安全。一次生产纠正可以被追溯到失败的确切 artifact，转成脱敏 regression case，并用于 promotion 新版本，而不改变旧版本（第 12 章）。控制平面提供 custody chain；eval gate 提供证据。</p>
+<h3>18.8 控制平面的开放问题</h3>
+<p>控制平面正在形成，尚未定型。最重要的开放问题包括：</p>
+<ul>
+<li><strong>可迁移的身份与委派。</strong> Agent Card 与 registry 能描述 capability，但 principal identity、delegation chain、revocation 与 purpose-bound authority 的跨平台标准仍不成熟。</li>
+<li><strong>Policy composition。</strong> User policy、tenant policy、agent policy、tool policy、data-residency rule 与 human approval 可能冲突。Precedence 与 explanation 需要一套可迁移语义。</li>
+<li><strong>Memory governance。</strong> Provenance、permission-at-retrieval、expiry、correction 与 poisoning defense，还没有在不同 memory product 中被一致表达。</li>
+<li><strong>跨组织 lineage。</strong> A2A chain 会跨越 audit domain；每个组织可能暴露太少证据，使对方无法判断信任，也可能暴露过多 private trace data。</li>
+<li><strong>Evaluator authority。</strong> Model judge 可以阻止 deploy 或触发 incident。它的 identity、calibration、conflict 与 appeal path，需要和其他 privileged decision-maker 同等严格（第 10 章）。</li>
+<li><strong>Fleet-level supervision。</strong> Risk ranking、alert deduplication 与有意义的人类控制必须扩展，同时不能把 operator 变成橡皮图章（第 15 章）。</li>
+<li><strong>控制平面本身被攻陷。</strong> 集中的 registry、policy service 与 identity broker 都是高价值目标。它们的 blast radius 要求 separation of duties、signed artifact、最小 trust root 与独立 recovery path。</li>
+</ul>
+<p>即使标准仍未定型，方向已经清楚：agent 正在成为分布式系统中的 principal。成熟 harness 不再只是环绕模型的一条 loop，而是 identities、artifacts、policies、environments、evidence 与 people 之间被治理的关系。</p>
+<hr>
+<h2>图：Agent 控制平面</h2>
+<figure class="mermaid-fig"><pre class="mermaid">flowchart TB
+    subgraph CP["Control Plane"]
+        REG["Registry&lt;br/&gt;agents · tools · skills · versions"]
+        ID["Identity &amp; Delegation&lt;br/&gt;agent · sponsor · user · purpose"]
+        POL["Policy &amp; Gateway&lt;br/&gt;authorize · redact · approve · deny"]
+        LIFE["Fleet Lifecycle&lt;br/&gt;deploy · suspend · upgrade · revoke"]
+        AUD["Lineage &amp; Audit&lt;br/&gt;artifacts · decisions · outcomes"]
+        REG --&gt; ID --&gt; POL --&gt; LIFE --&gt; AUD
+    end
+
+    subgraph DP["Data Plane"]
+        RUN["Agent Run&lt;br/&gt;model + harness"]
+        BOX["Sandbox / Runtime"]
+        TOOL["Tools · MCP · APIs"]
+        PEER["Peer Agents / A2A"]
+        MEM["Memory"]
+        RUN --&gt; BOX
+        RUN --&gt; TOOL
+        RUN --&gt; PEER
+        RUN --&gt; MEM
+    end
+
+    CP --&gt;|"identity · policy · version · budget"| DP
+    DP --&gt;|"events · evidence · outcome · cost"| CP
+    HUMAN["Human Owner / Reviewer"] --&gt;|"delegate · approve · revoke"| CP</pre></figure>
+<p><em>数据平面做工作；控制平面决定哪些 identity、artifact、authority、lifecycle 与 evidence 治理这项工作。</em></p>
+<hr>
+<h2>要点</h2>
+<ul>
+<li><strong>Fleet 是 loop 之后的下一个单元</strong>：loop engineering 治理一个 task；控制平面治理许多 agent、version、environment 与 organization。</li>
+<li><strong>把 data plane 与 control plane 分开</strong>：agent 提议和执行工作；确定性 service 注册 artifact、签发 authority、强制 policy、reconcile lifecycle 并保留 evidence。</li>
+<li><strong>Agent identity 不同于 user 与 runtime identity</strong>：把每次 run 绑定到 agent version、sponsor、delegator、purpose、environment 与 expiry。</li>
+<li><strong>Registry 是被治理的 source of truth</strong>：包含 ownership、dependency、permission、attestation、deployment state 与 immutable lineage，而不只是 discovery metadata。</li>
+<li><strong>Authority 应 just in time 且 purpose-bound</strong>：使用短期、audience-scoped credential，在 tool boundary 附加；delegation 只能缩窄权限。</li>
+<li><strong>Gateway 把 policy 变成 enforcement</strong>：allow、deny、redact、强化 isolation、缩小 scope 或要求 approval，并记录原因。</li>
+<li><strong>Lifecycle 就是 reconciliation</strong>：独立管理 agent definition、run 与 sandbox；让 suspension、migration、canary、rollback 与 revocation 成为一等能力。</li>
+<li><strong>Audit 是一张因果 lineage graph</strong>：连接 user delegation、agent 与 policy version、evidence、authorization、side effect 与 outcome，同时最小化 sensitive content。</li>
+</ul>
+<h2>延伸阅读</h2>
+<ul>
+<li>NIST, <em>Identity and Authorization for Software Agents</em>, Feb 2026. <a href="https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents">https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents</a></li>
+<li>Google Cloud, <em>Agent Registry Overview</em>, 2026. <a href="https://docs.cloud.google.com/agent-registry/overview">https://docs.cloud.google.com/agent-registry/overview</a></li>
+<li>AWS, <em>AWS Agent Registry in Amazon Bedrock AgentCore (Preview)</em>, Apr 2026. <a href="https://aws.amazon.com/about-aws/whats-new/2026/04/aws-agent-registry-in-agentcore-preview/">https://aws.amazon.com/about-aws/whats-new/2026/04/aws-agent-registry-in-agentcore-preview/</a></li>
+<li>AWS, <em>Introducing Amazon Bedrock AgentCore Identity: Securing Agentic AI at Scale</em>, 2026. <a href="https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-agentcore-identity-securing-agentic-ai-at-scale/">https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-agentcore-identity-securing-agentic-ai-at-scale/</a></li>
+<li>Microsoft, <em>Agent Registry in the Microsoft 365 Admin Center</em>, 2026. <a href="https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry?view=o365-worldwide">https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry?view=o365-worldwide</a></li>
+<li>Anthropic Safeguards Research Team, <em>How We Contain Claude</em>, May 2026. <a href="https://www.anthropic.com/engineering/how-we-contain-claude">https://www.anthropic.com/engineering/how-we-contain-claude</a></li>
+<li>Google Cloud, <em>Agent Executor: Google&#39;s Distributed Agent Runtime</em>, 2026. <a href="https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/">https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/</a></li>
+<li>AWS, <em>AgentOps: Operationalize Agentic AI at Scale with Amazon Bedrock AgentCore</em>, 2026. <a href="https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/">https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/</a></li>
+</ul>
+</section>
+<section class="chapter"><h1>第 19 章：展望</h1>
+<h3>19.1 这个领域仍然年轻</h3>
 <p>本书使用的许多词汇，例如 initializer agents、context firewalls、sprint contracts、reasoning sandwiches、ambient affordances、computational vs. inferential controls，都是在最近十二到十八个月里进入主流 agent-engineering 讨论的。部分底层思想出现得更早，但共享语言很新。多数来源文章发表于 2025 和 2026 年。这个领域变化快于任何单本书能记录的速度——而这个速度有一个数字：METR 发现，前沿模型的任务完成<em>时间视野（time horizon）</em>（它们有一半时间能完成的人类任务长度）大约每七个月翻一番（第 7.11 节） (<a href="https://arxiv.org/abs/2503.14499">Kwa et al. - Measuring AI Ability to Complete Long Tasks</a>)。一本讲 harness 必须提供什么的书，某种程度上也是一本讲移动靶的书。</p>
 <p>LangChain 对演进轨迹的描述很诚实：随着模型改进，今天 harness 中的一些东西会被模型吸收。模型会在规划、自验证、长周期连贯性上更原生地变强，因此需要更少上下文注入。但有趣的 harness 组合空间不会随模型变强而收缩；它会移动 (<a href="https://blog.langchain.com/the-anatomy-of-an-agent-harness/">LangChain - The Anatomy of an Agent Harness</a>; <a href="https://www.anthropic.com/engineering/harness-design-long-running-apps">Anthropic - Harness Design for Long-Running Application Development</a>)。</p>
-<h3>18.2 开放问题</h3>
+<h3>19.2 开放问题</h3>
 <p>文献中反复出现几类开放问题：</p>
 <ul>
 <li><strong>面向功能正确性的 behavior harness</strong>。Maintainability 和 architecture-fitness harness 有几十年现成工具。Behavior harness，即应用功能行为是否满足用户意图，没有这样的成熟工具。今天多数团队依赖 AI 生成测试，普遍共识是这还不够好 (<a href="https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html">Thoughtworks - Harness Engineering</a>)。</li>
 <li><strong>规模化 harness 的一致性</strong>。当 guides 和 sensors 增多，它们如何保持一致？sensor 从不触发意味着质量好，还是检测不足？今天还没有类似 code coverage 或 mutation testing 的 harness coverage 指标。</li>
+<li><strong>控制平面可迁移性</strong>。Registry、identity、policy、gateway 与 audit 系统已经出现，但其 schema 与 authority model 仍与平台绑定。把 agent 在不同云或组织间迁移，同时不丢失 provenance、policy 含义与 revocation 语义，依然困难（第 18 章）。</li>
 <li><strong>跨层 governance 一致性</strong>。OpenReview 综述强调，policy、permission prompt、audit log、constitutional instruction 和 runtime hook 往往分布在不同层，可能彼此干扰而不是自然组合。可迁移的 policy 与 audit language 仍然缺位 (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview - Agent Harness Engineering: A Survey</a>)。</li>
 <li><strong>标准化 readiness reporting</strong>。如果模型分数依赖 execution environment、tool surface、context policy、retry 规则和治理门槛，benchmark 报告就需要一份 harness bill of materials。今天还没有广泛采用的配置披露格式 (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview - Agent Harness Engineering: A Survey</a>)。</li>
 <li><strong>Cost-quality-speed 三难</strong>。更强沙箱、更丰富可观测性、更深验证和更严格治理，通常会增加成本和延迟。成熟 harness 需要明确哪些检查同步运行、哪些离线运行、哪些风险值得昂贵控制 (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview - Agent Harness Engineering: A Survey</a>)。</li>
@@ -5271,8 +5532,9 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Just-in-time tool assembly</strong>。根据任务动态组装合适工具与上下文，而不是预配置一切，是 LangChain 等探索的方向 (<a href="https://blog.langchain.com/improving-deep-agents-with-harness-engineering/">LangChain - Improving Deep Agents with Harness Engineering</a>)。</li>
 <li><strong>Trace 作为文档</strong>。LangChain 观察到“在软件中，代码记录 app；在 AI 中，traces 记录 app”，这暗示了一种新文档模型，但领域尚未完全解决 (<a href="https://blog.langchain.com/the-anatomy-of-an-agent-harness/">LangChain - The Anatomy of an Agent Harness</a>)。</li>
 <li><strong>端到端供应链治理</strong>。工具完整性只是其中一块。Agent 还依赖 MCP servers、外部 packages、datasets、retrieval sources 和生成出的依赖名。覆盖整条链路的 provenance 仍然不足 (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview - Agent Harness Engineering: A Survey</a>)。</li>
+<li><strong>后果压力下的 evaluator integrity</strong>。Model judge 可能受判决用途影响，而 generator 也可能学会迎合已知 grader。盲评、abstention、ensemble 与 meta-eval 有帮助，但还没有通用方法能让语义 verifier 同时可扩展、又与判决后果独立（第 10 章）。</li>
 </ul>
-<h3>18.3 长期建议</h3>
+<h3>19.3 长期建议</h3>
 <p>几条原则几乎贯穿所有文章：</p>
 <ul>
 <li><strong>把上下文当有限资源</strong>。寻找最小高信号 token 集合，以产生期望结果。</li>
@@ -5290,7 +5552,9 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
       Behavioral harnesses for functional correctness
       AI-generated tests not yet good enough
       No mutation testing equivalent for harnesses
+      Evaluator integrity under consequence
     Governance
+      Control-plane portability
       Cross-layer policy coherence
       Portable audit and policy languages
       Human approval interfaces
@@ -5320,7 +5584,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <ul>
 <li><strong>共享词汇仍很年轻</strong>：许多术语在 2025-2026 年才变得常见，尽管底层思想更早。</li>
 <li><strong>模型吸收 harness，但 harness 会移动</strong>：模型原生能力增强后，有趣 harness 工作会转向更难问题，而不是消失。</li>
-<li><strong>开放问题已经横跨完整 ETCLOVG 栈</strong>：behavioral correctness、规模化一致性、governance 一致性、readiness reporting、cost-quality-speed、capability-control、异步协调、持续学习、just-in-time tool assembly、traces-as-documentation。</li>
+<li><strong>开放问题已经横跨完整 ETCLOVG 栈</strong>：behavioral correctness、evaluator integrity、控制平面可迁移性、规模化与 governance 一致性、readiness reporting、cost-quality-speed、capability-control、异步协调、持续学习、just-in-time tool assembly、traces-as-documentation。</li>
 <li><strong>五条长期原则跨场景成立</strong>：有限上下文、最简单可行、读 transcript、迭代 load-bearing、按模型定制。</li>
 <li><strong>Harness engineering 是长期工作</strong>：不是模型变强后丢弃的脚手架，而是围绕越来越强核心构建有效系统的持续工艺。</li>
 </ul>
@@ -5404,6 +5668,12 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><p>Linux Foundation, <em>Linux Foundation Launches the Agent2Agent Protocol Project</em>, Jun 2025.
 <a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents</a></p>
 </li>
+<li><p>OpenAI, <em>Connect Private MCP Servers to OpenAI Products</em>, Jun 2026.
+<a href="https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products">https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products</a></p>
+</li>
+<li><p>OpenAI, <em>Programmatic Tool Calling</em>, 2026.
+<a href="https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling">https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling</a></p>
+</li>
 </ul>
 <hr>
 <h2>规格与工作流设计</h2>
@@ -5454,6 +5724,12 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><p>Thinkst, <em>Canarytokens</em> (free tripwire tokens).
 <a href="https://canarytokens.org/">https://canarytokens.org/</a></p>
 </li>
+<li><p>Anthropic Safeguards Research Team, <em>How We Contain Claude</em>, May 2026.
+<a href="https://www.anthropic.com/engineering/how-we-contain-claude">https://www.anthropic.com/engineering/how-we-contain-claude</a></p>
+</li>
+<li><p>Google Cloud, <em>Agent Executor: Google&#39;s Distributed Agent Runtime</em>, 2026.
+<a href="https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/">https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/</a></p>
+</li>
 </ul>
 <hr>
 <h2>Agent 能力度量</h2>
@@ -5491,6 +5767,15 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><p>OpenTelemetry, <em>Semantic conventions for generative AI spans</em>.
 <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/">https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/</a></p>
 </li>
+<li><p>Anthropic Safeguards Research Team, <em>Agentic Misalignment: Summer 2026 Update</em>, 2026.
+<a href="https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/">https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/</a></p>
+</li>
+<li><p>OpenAI, <em>Trustworthy Third-Party Evaluations: Foundations</em>, 2026.
+<a href="https://openai.com/index/trustworthy-third-party-evaluations-foundations/">https://openai.com/index/trustworthy-third-party-evaluations-foundations/</a></p>
+</li>
+<li><p>OpenAI, <em>Building Self-Improving Tax Agents with Codex</em>, 2026.
+<a href="https://openai.com/index/building-self-improving-tax-agents-with-codex/">https://openai.com/index/building-self-improving-tax-agents-with-codex/</a></p>
+</li>
 </ul>
 <hr>
 <h2>运行时、Harness 与参考实现</h2>
@@ -5503,8 +5788,12 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <hr>
 <h2>指令与 Prompting</h2>
 <ul>
-<li>Eric Wallace et al., <em>The Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions</em>, OpenAI, Apr 2024.
-<a href="https://arxiv.org/abs/2404.13208">https://arxiv.org/abs/2404.13208</a></li>
+<li><p>Eric Wallace et al., <em>The Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions</em>, OpenAI, Apr 2024.
+<a href="https://arxiv.org/abs/2404.13208">https://arxiv.org/abs/2404.13208</a></p>
+</li>
+<li><p>OpenAI, <em>Custom Code Review Rules for Codex</em>, Jul 2026.
+<a href="https://developers.openai.com/blog/custom-code-review-rules-for-codex">https://developers.openai.com/blog/custom-code-review-rules-for-codex</a></p>
+</li>
 </ul>
 <hr>
 <h2>模型选择、路由与推理</h2>
@@ -5563,6 +5852,9 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <hr>
 <h2>成本、隐私与治理框架</h2>
 <ul>
+<li><p>AWS, <em>AgentOps: Operationalize Agentic AI at Scale with Amazon Bedrock AgentCore</em>, 2026.
+<a href="https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/">https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/</a></p>
+</li>
 <li><p>OWASP, <em>Top 10 for Large Language Model Applications</em>, 2025.
 <a href="https://genai.owasp.org/llm-top-10/">https://genai.owasp.org/llm-top-10/</a></p>
 </li>
@@ -5577,6 +5869,25 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 </li>
 <li><p>Fu Bang, <em>GPTCache: An Open-Source Semantic Cache for LLM Applications</em>, NLP-OSS @ EMNLP 2023.
 <a href="https://github.com/zilliztech/GPTCache">https://github.com/zilliztech/GPTCache</a></p>
+</li>
+</ul>
+<hr>
+<h2>Agent Fleet、身份与控制平面</h2>
+<ul>
+<li><p>NIST, <em>Identity and Authorization for Software Agents</em>, Feb 2026.
+<a href="https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents">https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents</a></p>
+</li>
+<li><p>Google Cloud, <em>Agent Registry Overview</em>, 2026.
+<a href="https://docs.cloud.google.com/agent-registry/overview">https://docs.cloud.google.com/agent-registry/overview</a></p>
+</li>
+<li><p>AWS, <em>AWS Agent Registry in Amazon Bedrock AgentCore (Preview)</em>, Apr 2026.
+<a href="https://aws.amazon.com/about-aws/whats-new/2026/04/aws-agent-registry-in-agentcore-preview/">https://aws.amazon.com/about-aws/whats-new/2026/04/aws-agent-registry-in-agentcore-preview/</a></p>
+</li>
+<li><p>AWS, <em>Introducing Amazon Bedrock AgentCore Identity: Securing Agentic AI at Scale</em>, 2026.
+<a href="https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-agentcore-identity-securing-agentic-ai-at-scale/">https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-agentcore-identity-securing-agentic-ai-at-scale/</a></p>
+</li>
+<li><p>Microsoft, <em>Agent Registry in the Microsoft 365 Admin Center</em>, 2026.
+<a href="https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry?view=o365-worldwide">https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry?view=o365-worldwide</a></p>
 </li>
 </ul>
 <hr>
@@ -5634,6 +5945,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>MemGPT</strong> — 一种记忆架构,把上下文窗口当作 OS 式的“主存”、把外部存储当作“磁盘”,让模型通过函数调用把信息换入换出(虚拟上下文管理)(第 3 章)。</p>
 <p><strong>Mem0</strong> — 一层记忆:跨会话动态抽取、整合并检索显著事实,并有可选的图变体捕获实体关系(第 3 章)。</p>
 <p><strong>Sleep-time compute(睡眠期计算)</strong> — 在请求之间离线处理上下文——预判可能查询并预计算推断——以削减后续查询所需的计算(第 3 章)。</p>
+<p><strong>Persistent memory poisoning(持久记忆投毒)</strong> — 不可信内容被提升进持久记忆、并在之后被当作可信状态的攻击,使一次注入能跨过 context reset 操纵未来运行(第 3、5 章)。</p>
 <hr>
 <h2>子代理与工作流</h2>
 <p><strong>Sub-agent(子代理)</strong> — 在自己的上下文窗口内处理聚焦任务、只向父代理返回浓缩摘要的专门 agent(第 3 章)。</p>
@@ -5643,6 +5955,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>Micro-agent(小代理)</strong> — 嵌入在确定性工作流中的小而聚焦的 agent(约 3-20 步),而非开放式&quot;loop until done&quot;的 agent(第 6、8 章)。</p>
 <p><strong>Multi-agent topology(多代理拓扑)</strong> — 多代理系统的协调形态:orchestrator–worker、hierarchical、blackboard/shared-memory,或 debate/voting(第 3、6 章)。</p>
 <p><strong>MAST(多代理系统失败分类法)</strong> — 一套经验性的多代理失败分类,含 14 种失败模式,分三大类:规格问题、代理间错位、任务验证(第 3 章)。</p>
+<p><strong>Trust escalation(信任升级)</strong> — 一种委派失败:高权限 parent 接受低权限 worker 的说法,再用 worker 不曾拥有的权限采取行动(第 3、18 章)。</p>
 <p><strong>推理 / 自我纠错模式</strong> — 单个 agent 用 token 换可靠性的思考模式:Reflexion(自我批评记忆)、Self-Refine(批评并修订)、CRITIC(工具落地的批评)、Tree of Thoughts 与 LATS(分支搜索)、ReWOO(先规划再执行)(第 6 章)。</p>
 <hr>
 <h2>工具与沙箱</h2>
@@ -5651,13 +5964,15 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>Progressive disclosure(渐进披露)</strong> — 只在需要时加载工具定义、文件或指令,而不是一次性全部前置(第 4 章)。</p>
 <p><strong>Skill</strong> — 由文件支撑的可复用能力(通常是一个 <code>SKILL.md</code> 加上配套代码),agent 可按需加载(第 4 章)。</p>
 <p><strong>代码执行(作为元工具)</strong> — 把工具呈现为 agent 通过写代码来调用的代码 API,而不是直接调用——大幅降低 token 成本(第 4 章)。</p>
+<p><strong>Programmatic tool calling(程序化工具调用)</strong> — 让模型编写有界程序,在 runtime 内过滤、连接、排序、去重、聚合或验证工具结果,从而减少模型往返与上下文传输(第 4 章)。</p>
 <p><strong>Shell</strong> — Bash、zsh 这类命令行接口。在 agent 系统中,shell 访问很强大,因为它让 agent 可以运行测试、检查文件、安装包,并临时组合工具(第 1、4、5 章)。</p>
 <p><strong>文件系统(filesystem)</strong> — agent 可以读写的目录和文件。它既是工作区,也是持久记忆,还是 agent 与人类协作的界面(第 1、2、5 章)。</p>
 <p><strong>Sandbox(沙箱)</strong> — 带有文件系统和网络边界的隔离环境,agent 可在其中自由行动而无需逐动作审批(第 5 章)。</p>
 <p><strong>Sandbox liveness(沙箱活性)</strong> — 沙箱作为授权区域的作用:agent 可在配置边界内行动而无需逐动作审批(第 5 章)。</p>
-<p><strong>Governance(治理)</strong> — 管理身份、权限策略、scoped credentials、人类审批、审计日志和跨层安全问责的 harness 机制(第 5、17 章)。</p>
+<p><strong>Governance(治理)</strong> — 管理身份、权限策略、scoped credentials、人类审批、审计日志和跨层安全问责的 harness 机制(第 5、18 章)。</p>
+<p><strong>Agentic readiness</strong> — 一个系统是否适合自治调用者安全理解和操作的程度:幂等 mutation、明确 operation state、machine identity、清楚的 retry 语义、可观察 outcome 与补偿操作(第 5 章)。</p>
 <p><strong>Delegated auth(委托授权)</strong> — Agent 通过 scoped credentials 或 proxy-authorized identity 行动,而不是继承用户完整环境权限的模式(第 5 章)。</p>
-<p><strong>Supply-chain provenance(供应链来源证据)</strong> — 关于 agent 所依赖的 tools、packages、datasets、MCP servers 和 retrieval sources 的来源与完整性证据(第 5、17 章)。</p>
+<p><strong>Supply-chain provenance(供应链来源证据)</strong> — 关于 agent 所依赖的 tools、packages、datasets、MCP servers 和 retrieval sources 的来源与完整性证据(第 5、18 章)。</p>
 <p><strong>Hook / middleware(中间件)</strong> — 由 harness 在生命周期事件(启动、工具调用后、停止)自动执行的脚本或检查点,确定性地强制规则(第 5 章)。</p>
 <p><strong>Feedforward / feedback(前馈/反馈)</strong> — 前馈控制(guides)在 agent 行动前引导它;反馈控制(sensors)在它行动后观察并帮助自我修正(第 5 章)。</p>
 <p><strong>Computational / inferential control(计算型/推断型控制)</strong> — 计算型控制(linter、类型检查器)确定且快;推断型控制(AI review、LLM-as-judge)能处理细微判断,但更慢、非确定(第 5 章)。</p>
@@ -5674,10 +5989,11 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <h2>评估</h2>
 <p><strong>Eval harness(评估 harness)</strong> — 端到端运行评估的基础设施;区别于被评估的 agent harness(第 10 章)。</p>
 <p><strong>Readiness validation(就绪验证)</strong> — 验证某个具体 model + harness 配置是否适合特定任务分布、环境、预算和治理规则(第 10 章)。</p>
-<p><strong>Failure attribution(失败归因)</strong> — 在选择修复方式前,先把 agent 失败标注到最可能的问题层:execution、tool interface、context、lifecycle、observability、verification 或 governance(第 9、11 章)。</p>
+<p><strong>Failure attribution(失败归因)</strong> — 在选择修复方式前,先把 agent 失败标注到最可能的问题层:execution、tool interface、context、lifecycle、observability、verification 或 governance(第 10、12 章)。</p>
 <p><strong>Task / trial(任务/试验)</strong> — <em>task</em> 有定义好的输入和成功标准;<em>trial</em> 是对它的一次尝试(第 10 章)。</p>
 <p><strong>Grader</strong> — 为试验某个方面评分的组件:code-based、model-based 或 human(第 10 章)。</p>
-<p><strong>Transcript(trace、trajectory)</strong> — 一次试验的完整记录:每条消息、工具调用和结果(第 9、11 章)。</p>
+<p><strong>Evaluator integrity</strong> — 评测系统自身的可信度,由盲评、确定性证据、abstention、calibration、meta-eval、版本化与可复现 audit artifact 支撑(第 10 章)。</p>
+<p><strong>Transcript(trace、trajectory)</strong> — 一次试验的完整记录:每条消息、工具调用和结果(第 10、12 章)。</p>
 <p><strong>Outcome(结果状态)</strong> — 试验结束时的最终环境状态,区别于 agent 的文本回应(第 10 章)。</p>
 <p><strong>Capability eval / regression eval</strong> — capability eval 衡量 agent 新近能做什么(通过率低、正在爬升);regression eval 保护它已能可靠做到的事(接近 100%)(第 10 章)。</p>
 <p><strong>pass@k / pass^k</strong> — pass@k 是 k 次尝试中至少一次成功的概率(随 k 上升);pass^k 是 k 次试验<em>全部</em>成功的概率(随 k 下降)(见《LLM Foundations》第 13 章)(第 10 章)。</p>
@@ -5690,18 +6006,19 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>Brain / hands split</strong> — Managed-agent 中决策上下文(brain)与可替换执行环境(hands)的分离(第 7 章)。</p>
 <p><strong>Sprint contract</strong> — generator 与 evaluator 两个 agent 之间基于文件的约定,在每个构建 sprint 前敲定要构建什么、如何验证成功(第 7 章)。</p>
 <p><strong>Event log(事件日志)</strong> — 对消息、工具调用、结果、审批和错误的追加式记录。执行状态可以从中推导出来,因此 agent 更容易重放和调试(第 9 章)。</p>
-<p><strong>Agent platform</strong> — 超出本地 framework 的基础设施:跨多次运行和多用户的 durable workspaces、managed sandboxes、identity、billing、observability、evaluation、governance 和 human handoff(第 8、17 章)。</p>
-<p><strong>Checkpoint / resume(检查点/恢复)</strong> — 一种可靠性模式:agent 定期保存足够状态,以便在失败或上下文重置后继续工作而不丢进度(第 7、8 章)。</p>
+<p><strong>Agent platform</strong> — 超出本地 framework 的基础设施:跨多次运行和多用户的 durable workspaces、managed sandboxes、identity、billing、observability、evaluation、governance 和 human handoff(第 9、18 章)。</p>
+<p><strong>Checkpoint / resume(检查点/恢复)</strong> — 一种可靠性模式:agent 定期保存足够状态,以便在失败或上下文重置后继续工作而不丢进度(第 7、9 章)。</p>
 <p><strong>Durable execution(持久化执行)</strong> — 一种基础设施保证:把每个工作流步骤持久化,使崩溃或被中断的 agent 从最后记录的一步恢复;非确定的模型/工具调用被记录并重放,而非重算(第 7 章)。</p>
-<p><strong>Time horizon(时间视野)</strong> — METR 的能力指标:模型以 50% 可靠性能完成的人类任务长度;前沿值大约每七个月翻一番(第 7、18 章)。</p>
+<p><strong>Time horizon(时间视野)</strong> — METR 的能力指标:模型以 50% 可靠性能完成的人类任务长度;前沿值大约每七个月翻一番(第 7、19 章)。</p>
 <p><strong>Stateless reducer(无状态归约器)</strong> — 把 agent 建模为对 event log 的纯 fold,使其可序列化、可重放、可测试(第 9 章)。</p>
 <p><strong>Model-harness co-evolution(模型与 harness 共同演化)</strong> — frontier 模型在其 harness 一起参与的情况下 post-train 所形成的耦合,因此改变任一侧都可能损害性能(第 12 章)。</p>
 <p><strong>Span telemetry</strong> — 以 span tree 表示的结构化 trace 数据,覆盖 model calls、tool calls、retrieval、context assembly、permissions、costs 和 outcomes(第 12 章)。</p>
 <p><strong>OpenTelemetry GenAI semantic conventions</strong> — 一套新兴的、面向 LLM 与 agent 遥测的标准 span 与属性名 schema(<code>invoke_agent</code>、<code>chat</code>、<code>execute_tool</code> span),让 agent trace 加入普通可观测栈(第 12 章)。</p>
 <p><strong>Trace-to-eval loop</strong> — 把真实生产失败转换成脱敏、可复现、带 outcome assertion 的 regression case(第 12 章)。</p>
+<p><strong>Controlled self-improvement(受控自我改进)</strong> — 一条外部、版本化回路:把经过审查的生产纠正变成有界 change task,用 eval gate、canary 与 rollback 发布,而不是允许 deployed agent 原地修改自己(第 12、17 章)。</p>
 <p><strong>Meta-harness</strong> — 把 harness 设计本身当作优化对象:用 eval feedback 消融或搜索 prompts、tools、retries、context policies、evaluators 和 control loops(第 12 章)。</p>
-<p><strong>Cost-quality-speed trilemma(成本-质量-速度三难)</strong> — 更强 execution environment、observability、verification 和 governance 会提高可靠性,但也增加成本和延迟(第 18 章)。</p>
-<p><strong>Capability-control tradeoff(能力-控制权衡)</strong> — 更多权限、工具、记忆和自治会提升能力,同时扩大控制、provenance 和审计问题(第 18 章)。</p>
+<p><strong>Cost-quality-speed trilemma(成本-质量-速度三难)</strong> — 更强 execution environment、observability、verification 和 governance 会提高可靠性,但也增加成本和延迟(第 19 章)。</p>
+<p><strong>Capability-control tradeoff(能力-控制权衡)</strong> — 更多权限、工具、记忆和自治会提升能力,同时扩大控制、provenance 和审计问题(第 18、19 章)。</p>
 <p><strong>Ralph Wiggum loop</strong> — 一个 hook,拦截 agent 的退出尝试,并在干净的上下文窗口中重新注入原始 prompt,迫使它继续对照目标工作(第 7、8 章)。</p>
 <p><strong>Loop engineering(循环工程)</strong> — 把 agent loop 本身当作设计单元:规定环绕模型的 trigger、topology、verifier 和 stop rule,使它能无人值守地运行。这是外层控制循环的运维者视角(第 8 章)。</p>
 <p><strong>Trigger(触发器 / heartbeat)</strong> — 无需人类 prompt 就启动一趟 loop 的东西:一个 schedule、一个 webhook,或另一个 agent(第 8 章)。</p>
@@ -5733,6 +6050,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>Accessibility tree(可达性树)</strong> — UI 的结构化语义表示(role、label、state),为辅助技术构建;常比裸像素或 DOM 更紧凑、更精确的屏幕编码(第 16 章)。</p>
 <hr>
 <h2>成本与运维</h2>
+<p><strong>AgentOps</strong> — 跨 governance and security、build and operations、evaluation 与 observability 运行 agent 完整生命周期的纪律,覆盖 planning 到 retirement(第 17 章)。</p>
 <p><strong>Per-task budget(每任务预算)</strong> — 对单次 agent 运行的 token、工具调用或成本设的明确上限,超过后 agent 停下来问,而不是无限循环(第 17 章)。</p>
 <p><strong>Cost attribution(成本归因)</strong> — 给 trace 的每个 span 附上 token 和美元成本,把“agent 很贵”变成一个具体、可修的工程发现(第 17 章)。</p>
 <p><strong>Multi-tenancy / 租户隔离</strong> — 用一个平台服务许多用户或组织,同时防止状态串味(context/记忆/缓存跨租户泄露)和权限串味(用错误租户的凭据行事)(第 17 章)。</p>
@@ -5740,6 +6058,16 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>Semantic cache(语义缓存)</strong> — 一种缓存:通过嵌入查询、在相似度超过阈值时返回已存响应,来服务<em>相似</em>(而非仅相同)的请求;能省掉整次模型调用,但有错误命中的风险(第 17 章)。</p>
 <p><strong>AI 管理体系(ISO/IEC 42001)</strong> — 首个用于治理组织 AI 的可认证标准:如何建立、运行并持续改进一套 AI 管理体系——ISO 27001 的 AI 对应物(第 17 章)。</p>
 <p><strong>欧盟 AI 法案(EU AI Act)</strong> — Regulation (EU) 2024/1689,首部全面的 AI 法律;它按风险层级对系统分类,并对高风险用途施加有约束力的义务(第 17 章)。</p>
+<hr>
+<h2>Fleet、身份与控制平面</h2>
+<p><strong>Agent fleet</strong> — 由 agent definition、version、run、sandbox、tool、identity 与 owner 组成的受治理集合,而不是一个本地配置的 agent(第 18 章)。</p>
+<p><strong>Agent control plane(agent 控制平面)</strong> — 跨 fleet 注册 agent artifact、管理 identity 与 delegated authority、强制 policy、reconcile lifecycle 并保存 lineage 与 audit 的共享基础设施;区别于真正做工作的 data plane(第 18 章)。</p>
+<p><strong>Agent identity</strong> — Agentic principal 的持久 machine identity,区别于 user、sponsor、runtime process、model 与单个 session(第 18 章)。</p>
+<p><strong>Agent registry</strong> — Agent 与 capability definition、version、ownership、dependency、requested permission、attestation、deployment state 与 lineage 的被治理 source of truth(第 18 章)。</p>
+<p><strong>Delegated authorization(委派授权)</strong> — 从 user 或 service 派生短期、audience-bound、purpose-bound 权限给 agent;后续每次 delegation 只能收窄 grant(第 5、18 章)。</p>
+<p><strong>Agent gateway</strong> — Data-plane enforcement point:评估 model、tool、MCP、A2A、egress 或 memory request 的 identity 与 execution envelope,并能 allow、deny、redact、缩小 scope、强化 isolation 或要求 approval(第 18 章)。</p>
+<p><strong>Lineage(血缘/溯源链)</strong> — 把一次 agent action 连接到 publisher、source 与 build、configuration、identity 与 delegation chain、policy decision、trace evidence、approval 与 environment outcome 的因果图(第 18 章)。</p>
+<p><strong>Non-repudiation(不可否认性)</strong> — 用 signed 或 integrity-protected event、timestamp 与 immutable version,提供足以把 request 与 authorization 归因到特定 workload 与 policy identity 的证据;它不能证明人理解了 approval,也不能证明模型 rationale 真实(第 18 章)。</p>
 </section>
 
 <script>

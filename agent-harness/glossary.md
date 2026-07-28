@@ -70,6 +70,8 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Sleep-time compute** — Processing context offline between requests — anticipating likely queries and precomputing inferences — to cut the compute a later query needs (Ch 3).
 
+**Persistent memory poisoning** — An attack in which untrusted content is promoted into durable memory and later treated as trusted state, allowing an injection to survive context resets and steer future runs (Ch 3, 5).
+
 ---
 
 ## Sub-Agents and Workflows
@@ -88,6 +90,8 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **MAST (Multi-Agent System failure taxonomy)** — An empirical taxonomy of 14 multi-agent failure modes in three categories: specification issues, inter-agent misalignment, and task verification (Ch 3).
 
+**Trust escalation** — A delegation failure where a low-privilege worker's claim is accepted by a higher-privilege parent, which then acts with authority the worker did not possess (Ch 3, 18).
+
 **Reasoning / self-correction patterns** — Single-agent deliberation patterns that trade tokens for reliability: Reflexion (self-critique memory), Self-Refine (critique-and-revise), CRITIC (tool-grounded critique), Tree of Thoughts and LATS (branching search), and ReWOO (plan-then-execute) (Ch 6).
 
 ---
@@ -104,6 +108,8 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Code execution (as a meta-tool)** — Presenting tools as a code API the agent invokes by writing code, rather than as direct calls — sharply reducing token cost (Ch 4).
 
+**Programmatic tool calling** — Having the model write a bounded program that filters, joins, ranks, deduplicates, aggregates, or validates tool results inside a runtime, reducing model round-trips and context transfer (Ch 4).
+
 **Shell** — A command-line interface such as Bash or zsh. In agent systems, shell access is powerful because it lets the agent run tests, inspect files, install packages, and compose ad hoc tools (Ch 1, 4, 5).
 
 **Filesystem** — The directories and files the agent can read or write. It acts as workspace, durable memory, and a collaboration surface between agents and humans (Ch 1, 2, 5).
@@ -113,6 +119,8 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 **Sandbox liveness** — The sandbox's role as an authorization region: it lets an agent act without per-action approval prompts while staying inside configured boundaries (Ch 5).
 
 **Governance** — Harness mechanisms for identity, permission policy, scoped credentials, human approval, audit logs, and cross-layer security accountability (Ch 5, 18).
+
+**Agentic readiness** — The degree to which a system is safe and legible for autonomous callers: idempotent mutations, explicit operation state, machine identity, clear retry semantics, observable outcomes, and compensating actions (Ch 5).
 
 **Delegated auth** — A pattern where the agent acts through scoped credentials or a proxy-authorized identity rather than inheriting the user's full ambient authority (Ch 5).
 
@@ -156,6 +164,8 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Grader** — A component that scores some aspect of a trial: code-based, model-based, or human (Ch 10).
 
+**Evaluator integrity** — The trustworthiness of the grading system itself, supported by blinded judgment, deterministic evidence, abstention, calibration, meta-evals, versioning, and reproducible audit artifacts (Ch 10).
+
 **Transcript (trace, trajectory)** — The full record of a trial: every message, tool call, and result (Ch 10, 12).
 
 **Outcome** — The final environmental state at the end of a trial, distinct from the agent's text response (Ch 10).
@@ -188,7 +198,7 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Durable execution** — An infrastructure guarantee that each workflow step is persisted so a crashed or interrupted agent resumes from the last recorded step; non-deterministic model/tool calls are recorded and replayed, not recomputed (Ch 7).
 
-**Time horizon** — METR's capability metric: the human-task length a model completes with 50% reliability; the frontier value has roughly doubled every seven months (Ch 7, 18).
+**Time horizon** — METR's capability metric: the human-task length a model completes with 50% reliability; the frontier value has roughly doubled every seven months (Ch 7, 19).
 
 **Stateless reducer** — Modeling an agent as a pure fold over an event log, making it serializable, replayable, and testable (Ch 9).
 
@@ -200,11 +210,13 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 **Trace-to-eval loop** — Converting real production failures into redacted, reproducible regression cases with outcome assertions (Ch 12).
 
+**Controlled self-improvement** — An external, versioned loop that turns reviewed production corrections into bounded change tasks, gates them on evals, and uses canary and rollback rather than allowing a deployed agent to modify itself in place (Ch 12, 17).
+
 **Meta-harness** — Treating harness design itself as an optimization object: prompts, tools, retries, context policies, evaluators, and control loops are ablated or searched using eval feedback (Ch 12).
 
-**Cost-quality-speed trilemma** — The tradeoff that stronger execution environments, observability, verification, and governance improve reliability but increase cost and latency (Ch 18).
+**Cost-quality-speed trilemma** — The tradeoff that stronger execution environments, observability, verification, and governance improve reliability but increase cost and latency (Ch 19).
 
-**Capability-control tradeoff** — The design axis where more authority, tools, memory, and autonomy improve capability while expanding the control, provenance, and audit problem (Ch 18).
+**Capability-control tradeoff** — The design axis where more authority, tools, memory, and autonomy improve capability while expanding the control, provenance, and audit problem (Ch 18, 19).
 
 **Ralph Wiggum loop** — A hook that intercepts an agent's exit attempt and reinjects the original prompt in a clean context window, forcing it to continue against its goal (Ch 7, 8).
 
@@ -268,6 +280,8 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 
 ## Cost and Operations
 
+**AgentOps** — The lifecycle discipline for operating agents across governance and security, build and operations, evaluation, and observability, from planning through retirement (Ch 17).
+
 **Per-task budget** — An explicit ceiling on tokens, tool calls, or cost for a single agent run, after which the agent stops and asks rather than looping indefinitely (Ch 17).
 
 **Cost attribution** — Attaching token and dollar cost to each span of a trace, turning "the agent is expensive" into a specific, fixable engineering finding (Ch 17).
@@ -281,3 +295,23 @@ Concise definitions for terms used throughout this textbook. The chapter referen
 **AI management system (ISO/IEC 42001)** — The first certifiable standard for governing an organization's AI: how to establish, operate, and continually improve an AI management system — the AI analogue of ISO 27001 (Ch 17).
 
 **EU AI Act** — Regulation (EU) 2024/1689, the first comprehensive AI law; it classifies systems by risk tier and imposes binding obligations on high-risk uses (Ch 17).
+
+---
+
+## Fleet, Identity, and Control Plane
+
+**Agent fleet** — A governed collection of agent definitions, versions, runs, sandboxes, tools, identities, and owners rather than one locally configured agent (Ch 18).
+
+**Agent control plane** — Shared infrastructure that registers agent artifacts, manages identity and delegated authority, enforces policy, reconciles lifecycle, and preserves lineage and audit across a fleet; distinct from the data plane that performs work (Ch 18).
+
+**Agent identity** — The durable machine identity of an agentic principal, distinct from its user, sponsor, runtime process, model, and individual session (Ch 18).
+
+**Agent registry** — A governed source of truth for agent and capability definitions, versions, ownership, dependencies, requested permissions, attestations, deployment state, and lineage (Ch 18).
+
+**Delegated authorization** — Granting an agent short-lived, audience- and purpose-bound authority derived from a user or service, with each further delegation able only to narrow the grant (Ch 5, 18).
+
+**Agent gateway** — A data-plane enforcement point that evaluates the identity and execution envelope for model, tool, MCP, A2A, egress, or memory requests and can allow, deny, redact, reduce scope, strengthen isolation, or require approval (Ch 18).
+
+**Lineage** — The causal graph connecting an agent action to its publisher, source and build, configuration, identity and delegation chain, policy decision, trace evidence, approval, and environmental outcome (Ch 18).
+
+**Non-repudiation** — Evidence strong enough to attribute a request and authorization to particular workload and policy identities, using signed or integrity-protected events plus timestamps and immutable versions; it does not prove a human understood an approval or a model rationale was truthful (Ch 18).

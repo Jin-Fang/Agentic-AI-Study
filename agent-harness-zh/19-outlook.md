@@ -1,17 +1,18 @@
-# 第 18 章：展望
+# 第 19 章：展望
 
-### 18.1 这个领域仍然年轻
+### 19.1 这个领域仍然年轻
 
 本书使用的许多词汇，例如 initializer agents、context firewalls、sprint contracts、reasoning sandwiches、ambient affordances、computational vs. inferential controls，都是在最近十二到十八个月里进入主流 agent-engineering 讨论的。部分底层思想出现得更早，但共享语言很新。多数来源文章发表于 2025 和 2026 年。这个领域变化快于任何单本书能记录的速度——而这个速度有一个数字：METR 发现，前沿模型的任务完成*时间视野（time horizon）*（它们有一半时间能完成的人类任务长度）大约每七个月翻一番（第 7.11 节） ([Kwa et al. - Measuring AI Ability to Complete Long Tasks](https://arxiv.org/abs/2503.14499))。一本讲 harness 必须提供什么的书，某种程度上也是一本讲移动靶的书。
 
 LangChain 对演进轨迹的描述很诚实：随着模型改进，今天 harness 中的一些东西会被模型吸收。模型会在规划、自验证、长周期连贯性上更原生地变强，因此需要更少上下文注入。但有趣的 harness 组合空间不会随模型变强而收缩；它会移动 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/); [Anthropic - Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps))。
 
-### 18.2 开放问题
+### 19.2 开放问题
 
 文献中反复出现几类开放问题：
 
 - **面向功能正确性的 behavior harness**。Maintainability 和 architecture-fitness harness 有几十年现成工具。Behavior harness，即应用功能行为是否满足用户意图，没有这样的成熟工具。今天多数团队依赖 AI 生成测试，普遍共识是这还不够好 ([Thoughtworks - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。
 - **规模化 harness 的一致性**。当 guides 和 sensors 增多，它们如何保持一致？sensor 从不触发意味着质量好，还是检测不足？今天还没有类似 code coverage 或 mutation testing 的 harness coverage 指标。
+- **控制平面可迁移性**。Registry、identity、policy、gateway 与 audit 系统已经出现，但其 schema 与 authority model 仍与平台绑定。把 agent 在不同云或组织间迁移，同时不丢失 provenance、policy 含义与 revocation 语义，依然困难（第 18 章）。
 - **跨层 governance 一致性**。OpenReview 综述强调，policy、permission prompt、audit log、constitutional instruction 和 runtime hook 往往分布在不同层，可能彼此干扰而不是自然组合。可迁移的 policy 与 audit language 仍然缺位 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
 - **标准化 readiness reporting**。如果模型分数依赖 execution environment、tool surface、context policy、retry 规则和治理门槛，benchmark 报告就需要一份 harness bill of materials。今天还没有广泛采用的配置披露格式 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
 - **Cost-quality-speed 三难**。更强沙箱、更丰富可观测性、更深验证和更严格治理，通常会增加成本和延迟。成熟 harness 需要明确哪些检查同步运行、哪些离线运行、哪些风险值得昂贵控制 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
@@ -22,8 +23,9 @@ LangChain 对演进轨迹的描述很诚实：随着模型改进，今天 harnes
 - **Just-in-time tool assembly**。根据任务动态组装合适工具与上下文，而不是预配置一切，是 LangChain 等探索的方向 ([LangChain - Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/))。
 - **Trace 作为文档**。LangChain 观察到“在软件中，代码记录 app；在 AI 中，traces 记录 app”，这暗示了一种新文档模型，但领域尚未完全解决 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
 - **端到端供应链治理**。工具完整性只是其中一块。Agent 还依赖 MCP servers、外部 packages、datasets、retrieval sources 和生成出的依赖名。覆盖整条链路的 provenance 仍然不足 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
+- **后果压力下的 evaluator integrity**。Model judge 可能受判决用途影响，而 generator 也可能学会迎合已知 grader。盲评、abstention、ensemble 与 meta-eval 有帮助，但还没有通用方法能让语义 verifier 同时可扩展、又与判决后果独立（第 10 章）。
 
-### 18.3 长期建议
+### 19.3 长期建议
 
 几条原则几乎贯穿所有文章：
 
@@ -46,7 +48,9 @@ mindmap
       Behavioral harnesses for functional correctness
       AI-generated tests not yet good enough
       No mutation testing equivalent for harnesses
+      Evaluator integrity under consequence
     Governance
+      Control-plane portability
       Cross-layer policy coherence
       Portable audit and policy languages
       Human approval interfaces
@@ -79,7 +83,7 @@ mindmap
 
 - **共享词汇仍很年轻**：许多术语在 2025-2026 年才变得常见，尽管底层思想更早。
 - **模型吸收 harness，但 harness 会移动**：模型原生能力增强后，有趣 harness 工作会转向更难问题，而不是消失。
-- **开放问题已经横跨完整 ETCLOVG 栈**：behavioral correctness、规模化一致性、governance 一致性、readiness reporting、cost-quality-speed、capability-control、异步协调、持续学习、just-in-time tool assembly、traces-as-documentation。
+- **开放问题已经横跨完整 ETCLOVG 栈**：behavioral correctness、evaluator integrity、控制平面可迁移性、规模化与 governance 一致性、readiness reporting、cost-quality-speed、capability-control、异步协调、持续学习、just-in-time tool assembly、traces-as-documentation。
 - **五条长期原则跨场景成立**：有限上下文、最简单可行、读 transcript、迭代 load-bearing、按模型定制。
 - **Harness engineering 是长期工作**：不是模型变强后丢弃的脚手架，而是围绕越来越强核心构建有效系统的持续工艺。
 

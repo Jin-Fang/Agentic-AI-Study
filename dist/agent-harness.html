@@ -3625,7 +3625,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <section class="cover">
     <h1>Agent Harness: A Practitioner's Textbook</h1>
     <p class="sub">A fact-based synthesis of contemporary writing on harness engineering, drawn from the <a href="https://github.com/walkinglabs/awesome-harness-engineering">Awesome Harness Engineering</a> reading list and the OpenReview survey <a href="https://openreview.net/pdf?id=3hXEPbG0dh">Agent Harness Engineering: A Survey</a>. Every substantive claim is referenced inline.</p>
-    <p class="meta">21 sections &middot; generated from Markdown sources</p>
+    <p class="meta">22 sections &middot; generated from Markdown sources</p>
   </section>
 <section class="chapter" data-first="1"><h1>Preface</h1>
 <p>This book is about the system that surrounds a language model when it is asked to do real work. That system has a name now — <em>the harness</em> — and a small but rapidly maturing body of literature describing how to build it. The chapters below stitch that literature into a single narrative. Readers who want to follow any thread back to its source will find the original article cited at the relevant claim.</p>
@@ -3872,6 +3872,17 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 </ul>
 <p>The temptation is to equate more agents with more capability. The empirical record is more sobering. The MAST study hand-annotated over 200 tasks across seven popular multi-agent frameworks and derived a taxonomy of 14 failure modes grouped into three categories: <strong>specification issues</strong> (underspecified roles and prompts), <strong>inter-agent misalignment</strong> (agents talking past each other, dropping information, or diverging from the shared goal), and <strong>task verification</strong> (weak or absent checking of the final result) (<a href="https://arxiv.org/abs/2503.13657">Cemri et al. — Why Do Multi-Agent LLM Systems Fail?</a>). The headline is that a large share of failures are not raw model incapability but <em>coordination and verification</em> breakdowns — exactly the surfaces the harness owns.</p>
 <p>The practical guidance falls out of the taxonomy: prefer the simplest topology that works (§6.1); keep task boundaries explicit so workers do not overlap or drop work (§3.4, Ch 7); and treat verification as a first-class agent rather than an afterthought (the generator–evaluator split of Ch 7), because MAST identifies weak verification as one of the three leading failure families.</p>
+<h3>3.10 Memory Poisoning and Trust Escalation</h3>
+<p>Persistent memory changes the security model. An injected instruction in a web page normally threatens one run; if the agent summarizes that instruction into a durable note, preference store, or shared blackboard, the attack can survive a context reset and steer later runs. Anthropic calls this <strong>persistent memory poisoning</strong>: untrusted content crosses a write boundary into state that future agents treat as trusted (<a href="https://www.anthropic.com/engineering/how-we-contain-claude">Anthropic — How We Contain Claude</a>).</p>
+<p>The defense is to treat memory as a provenance-bearing store, not as a neutral extension of context:</p>
+<ul>
+<li>label each memory by source, authorizing identity, creation time, and trust class;</li>
+<li>separate observations from instructions, and never promote retrieved content into policy automatically;</li>
+<li>require review or deterministic validation before untrusted findings enter durable shared memory;</li>
+<li>support expiry, supersession, and rollback so a poisoned fact can be removed from every future context;</li>
+<li>re-check authorization at retrieval time, because a fact the writer could see is not necessarily a fact the reader may see.</li>
+</ul>
+<p>Multi-agent systems add <strong>trust escalation</strong>. A low-privilege worker can return a plausible summary to a higher-privilege coordinator, which then acts with authority the worker never had. Compression makes this especially dangerous because provenance and uncertainty are often the first details lost. A sub-agent result should therefore carry citations or artifact pointers, confidence or unresolved questions, and the identity and permissions under which it was produced. The parent must validate the evidence before turning the result into a privileged action. Chapter 5 develops the containment controls; Chapter 18 develops the identity and control-plane model that makes them enforceable across a fleet.</p>
 <hr>
 <h2>Diagram: Parent Agent → Sub-Agent → Compressed Result (Context Firewall)</h2>
 <figure class="mermaid-fig"><pre class="mermaid">sequenceDiagram
@@ -3901,6 +3912,8 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Cost and latency are design variables</strong>: route cheap work to small models, keep the KV-cache warm, and parallelize for wall-clock speed.</li>
 <li><strong>Named memory systems package the memory patterns</strong>: MemGPT (OS-style virtual context), Mem0 (extract–consolidate–retrieve), and sleep-time compute (offline pre-processing) are worth knowing — but each adds its own retrieval and staleness failure surface.</li>
 <li><strong>More agents multiply coordination failure, not just cost</strong>: the MAST taxonomy finds that specification gaps, inter-agent misalignment, and weak verification — all harness-owned surfaces — dominate multi-agent failures; prefer the simplest topology and make verification first-class.</li>
+<li><strong>Durable memory is a trust boundary</strong>: retain provenance, separate data from instructions, and validate before promoting untrusted findings into shared state; otherwise one injected page can steer many future runs.</li>
+<li><strong>Delegation must not silently escalate authority</strong>: a parent should verify a worker&#39;s evidence before acting with privileges the worker did not possess.</li>
 </ul>
 <h2>Further Reading</h2>
 <ul>
@@ -3913,6 +3926,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Prateek Chhikara et al., <em>Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory</em>, arXiv, Apr 2025. <a href="https://arxiv.org/abs/2504.19413">https://arxiv.org/abs/2504.19413</a></li>
 <li>Kevin Lin et al., <em>Sleep-time Compute: Beyond Inference Scaling at Test-time</em>, arXiv, Apr 2025. <a href="https://arxiv.org/abs/2504.13171">https://arxiv.org/abs/2504.13171</a></li>
 <li>Mert Cemri et al., <em>Why Do Multi-Agent LLM Systems Fail?</em>, arXiv, Mar 2025. <a href="https://arxiv.org/abs/2503.13657">https://arxiv.org/abs/2503.13657</a></li>
+<li>Anthropic Safeguards Research Team, <em>How We Contain Claude</em>, Anthropic, May 2026. <a href="https://www.anthropic.com/engineering/how-we-contain-claude">https://www.anthropic.com/engineering/how-we-contain-claude</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>Chapter 4: Tools and the Agent–Computer Interface</h1>
@@ -3931,6 +3945,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p>The sections around this one assume an agent with a set of well-designed tools. In practice, many of those tools arrive over a standard interface: the <em>Model Context Protocol</em> (MCP). As a quick recap, MCP is an open client–server standard: an <em>MCP server</em> exposes tools — and, optionally, resources and reusable prompts — over a uniform protocol, and any compatible <em>client</em> (Claude Code, an IDE, a custom agent) can discover and call them without bespoke integration. The transport mechanics and the untrusted-result caveat are covered in Foundations ch 12; this chapter treats MCP as a harness design surface (<a href="https://www.anthropic.com/engineering/code-execution-with-mcp">Anthropic — Code Execution with MCP</a>).</p>
 <p>The value is composability. A team can connect a Google Drive server, a Salesforce server, and an internal database server to the same agent — each built and maintained independently — and the agent sees one combined tool surface. This is why MCP recurs throughout this book: it is the substrate for the namespacing, masking, and code-execution patterns described in the rest of this chapter.</p>
 <p>The cost is that MCP made tool over-supply trivial. As Chapter 2 noted, MCP let users plug in hundreds of tools, and a context loaded with hundreds of tool definitions is exactly the bloat that Chapter 2&#39;s <em>mask, don&#39;t remove</em> rule and the consolidation advice above push back on. MCP is plumbing, not a substitute for tool design: a poorly designed MCP server simply delivers poorly designed tools at scale. The discipline of this chapter — consolidate frequently-chained operations, namespace, cap responses, write descriptions like onboarding docs — applies whether a tool is hand-written or arrives over MCP.</p>
+<p>MCP also creates a deployment boundary. An internal server should not be made public merely so a hosted agent can reach it. OpenAI&#39;s secure MCP tunnel uses an <strong>outbound-only client</strong> inside the private network: the client connects to an explicitly configured destination, preserves streaming and authentication, and leaves the customer in control of an inspectable process rather than opening an inbound port (<a href="https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products">OpenAI — Connect Private MCP Servers to OpenAI Products</a>). This is a reusable pattern, not just a networking trick: cross-boundary tool access should be initiated from the side that owns the private capability, constrained to named destinations, and audited like any other delegated authority.</p>
 <h3>4.4 Four Integration Boundaries</h3>
 <p>The OpenReview survey argues that tool and protocol standards are easier to compare by the boundary they cross, rather than by vendor or release date (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview — Agent Harness Engineering: A Survey</a>):</p>
 <ul>
@@ -3963,7 +3978,8 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>State persistence and skills</strong>: agents can save working code as reusable functions backed by <code>SKILL.md</code> files, building up a toolbox over time.</li>
 </ul>
 <p>Cloudflare reported similar findings under the name &quot;Code Mode,&quot; reinforcing the conclusion: LLMs are good at writing code, and developers should let them (<a href="https://www.anthropic.com/engineering/code-execution-with-mcp">Anthropic — Code Execution with MCP</a>).</p>
-<p>The catch: code execution requires sandboxing infrastructure, which has its own operational and security cost.</p>
+<p>OpenAI&#39;s <strong>programmatic tool calling</strong> generalizes the same idea inside a Responses API turn: the model writes a short program that calls allowed tools, filters or joins their results, and returns only the compact product to the model. It is a strong fit for bounded dataflow — filter, join, rank, deduplicate, aggregate, and validate — because deterministic runtime control replaces many model round-trips. It is a poor fit when each observation materially changes the next judgment, when an action needs per-call approval, or when every source result must remain visible for citation or review (<a href="https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling">OpenAI — Programmatic Tool Calling</a>). In other words, use code to compress mechanical orchestration, not to hide consequential decisions.</p>
+<p>The catch: code execution requires sandboxing infrastructure, which has its own operational and security cost. It also changes the audit unit: the harness must record the program, the tools it was allowed to call, and the side effects it produced—not merely the final compact result.</p>
 <h3>4.10 Iterative Tool Refinement With Evals</h3>
 <p>Anthropic&#39;s recommended workflow for tool development has four stages (<a href="https://www.anthropic.com/engineering/writing-tools-for-agents">Anthropic — Writing Effective Tools for Agents</a>):</p>
 <ol>
@@ -3977,6 +3993,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p>Of the four integration boundaries in §4.4, three — model-to-function, agent-to-external-capability (MCP), and agent-to-repo/environment — have been developed above. The fourth, <em>agent-to-agent</em>, has its own emerging standard. The <strong>Agent2Agent (A2A) protocol</strong>, introduced by Google in April 2025 and donated to the Linux Foundation in June 2025, is an open standard for one agentic application to delegate work to another <em>opaque</em> agent — a peer with its own model, tools, memory, and internal state that it does not expose (<a href="https://github.com/a2aproject/A2A">Agent2Agent (A2A) Protocol</a>; <a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">Linux Foundation — Agent2Agent Protocol Project</a>).</p>
 <p>The mechanics are deliberately conventional so that existing web infrastructure applies: communication is JSON-RPC 2.0 over HTTP(S); each agent publishes an <em>Agent Card</em> describing its capabilities so others can discover it; and a task lifecycle covers submission, negotiation of interaction modality (text, files, structured data), and streaming of results back to the caller.</p>
 <p>The contrast with MCP is the useful part. MCP connects an agent <em>downward</em> to tools and resources it controls and can inspect; A2A connects an agent <em>across</em> to a peer it does not control and cannot see inside. That flips the primary engineering concern from tool-schema design to <em>trust and provenance across an organizational boundary</em>. Because you cannot inspect the other agent&#39;s context or sandbox, a response from an A2A peer is untrusted content in exactly the sense of Chapter 5 — the lethal-trifecta discipline applies to peer agents as much as to web pages — and governance (scoped identity, delegated auth, audit) must span the A2A call rather than stopping at your own process (Ch 5, Ch 17). A2A does not remove the trust problem; it standardizes where it has to be solved.</p>
+<p>The same boundary gives a practical topology rule. Native multi-agent execution is most useful when work is <strong>independent, bounded, and mergeable</strong>: parallel research threads, isolated reviews, or separate artifacts. It is usually the wrong abstraction for a sequential dependency chain or several writers mutating the same state, where coordination overhead and race conditions dominate. In those cases, keep one owner and use ordinary tools or a deterministic workflow. When peers are appropriate, the control plane in Chapter 18 must still resolve identity, delegated authority, version, lineage, and revocation for every call.</p>
 <hr>
 <h2>Diagram: Tool Design Pipeline — Prototype → Eval → Iterate</h2>
 <figure class="mermaid-fig"><pre class="mermaid">flowchart LR
@@ -4005,8 +4022,11 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Namespacing is not cosmetic</strong>: it enables logit-level masking of tool groups and prevents collision in large MCP environments.</li>
 <li><strong>Tool responses are a major source of context bloat</strong>: cap, paginate, filter, and truncate by default.</li>
 <li><strong>Code execution as meta-tool is a step-change</strong>: exposing MCP tools as a typed code API cut token usage by 98.7% in Anthropic&#39;s example.</li>
+<li><strong>Programmatic tool calling is for bounded dataflow</strong>: filter, join, rank, deduplicate, aggregate, and validate in code; keep adaptive judgment, approvals, and citation-bearing evidence visible to the agent.</li>
+<li><strong>Private MCP connectivity should be outbound-only</strong>: initiate the connection from the network that owns the capability, constrain its destination, and audit it as delegated authority.</li>
 <li><strong>The four-stage eval loop is the recommended workflow</strong>: prototype → build eval → run eval → analyze transcripts → iterate.</li>
 <li><strong>A2A standardizes the agent-to-agent boundary</strong>: it lets one agent delegate to an opaque peer over JSON-RPC + Agent Cards — shifting the concern from tool-schema design to trust and provenance across an organizational boundary, where the lethal-trifecta and governance rules of Ch 5 apply.</li>
+<li><strong>Parallel agents need independent ownership</strong>: shared mutable state and sequential dependencies usually call for one owner plus deterministic orchestration.</li>
 </ul>
 <h2>Further Reading</h2>
 <ul>
@@ -4018,6 +4038,8 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><em>Agent Harness Engineering: A Survey</em>, OpenReview / TMLR submission, 2026. <a href="https://openreview.net/pdf?id=3hXEPbG0dh">https://openreview.net/pdf?id=3hXEPbG0dh</a></li>
 <li><em>Agent2Agent (A2A) Protocol</em>, Google / Linux Foundation, 2025. <a href="https://github.com/a2aproject/A2A">https://github.com/a2aproject/A2A</a></li>
 <li>Linux Foundation, <em>Linux Foundation Launches the Agent2Agent Protocol Project</em>, Jun 2025. <a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents</a></li>
+<li>OpenAI, <em>Connect Private MCP Servers to OpenAI Products</em>, Jun 2026. <a href="https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products">https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products</a></li>
+<li>OpenAI, <em>Programmatic Tool Calling</em>, 2026. <a href="https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling">https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>Chapter 5: Sandboxing, Guardrails, and Safe Autonomy</h1>
@@ -4031,6 +4053,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 </ul>
 <p>The combination practitioners worry about most is sometimes called the <em>lethal trifecta</em>: access to private data, exposure to untrusted content, and the ability to communicate externally (<a href="https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/">Simon Willison — The lethal trifecta for AI agents</a>). Any one alone is survivable; all three in a single agent mean one injected instruction can read a secret and send it out. Most controls in this chapter work by breaking one leg of the trifecta — network isolation removes external communication, filesystem isolation removes private-data access, and approval gates put a human in the path of consequential actions.</p>
 <p>The framing to carry into the rest of the chapter: the model is not a trusted component. It is a capable but steerable core, and the harness is what stands between a hostile instruction and a real-world consequence.</p>
+<p>Anthropic&#39;s later containment work sharpens the threat model along two dimensions (<a href="https://www.anthropic.com/engineering/how-we-contain-claude">Anthropic — How We Contain Claude</a>). First, risk can originate with a <strong>misusing user</strong>, <strong>model misbehavior</strong>, or an <strong>external attacker</strong> steering the model through content. Second, defenses can be placed in the <strong>model</strong>, the <strong>execution environment</strong>, or at the <strong>external-content boundary</strong>. This matrix is useful because no one layer covers every origin: alignment cannot guarantee that a model will ignore an injection, and a sandbox cannot decide whether a permitted email is semantically harmful. Production containment is defense in depth across all three.</p>
 <h3>5.2 The Permission Fatigue Problem</h3>
 <p>Coding agents that run with no oversight are dangerous; coding agents that ask permission for every action are unusable. Anthropic frames this as approval fatigue: &quot;Constantly clicking &#39;approve&#39; slows down development cycles and can lead to &#39;approval fatigue,&#39; where users might not pay close attention to what they&#39;re approving, and in turn making development less safe&quot; (<a href="https://www.anthropic.com/engineering/claude-code-sandboxing">Anthropic — Beyond Permission Prompts: Making Claude Code More Secure and Autonomous</a>). The solution is structural: define boundaries within which the agent can act freely, and only ask for permission when those boundaries are crossed.</p>
 <p>In their internal usage, sandboxing safely reduces permission prompts by 84% (<a href="https://www.anthropic.com/engineering/claude-code-sandboxing">Anthropic — Beyond Permission Prompts</a>).</p>
@@ -4042,10 +4065,19 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Liveness</strong>: it defines a region where the agent is allowed to act without asking a human on every file write, package install, or network call.</li>
 </ul>
 <p>That third purpose is specific to the agent era. A sandbox is not just a cage; it is also a license. By moving permission from a per-action question to a session configuration, it makes long-horizon autonomy usable without collapsing into approval fatigue.</p>
+<p>Containment should scale with the work. Three recurring patterns form a useful ladder (<a href="https://www.anthropic.com/engineering/how-we-contain-claude">Anthropic — How We Contain Claude</a>):</p>
+<ul>
+<li>An <strong>ephemeral container</strong> is disposable, cheap, and appropriate for bounded tasks where the agent needs broad freedom inside a small blast radius.</li>
+<li>A <strong>human-in-the-loop sandbox</strong> supports interactive work: safe operations proceed automatically, while boundary crossings suspend for approval.</li>
+<li>A <strong>sealed virtual machine</strong> isolates higher-risk workloads behind a stronger kernel and network boundary, at greater startup and operational cost.</li>
+</ul>
+<p>The right question is not &quot;is it sandboxed?&quot; but &quot;which resources remain reachable, which state survives reset, and what authority can cross the boundary?&quot; Resettable compute does not neutralize a credential mounted inside it, a poisoned memory written outside it, or an egress path that can transmit private data.</p>
 <h3>5.4 Filesystem and Network Isolation Must Be Paired</h3>
 <p>Claude Code&#39;s sandbox enforces two boundaries simultaneously, and Anthropic argues both are required. Filesystem isolation prevents a prompt-injected agent from modifying sensitive files; network isolation prevents it from leaking data or downloading malware. Without network isolation, a compromised agent could exfiltrate SSH keys; without filesystem isolation, a compromised agent could escape the sandbox and reach the network (<a href="https://www.anthropic.com/engineering/claude-code-sandboxing">Anthropic — Beyond Permission Prompts</a>).</p>
 <p>The implementation builds on OS-level primitives — Linux bubblewrap and macOS seatbelt — and covers not just direct Claude Code interactions but any subprocess. Network access is funneled through a Unix domain socket to a proxy that enforces domain restrictions and handles user confirmation for newly requested domains. The runtime is open-sourced.</p>
 <p>Claude Code on the web extends this to a cloud sandbox where sensitive credentials (git credentials, signing keys) are never inside the sandbox with the agent at all. A custom proxy handles git interactions, attaching scoped credentials only after validating that the operation is permitted (e.g., pushing only to the configured branch).</p>
+<p>An egress allowlist should be understood as a <strong>capability grant</strong>, not as a harmless list of destinations. Allowing a package registry permits downloading executable code; allowing a source host may permit publishing content; allowing a general web endpoint can complete the exfiltration leg of the lethal trifecta. Policies should therefore bind destination, protocol, operation, identity, and task—not domain alone—and log which rule authorized each connection.</p>
+<p>Containment must also begin <strong>before trust is established</strong>. Opening a repository can trigger configuration loading, dependency discovery, language servers, hooks, or local listeners before a user sees a trust dialog. Treat project-open and config-load paths as hostile: parse without executing where possible, disable automatic hooks and listeners, and delay credentials and egress until the workspace has been explicitly trusted (<a href="https://www.anthropic.com/engineering/how-we-contain-claude">Anthropic — How We Contain Claude</a>).</p>
 <h3>5.5 Governance: Identity, Policy, and Audit</h3>
 <p>Sandbox boundaries are necessary but not sufficient. The Governance layer asks who the agent is acting for, what authority it has, how authority changes with task context, and what evidence remains after the action (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview — Agent Harness Engineering: A Survey</a>).</p>
 <p>Three design moves matter in production:</p>
@@ -4084,10 +4116,19 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <h3>5.9 Timing: Keep Quality Left</h3>
 <p>Continuous integration teaches that the earlier you find issues the cheaper they are to fix, and the same holds for harness design. Fast computational sensors (linters, fast tests) should run before commit; expensive computational and inferential sensors (mutation testing, broader code review) run post-integration in the pipeline; continuous-drift sensors (dead-code detection, dependency scanners, log-anomaly judges) run outside the change lifecycle altogether (<a href="https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html">Thoughtworks — Harness Engineering</a>).</p>
 <p>The OpenAI Codex team&#39;s harness, as Böckeler notes, follows the same shape: layered architecture enforced by custom linters and structural tests, plus recurring &quot;garbage collection&quot; passes that scan for drift and have agents suggest fixes.</p>
-<h3>5.10 Harnessability and Ambient Affordances</h3>
+<h3>5.10 Harnessability, Agentic Readiness, and Ambient Affordances</h3>
 <p>Not every codebase is equally amenable to harnessing. A strongly-typed language brings type-checking sensors for free; clear module boundaries afford architectural constraint rules; opinionated frameworks like Spring abstract away details the agent does not have to worry about (<a href="https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html">Thoughtworks — Harness Engineering</a>).</p>
 <p>A term Böckeler credits to Ned Letcher, <em>ambient affordances</em>, captures this: properties of the environment itself that make it legible, navigable, and tractable to agents (<a href="https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html">Thoughtworks — Harness Engineering</a>). Greenfield teams can engineer affordances in from day one; legacy teams face the inverse — the harness is most needed where it is hardest to build.</p>
 <p>Anticipating the future, Böckeler suggests <em>harness templates</em> — bundled guides and sensors per service topology (CRUD service in JVM, event processor in Go, dashboard in Node) — that ride along with existing service templates. Böckeler invokes Ashby&#39;s Law of Requisite Variety to make the case formally — a regulator must have at least as much variety as the system it governs — so committing to a constrained topology is itself a variety-reduction move that makes a comprehensive harness more achievable (<a href="https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html">Thoughtworks — Harness Engineering</a>).</p>
+<p>The broader production term is <strong>agentic readiness</strong>: can an autonomous caller understand, invoke, observe, retry, and—when necessary—undo the system safely? A service can be easy for a human developer yet hostile to an agent if its APIs have hidden side effects, ambiguous errors, or no stable operation identifiers. Readiness improves when:</p>
+<ul>
+<li>mutations accept idempotency keys and expose operation status;</li>
+<li>APIs distinguish read, propose, commit, and compensate rather than hiding them behind one opaque call;</li>
+<li>machine identity and delegated authorization are first-class;</li>
+<li>errors state what failed, whether a retry is safe, and what evidence would prove recovery;</li>
+<li>state changes are observable, attributable, and reversible through compensating actions where literal undo is impossible.</li>
+</ul>
+<p>These are ambient affordances for autonomous software. They reduce the amount of probabilistic reasoning the model must do and give the control plane in Chapter 18 stable surfaces for policy, lifecycle, and audit.</p>
 <h3>5.11 Operational Safety: Circuit Breakers, Kill Switches, Budgets, and Canaries</h3>
 <p>Sandboxes, governance, and hooks (§5.3–5.6) bound what an agent <em>may</em> do. A second family of controls bounds what happens when the agent or its tools <em>misbehave at runtime</em>. These are borrowed almost unchanged from distributed-systems reliability and security operations, and they belong in the harness because a steered or looping agent cannot be trusted to apply them to itself.</p>
 <ul>
@@ -4123,11 +4164,14 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Sandboxing reduces permission prompts by 84%</strong> while maintaining safety — structural boundaries beat approval dialogs.</li>
 <li><strong>Sandboxing has three jobs</strong>: security, reproducibility, and liveness.</li>
 <li><strong>Filesystem and network isolation must be paired</strong>: each addresses a different attack vector, and either alone is insufficient.</li>
+<li><strong>Containment is a matrix, not one sandbox</strong>: cover misuse, model misbehavior, and external attack across model, environment, and content-boundary defenses; choose ephemeral containers, interactive sandboxes, or sealed VMs by risk.</li>
+<li><strong>Egress is authority</strong>: an allowed destination grants a real capability, so bind network access to operation, identity, and task—and establish no ambient trust while a project is merely being opened.</li>
 <li><strong>Governance is more than approvals</strong>: identity, scoped credentials, policy checks, provenance, and audit trails must compose across tools and sessions.</li>
 <li><strong>Hooks and middleware are programmatic enforcement</strong>: they run regardless of model memory, making them more reliable than prompt-only constraints.</li>
 <li><strong>Feedforward and feedback are both required</strong>: guides without sensors have no learning loop; sensors without guides react but don&#39;t prevent.</li>
 <li><strong>Three categories of harness coverage</strong>: maintainability (well-tooled), architecture fitness (achievable), and behavior (the unsolved problem).</li>
 <li><strong>Ambient affordances matter</strong>: strongly-typed languages and opinionated frameworks make harnessing easier from day one.</li>
+<li><strong>Agentic readiness is an API property</strong>: idempotency, explicit operation status, machine identity, retry semantics, observable state, and compensating actions make systems safer for autonomous callers.</li>
 <li><strong>Runtime safety needs operational controls too</strong>: circuit breakers, kill switches, action/cost budgets, and canary tokens bound misbehavior when it happens — they live in the harness because a steered agent cannot be trusted to stop itself.</li>
 </ul>
 <h2>Further Reading</h2>
@@ -4139,6 +4183,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><em>Agent Harness Engineering: A Survey</em>, OpenReview / TMLR submission, 2026. <a href="https://openreview.net/pdf?id=3hXEPbG0dh">https://openreview.net/pdf?id=3hXEPbG0dh</a></li>
 <li>Martin Fowler, <em>CircuitBreaker</em>, martinfowler.com, Mar 2014. <a href="https://martinfowler.com/bliki/CircuitBreaker.html">https://martinfowler.com/bliki/CircuitBreaker.html</a></li>
 <li>Thinkst, <em>Canarytokens</em> (free tripwire tokens). <a href="https://canarytokens.org/">https://canarytokens.org/</a></li>
+<li>Anthropic Safeguards Research Team, <em>How We Contain Claude</em>, Anthropic, May 2026. <a href="https://www.anthropic.com/engineering/how-we-contain-claude">https://www.anthropic.com/engineering/how-we-contain-claude</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>Chapter 6: Agentic Workflow Patterns</h1>
@@ -4285,6 +4330,13 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>If a deployment changes while agents are running, the platform can keep old and new worker versions alive during a gradual handoff.</li>
 </ul>
 <p>Seen this way, context reset is only one recovery mechanism. A production long-running harness also needs environment reset, credential isolation, resumable event logs, and migration rules for in-flight sessions.</p>
+<p>Three lifecycles should remain distinct even when a product presents them as one &quot;agent&quot;:</p>
+<ul>
+<li>the <strong>session</strong> is the durable conversation and event history;</li>
+<li>the <strong>harness run</strong> is one execution of a model, policy, and orchestration configuration;</li>
+<li>the <strong>sandbox</strong> is a replaceable compute environment with its own image, filesystem, and network lease.</li>
+</ul>
+<p>Conflating them makes recovery unsafe. Replacing a crashed sandbox should not erase the session; resetting model context should not silently preserve compromised process state; upgrading a harness should not rewrite the provenance of earlier events. Store explicit identifiers and versions for all three so the control plane can resume, migrate, or revoke each independently.</p>
 <h3>7.8 Multi-Agent Research Systems</h3>
 <p>For tasks with parallel structure — research with many independent threads to explore — the orchestrator-worker pattern from chapter 6 applies. Anthropic&#39;s research feature uses Claude Opus 4 as the lead agent and Claude Sonnet 4 as sub-agents (<a href="https://www.anthropic.com/engineering/multi-agent-research-system">Anthropic — How We Built Our Multi-Agent Research System</a>). The lead analyzes the query, develops a strategy, and spawns parallel sub-agents that each search and return condensed findings; the lead synthesizes; a citation agent then attributes claims to sources.</p>
 <p>Eight prompt-engineering principles surface from their experience:</p>
@@ -4311,9 +4363,11 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p>For an agent, the unit of durability is the agent&#39;s state — its context, its tool-call results, and its position in the plan. LangGraph exposes this as a <em>checkpointer</em> that saves graph state at each super-step, enabling resume-after-failure, human-in-the-loop pauses, and even time-travel to a prior state, with selectable durability modes trading performance against how much work a crash can lose (<a href="https://docs.langchain.com/oss/python/langgraph/durable-execution">LangChain — Durable Execution</a>).</p>
 <p>The design tension is <em>determinism vs. the model</em>. Replay-based durability assumes a step can be re-executed to reproduce its effect, but model calls and tool results are non-deterministic — re-running them would diverge from the recorded history. The standard resolution is to treat model and tool calls as <em>side-effecting activities</em> whose results are recorded once and then replayed from the log rather than recomputed. This is the same &quot;record the observation, don&#39;t recompute it&quot; logic behind ReWOO (§6.6) and context resets (§7.6), now made an infrastructure guarantee.</p>
 <p>Seen this way, durable execution is what turns the &quot;clean exit, resumable from artifacts&quot; discipline of §7.3 from a convention the agent must remember into a property the platform enforces. It also bounds cost — a crash mid-task does not waste all the tokens spent before it — and it is the substrate for the rollback that Chapter 17 requires when a harness change misbehaves in production.</p>
+<p>Google&#39;s Agent Executor makes several implications concrete at distributed scale (<a href="https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/">Google Cloud — Agent Executor</a>). State is recovered from an event log and snapshots; connection loss does not imply task loss; and a <strong>single-writer rule</strong> protects each session from concurrent mutation while still allowing the platform to distribute many sessions. The runtime can also branch a trajectory from a prior checkpoint, which is useful for human intervention, counterfactual debugging, and trying a different model or policy without corrupting the original lineage.</p>
+<p>These features expose a general rule: durability is not merely retry. A robust runtime needs idempotent activities or recorded results, ownership leases, optimistic or single-writer concurrency control, reconnection semantics, and lineage for every branch. Without those, &quot;resume&quot; can duplicate side effects, and parallel workers can turn one coherent history into several incompatible ones.</p>
 <h3>7.11 How Long Is &quot;Long&quot;? The Time-Horizon Metric</h3>
 <p>This chapter is about tasks that exceed a single context window, but &quot;long&quot; deserves a measure. METR proposes one: a model&#39;s <em>time horizon</em> is the length of task — measured by how long it takes a skilled human — that the model can complete with 50% reliability. A model with a &quot;50-minute time horizon&quot; succeeds, half the time, on tasks that take a human about fifty minutes. Measured across frontier models from 2019 to 2025, this horizon has roughly <em>doubled every seven months</em> (<a href="https://arxiv.org/abs/2503.14499">Kwa et al. — Measuring AI Ability to Complete Long Tasks</a>; <a href="https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/">METR</a>).</p>
-<p>Two implications matter for this chapter. First, the horizon is a property of the <em>model plus its harness</em>, not the model alone: the handoff, checkpoint, and self-verification machinery here is how a harness stretches the effective horizon beyond what the raw model sustains solo — the model-harness coupling of Chapter 12, seen from the capability side. Second, the metric reframes when this machinery is worth building. As the intrinsic horizon grows, some scaffolding becomes unnecessary — Anthropic dropped context resets and, later, sprint decomposition as models improved (§7.6, Ch 12) — but the frontier of <em>interesting</em> long-horizon tasks moves out with it. The harness work relocates to harder problems rather than disappearing (Ch 18).</p>
+<p>Two implications matter for this chapter. First, the horizon is a property of the <em>model plus its harness</em>, not the model alone: the handoff, checkpoint, and self-verification machinery here is how a harness stretches the effective horizon beyond what the raw model sustains solo — the model-harness coupling of Chapter 12, seen from the capability side. Second, the metric reframes when this machinery is worth building. As the intrinsic horizon grows, some scaffolding becomes unnecessary — Anthropic dropped context resets and, later, sprint decomposition as models improved (§7.6, Ch 12) — but the frontier of <em>interesting</em> long-horizon tasks moves out with it. The harness work relocates to harder problems rather than disappearing (Ch 19).</p>
 <hr>
 <h2>Diagram: Initializer Agent → Feature-List → Coding Agent Sessions</h2>
 <figure class="mermaid-fig"><pre class="mermaid">sequenceDiagram
@@ -4351,8 +4405,10 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Sprint contracts coordinate multi-agent work</strong>: file-based communication with agreed success criteria before each build sprint.</li>
 <li><strong>Context resets cure &quot;context anxiety&quot;</strong>: sometimes a fresh start with a structured handoff outperforms compaction.</li>
 <li><strong>Managed agents decouple brain, hands, and state</strong>: model context, sandbox execution, credentials, and event logs should fail and recover independently.</li>
+<li><strong>Session, harness run, and sandbox are separate lifecycles</strong>: identify and version them independently so a reset, migration, or revocation affects only the intended layer.</li>
 <li><strong>Self-verification is the headline lever</strong>: forcing a verification pass before exit improved scores by 13.7 points with no model change.</li>
 <li><strong>Durable execution makes resumability an infrastructure guarantee</strong>: persisting each step to a log lets a fresh agent resume after a crash, context exhaustion, or deploy — treat non-deterministic model/tool calls as recorded side effects, not steps to recompute.</li>
+<li><strong>Distributed durability needs ownership and lineage</strong>: single-writer session state, reconnection, snapshots, idempotent activities, and trajectory branching turn retry into safe recovery.</li>
 <li><strong>The time horizon measures &quot;how long&quot;</strong>: METR&#39;s task-completion horizon (the human-task-length a model clears 50% of the time) has doubled roughly every seven months — and it is a model-plus-harness property, which is why this chapter&#39;s machinery extends it.</li>
 </ul>
 <h2>Further Reading</h2>
@@ -4367,6 +4423,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Temporal, <em>Durable Execution Meets AI: Why Temporal Is the Perfect Foundation for AI</em>, 2025. <a href="https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai">https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai</a></li>
 <li>LangChain, <em>Durable Execution</em> (LangGraph documentation), 2025. <a href="https://docs.langchain.com/oss/python/langgraph/durable-execution">https://docs.langchain.com/oss/python/langgraph/durable-execution</a></li>
 <li>Thomas Kwa et al., <em>Measuring AI Ability to Complete Long Tasks</em>, METR / arXiv, Mar 2025. <a href="https://arxiv.org/abs/2503.14499">https://arxiv.org/abs/2503.14499</a></li>
+<li>Google Cloud, <em>Agent Executor: Google&#39;s Distributed Agent Runtime</em>, 2026. <a href="https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/">https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>Chapter 8: Loop Engineering</h1>
@@ -4439,6 +4496,9 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Auto-merge</strong> — reserved for low-risk classes only.</li>
 </ol>
 <p>The discipline exists because loop engineering does not remove the hard problem; it relocates it. Speed compounds both wins and mistakes: a loop running unattended is also a loop making mistakes unattended, and it can ship code faster than a human reads it, accumulating <em>comprehension debt</em> — a codebase whose owners no longer fully understand it (<a href="https://thenewstack.io/loop-engineering/">The New Stack — Loop Engineering</a>). Verification and accountability remain human, at two irreducible endpoints: the <em>intent</em> that specifies what &quot;good&quot; means, and the <em>ownership</em> of what ships (<a href="https://agentfactory.panaversity.org/docs/loop-engineering-crash-course">Loop Engineering Crash Course</a>). The corollary is a scoping rule: reach for a structured loop only for work that is repeated, unattended, scheduled, and consequential. For anything you are watching interactively, the check is your own eyes, and a plain conversation is the better tool — over-engineering a loop for a one-off is its own failure mode.</p>
+<h3>8.9 Beyond the Loop: Control and Evaluator Integrity</h3>
+<p>Loop engineering remains the right unit for one autonomous task, but a production system eventually runs many loops under many identities, versions, budgets, and policies. At that point the next design object is the <strong>control plane</strong>: the system that registers agents, grants authority, schedules and revokes runs, records lineage, and governs a fleet. Chapter 18 develops that layer.</p>
+<p>The verifier also needs governance of its own. A separate checker can still be biased by knowledge of downstream consequences, share the maker&#39;s blind spots, or be optimized against. Chapter 10 therefore treats <strong>evaluator integrity</strong>—blind judgment, deterministic evidence, calibration, abstention, and audit—as distinct from merely having a verifier. An engineered loop is only closed when the check itself is trustworthy.</p>
 <hr>
 <h2>Diagram: The Engineered Loop</h2>
 <figure class="mermaid-fig"><pre class="mermaid">flowchart TB
@@ -4466,6 +4526,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Stop rules are mandatory</strong>: a max iteration count, no-progress detection, and a budget ceiling — because no human is present to notice a runaway.</li>
 <li><strong>The Ralph lineage is the ancestry</strong>: ReAct → AutoGPT → clean-context reset → verifiable completion → orchestration; memory lives on disk and state lives in an event log.</li>
 <li><strong>Climb the maturity ladder slowly</strong>: triage before draft before auto-merge, and only for work that is repeated, unattended, and consequential — unattended speed compounds mistakes and comprehension debt.</li>
+<li><strong>The next unit after one loop is the fleet</strong>: identity, lifecycle, policy, lineage, and revocation belong to a control plane, while verifier integrity belongs to the evaluation system.</li>
 </ul>
 <h2>Further Reading</h2>
 <ul>
@@ -4502,6 +4563,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p>The OpenReview survey describes the ecosystem moving from agent frameworks toward agent platforms (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview — Agent Harness Engineering: A Survey</a>). A framework packages local abstractions — agents, tools, memory stores, and loops. A platform adds durable workspaces, managed sandboxes, identity, billing, observability, evaluation, governance, and human handoff across many runs and users.</p>
 <p>This does not replace the twelve factors; it raises their scope. &quot;Launch / pause / resume&quot; becomes a platform API. &quot;Unify execution state and business state&quot; becomes event-log storage with tenancy and migration semantics. &quot;Contact humans with tool calls&quot; becomes a handoff interface with audit and permission state. &quot;Own your control flow&quot; becomes explicit decisions about which checks run synchronously, which run offline, and which failures justify costly recovery.</p>
 <p>The platform boundary also changes responsibility. A local agent can get away with ad hoc state files; a shared platform needs state ownership, retention policy, billing attribution, credential scoping, and replayable audit trails. The harness is no longer just the thing around one model call. It becomes the control system around many agents, many environments, and many human stakeholders.</p>
+<p>That control system is not another agent framework. It is the <strong>agent control plane</strong> developed in Chapter 18: a registry that says which agents and capabilities exist; an identity layer that says who is acting for whom; policy enforcement that decides what a run may do; and lifecycle, lineage, and audit services that operate across sessions. The twelve factors remain the design discipline inside each agent program; the control plane makes those programs governable as a fleet.</p>
 <hr>
 <h2>Diagram: The 12 Factors Grouped by Theme</h2>
 <figure class="mermaid-fig"><pre class="mermaid">mindmap
@@ -4529,6 +4591,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Own your prompts</strong>: frameworks hide prompts; prompts should be first-class code under version control.</li>
 <li><strong>Stateless reducer pattern</strong>: treating the agent as a fold over an event log makes it serializable, replay-able, and testable.</li>
 <li><strong>Platform scope changes the factors</strong>: lifecycle, state, identity, billing, observability, and human handoff become shared infrastructure concerns.</li>
+<li><strong>A fleet needs a control plane</strong>: the twelve factors shape each agent program; registry, identity, policy, lifecycle, and audit govern the collection.</li>
 <li><strong>Small, focused agents</strong>: 3–20 steps per agent; performance degrades with context length.</li>
 <li><strong>Contact humans with tool calls</strong>: structured <code>request_human_input</code> tools beat relying on the model&#39;s unstructured text choices.</li>
 <li><strong>Compact errors, don&#39;t hide them</strong>: visible error traces enable self-healing; a consecutive-error counter provides a safety escalation path.</li>
@@ -4565,14 +4628,26 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Human</strong>: SME review, crowdsourced judgment, A/B testing. Best for calibration and subjective judgments — but expensive, slow, and still vulnerable to inconsistency if rubrics are weak.</li>
 </ul>
 <p>Anthropic recommends deterministic graders where possible, model-based where necessary, human for periodic calibration. They also caution against grading the <em>path</em> the agent took rather than what it produced — agents regularly find valid approaches the eval designer did not anticipate, and grading paths makes the eval brittle.</p>
-<h3>10.4 Capability vs. Regression Evals</h3>
+<h3>10.4 Who Verifies the Verifier? Evaluator Integrity</h3>
+<p>Separating maker from checker removes one conflict, but it does not make the checker neutral. Anthropic&#39;s 2026 work on <strong>motivated mislabeling</strong> found that model evaluators can change labels when they know how the judgment will be used—for example, when a negative label would trigger deletion, punishment, or another downstream consequence. Tighter rubrics and an abstain option reduced but did not eliminate the effect (<a href="https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/">Anthropic — Agentic Misalignment: Summer 2026 Update</a>).</p>
+<p>This matters far beyond safety research. A judge that knows which candidate is the incumbent, which team produced it, or whether failure will block a deployment may rationalize toward the consequence. A generator may also learn to optimize superficial features that please a known judge. <strong>Evaluator integrity</strong> is therefore a harness property with its own controls:</p>
+<ul>
+<li>use deterministic outcome checks first and preserve the underlying evidence;</li>
+<li>blind model judges to candidate identity, deployment consequence, and other irrelevant metadata;</li>
+<li>permit &quot;insufficient evidence&quot; and route consequential ambiguity to humans;</li>
+<li>calibrate judges against expert-labeled sets and run <strong>meta-evals</strong> that test the evaluator for bias, leakage, and reward hacking;</li>
+<li>use independent judges or ensembles for high-stakes semantic decisions, but do not treat agreement among correlated models as proof;</li>
+<li>version rubrics, judge models, prompts, and evidence, and retain an immutable audit trail so a verdict can be reproduced or challenged.</li>
+</ul>
+<p>OpenAI&#39;s guidance for trustworthy third-party evaluations makes the institutional version of the same point: independence, methodological transparency, representative tasks, conflict disclosure, and reproducible artifacts are part of evaluation quality, not paperwork added after the score (<a href="https://openai.com/index/trustworthy-third-party-evaluations-foundations/">OpenAI — Trustworthy Third-Party Evaluations</a>). The verifier is part of the system under test.</p>
+<h3>10.5 Capability vs. Regression Evals</h3>
 <p>Two distinct purposes (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic — Demystifying Evals for AI Agents</a>):</p>
 <ul>
 <li><strong>Capability evals</strong> ask &quot;what can this agent do well?&quot; They start at low pass rates, targeting tasks the agent struggles with, giving teams a hill to climb.</li>
 <li><strong>Regression evals</strong> ask &quot;does the agent still handle what it used to?&quot; They should run near 100%, protecting against backsliding.</li>
 </ul>
 <p>After an agent matures, capability evals with high pass rates <em>graduate</em> into the regression suite. Tasks that once measured &quot;can we do this at all?&quot; then measure &quot;can we still do this reliably?&quot;</p>
-<h3>10.5 Pass@k vs. Pass^k</h3>
+<h3>10.6 Pass@k vs. Pass^k</h3>
 <p>For agents whose behavior varies between runs, two metrics with opposite slopes (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic — Demystifying Evals for AI Agents</a>):</p>
 <ul>
 <li><strong>pass@k</strong>: probability of at least one correct solution in k attempts. Rises as k increases — more shots on goal means higher odds of success.</li>
@@ -4580,7 +4655,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 </ul>
 <p>These metrics exist because agent runs are stochastic. The same prompt, model, and harness can produce different tool orders, search paths, or final answers across trials. A single run is therefore weak evidence; repeated trials tell you whether you have occasional success, consistent reliability, or a brittle lucky path.</p>
 <p>A 75% per-trial success rate gives pass^3 of about 42% and pass^10 about 5.6%, while pass@10 is about 99.9999%. The right metric depends on the product: one success matters when the system can generate multiple candidates and select or show the best one; every success matters for a customer-facing agent that must behave reliably on repeated runs.</p>
-<h3>10.6 The Eight-Step Roadmap</h3>
+<h3>10.7 The Eight-Step Roadmap</h3>
 <p>Anthropic&#39;s distilled roadmap to going from no evals to evals you trust (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic — Demystifying Evals for AI Agents</a>):</p>
 <ol start="0">
 <li><strong>Start early</strong> — 20–50 tasks from real failures.</li>
@@ -4593,7 +4668,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Monitor for capability eval saturation</strong> — an eval at 100% provides no improvement signal. SWE-bench Verified started at 30% and is now nearing 80%, with deceptive small score increases now hiding large capability gains.</li>
 <li><strong>Maintain through open contribution</strong> — domain experts and product teams should contribute eval tasks; product managers, customer success, salespeople can use Claude Code to file evals as PRs.</li>
 </ol>
-<h3>10.7 What Real Evals Look Like for Different Agent Types</h3>
+<h3>10.8 What Real Evals Look Like for Different Agent Types</h3>
 <p>These canonical examples per agent type follow Anthropic&#39;s survey (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic — Demystifying Evals for AI Agents</a>):</p>
 <ul>
 <li><strong>Coding agents</strong>: deterministic graders are natural — does the code run, do the tests pass? SWE-bench Verified runs the test suite from a fixed GitHub issue; Terminal-Bench tests end-to-end tasks like building a Linux kernel from source.</li>
@@ -4601,13 +4676,13 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Research agents</strong>: groundedness checks (claims supported by sources), coverage checks (key facts included), source-quality checks (authoritative sources, not first-retrieved). Require frequent calibration against expert humans.</li>
 <li><strong>Computer-use agents</strong>: real or sandboxed environment, URL/page-state checks, backend state verification (was an order actually placed, or did just a confirmation page appear?). WebArena and OSWorld are the canonical examples.</li>
 </ul>
-<h3>10.8 Verification Feedback for Coding Agents</h3>
+<h3>10.9 Verification Feedback for Coding Agents</h3>
 <p>For coding agents, the most useful graders often double as repair signals. A failing check that says only &quot;test failed&quot; confirms that the outcome is bad but gives the agent little traction. A better failure message names the violated path, the expected state, the observed state, and the next place to inspect. OpenAI&#39;s Codex harness guidance emphasizes turning recurring review comments and architectural rules into repository-local checks so agents receive specific feedback while they are still able to fix the work (<a href="https://openai.com/index/harness-engineering/">OpenAI — Harness Engineering</a>).</p>
-<p>End-to-end verification should also be treated as a done gate, not a ceremonial final step. Anthropic&#39;s long-running application harness required the coding agent to start the app and verify the feature through a browser-driven path because agents were otherwise prone to declaring features complete after local tests or visual inspection while the actual user flow remained broken (<a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">Anthropic — Effective Harnesses for Long-Running Agents</a>). The general rule from section 9.2 applies directly: grade the environment state, not the agent&#39;s confidence.</p>
-<h3>10.9 Reading Transcripts Is the Skill</h3>
+<p>End-to-end verification should also be treated as a done gate, not a ceremonial final step. Anthropic&#39;s long-running application harness required the coding agent to start the app and verify the feature through a browser-driven path because agents were otherwise prone to declaring features complete after local tests or visual inspection while the actual user flow remained broken (<a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">Anthropic — Effective Harnesses for Long-Running Agents</a>). The general rule from §10.2 applies directly: grade the environment state, not the agent&#39;s confidence.</p>
+<h3>10.10 Reading Transcripts Is the Skill</h3>
 <p>A repeated theme: do not take eval scores at face value until someone reads the transcripts. Anthropic recounts a case where Opus 4.5 initially scored 42% on CORE-Bench, but investigation revealed rigid grading penalizing &quot;96.12&quot; when the expected answer was &quot;96.124991…&quot;, ambiguous task specs, and stochastic tasks that were impossible to reproduce exactly. After fixing the grading bugs and running with a less constrained scaffold, the score jumped to 95% (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic — Demystifying Evals for AI Agents</a>). Similarly, METR found tasks in their time-horizon benchmark that asked agents to optimize to a stated score threshold, but where the grading required exceeding the threshold — penalizing models that followed instructions and rewarding ones that ignored them (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic — Demystifying Evals for AI Agents</a>).</p>
 <p>The general rule: failures should seem fair. When scores plateau, the question to ask is whether the eval is measuring what it should.</p>
-<h3>10.10 Evals Are One Layer of Many</h3>
+<h3>10.11 Evals Are One Layer of Many</h3>
 <p>Automated evals are not a complete picture. Anthropic compares the situation to the Swiss-cheese model from safety engineering: no single layer catches every issue (<a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic — Demystifying Evals for AI Agents</a>). The complete stack:</p>
 <ul>
 <li><strong>Automated evals</strong> for fast iteration, regression detection, model upgrades.</li>
@@ -4617,7 +4692,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Manual transcript review</strong> for building intuition about failure modes.</li>
 <li><strong>Systematic human studies</strong> for calibrating LLM graders or grading subjective output.</li>
 </ul>
-<h3>10.11 Readiness Validation and Failure Attribution</h3>
+<h3>10.12 Readiness Validation and Failure Attribution</h3>
 <p>The OpenReview survey separates the <strong>Verification</strong> layer from generic evaluation because harnesses need more than scorekeeping. Verification asks whether a deployed agent-harness combination is ready for a specific task distribution, under a specific environment, budget, and governance regime (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview — Agent Harness Engineering: A Survey</a>).</p>
 <p>That framing adds two practical requirements to ordinary eval suites:</p>
 <ul>
@@ -4656,6 +4731,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Outcome ≠ response</strong>: measure the environmental state (database row, URL, file) not just what the agent said.</li>
 <li><strong>Repair-oriented feedback improves self-correction</strong>: checks should tell the agent what failed, where, and what evidence would count as fixed.</li>
 <li><strong>Three grader types form a pyramid</strong>: code-based for speed, model-based for nuance, human for calibration.</li>
+<li><strong>The verifier is part of the system under test</strong>: blind judges to irrelevant consequences, preserve evidence, calibrate with meta-evals, allow abstention, and retain reproducible audit artifacts.</li>
 <li><strong>pass@k and pass^k serve different products</strong>: multi-attempt generation can use pass@k; repeated customer-facing execution needs pass^k-style reliability.</li>
 <li><strong>Reading transcripts is the skill</strong>: scores plateau for two reasons — agent regression or eval unfairness — only transcripts distinguish them.</li>
 <li><strong>Readiness is configuration-specific</strong>: eval results should travel with the harness configuration that produced them.</li>
@@ -4670,6 +4746,8 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>OpenAI, <em>Harness Engineering: Leveraging Codex in an Agent-First World</em>, Feb 2026. <a href="https://openai.com/index/harness-engineering/">https://openai.com/index/harness-engineering/</a></li>
 <li>Justin Young et al., <em>Effective Harnesses for Long-Running Agents</em>, Anthropic, Nov 2025. <a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents</a></li>
 <li><em>Agent Harness Engineering: A Survey</em>, OpenReview / TMLR submission, 2026. <a href="https://openreview.net/pdf?id=3hXEPbG0dh">https://openreview.net/pdf?id=3hXEPbG0dh</a></li>
+<li>Anthropic Safeguards Research Team, <em>Agentic Misalignment: Summer 2026 Update</em>, 2026. <a href="https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/">https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/</a></li>
+<li>OpenAI, <em>Trustworthy Third-Party Evaluations: Foundations</em>, 2026. <a href="https://openai.com/index/trustworthy-third-party-evaluations-foundations/">https://openai.com/index/trustworthy-third-party-evaluations-foundations/</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>Chapter 11: Infrastructure Noise</h1>
@@ -4779,17 +4857,29 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Add the case to the regression suite, with the original trace as evidence.</li>
 </ol>
 <p>This turns traces into a source of eval tasks. It also prevents teams from optimizing against synthetic benchmark tasks while missing the failures their own users generate. The boundary with governance matters: trace-to-eval pipelines must preserve privacy, provenance, and permission metadata, or they will produce tests that are useful technically but unsafe operationally.</p>
-<h3>12.4 Stress-Test Load-Bearing Components</h3>
+<h3>12.4 From Practitioner Correction to a Bounded Improvement Task</h3>
+<p>OpenAI&#39;s tax-agent case study closes the loop one step further. Expert corrections and production traces did not directly rewrite the deployed agent. They became reviewed findings, tailored evals, and bounded Codex tasks that could be verified before release (<a href="https://openai.com/index/building-self-improving-tax-agents-with-codex/">OpenAI — Building Self-Improving Tax Agents with Codex</a>).</p>
+<p>A safe improvement pipeline has explicit custody at every step:</p>
+<ol>
+<li>Capture a practitioner correction with the trace and outcome that motivated it.</li>
+<li>Redact sensitive data, review the finding, and group duplicates into a stable failure class.</li>
+<li>Convert the class into a reproducible regression eval with immutable evidence.</li>
+<li>Give a coding agent one bounded change task rather than authority to modify itself freely.</li>
+<li>Gate the patch on the targeted eval, the wider regression suite, security checks, cost, and latency.</li>
+<li>Canary the version in production; monitor the original failure signal; roll back if it worsens.</li>
+</ol>
+<p>This is <strong>controlled self-improvement</strong>, not uncontrolled self-modification. The deployed agent does not edit its own prompts, tools, memory policy, or evaluator in place. An external improvement loop proposes a versioned change; independent evidence and release controls decide whether it advances. Evaluator integrity (§10.4) matters twice: the finding must be real, and the gate must not be biased toward shipping the proposed fix.</p>
+<h3>12.5 Stress-Test Load-Bearing Components</h3>
 <p>Anthropic&#39;s harness-design follow-up adds a complementary discipline (<a href="https://www.anthropic.com/engineering/harness-design-long-running-apps">Anthropic — Harness Design for Long-Running Application Development</a>). Every component in a harness encodes an assumption about what the model cannot do on its own. As models improve, those assumptions go stale. The recommended approach: remove one component at a time, run the eval, observe.</p>
 <p>When Opus 4.6 launched with stronger long-context retrieval and better long-horizon coding behavior, Anthropic was able to remove the sprint construct in one version of the harness. The generator ran coherently for over two hours without sprint decomposition. The evaluator, which had been more load-bearing on earlier models, became more situational on 4.6 — useful for tasks at the edge of what the generator could do solo, unnecessary overhead within that boundary. The general principle the team articulates: &quot;the evaluator is not a fixed yes-or-no decision. It is worth the cost when the task sits beyond what the current model does reliably solo.&quot;</p>
-<h3>12.5 Model–Harness Co-Evolution</h3>
+<h3>12.6 Model–Harness Co-Evolution</h3>
 <p>Today&#39;s frontier coding models are post-trained with their harnesses in the loop (<a href="https://blog.langchain.com/the-anatomy-of-an-agent-harness/">LangChain — The Anatomy of an Agent Harness</a>). Useful primitives are discovered, added to the harness, and used in training the next generation, which becomes more capable within that harness. This creates a feedback loop with side effects: changing harness logic can produce worse model performance even when the change should be neutral.</p>
 <p>The Codex <code>apply_patch</code> tool is the canonical example. Codex models are post-trained on this specific patching format, and OpenCode — built as an open-source alternative to Claude Code — had to add an <code>apply_patch</code> tool specifically for GPT/Codex models to mimic the Codex harness; Claude and other models still use normal <code>edit</code> and <code>write</code> tools (<a href="https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents">HumanLayer — Skill Issue: Harness Engineering for Coding Agents</a>).</p>
-<h3>12.6 But the Best Harness Is Not Always the One the Model Was Trained In</h3>
+<h3>12.7 But the Best Harness Is Not Always the One the Model Was Trained In</h3>
 <p>The corollary, and the practical license to iterate: the harness a model was trained in is often <em>not</em> optimal for a given task. Terminal-Bench 2.0 has been a recurring data point in the practitioner discussion — HumanLayer cites Opus 4.6 in Claude Code at position 33, while the same model in a different harness places at position 5, with about four positions of leaderboard noise (<a href="https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents">HumanLayer — Skill Issue: Harness Engineering for Coding Agents</a>; <a href="https://blog.langchain.com/the-anatomy-of-an-agent-harness/">LangChain — The Anatomy of an Agent Harness</a>). Treat the exact ranks as leaderboard snapshots, not timeless model facts.</p>
 <p>LangChain&#39;s case study reaches the same conclusion experimentally. They ran a Claude Opus 4.6 test on an early version of their harness that scored 59.6%, competitive but worse than their tuned Codex configuration. The principles generalized — context preparation, verification — but a few rounds of harness iteration tailored to the model would have closed the gap (<a href="https://blog.langchain.com/improving-deep-agents-with-harness-engineering/">LangChain — Improving Deep Agents with Harness Engineering</a>).</p>
 <p>The pragmatic rule: if you change the model, re-examine the harness. Tune what is now load-bearing, strip what is no longer.</p>
-<h3>12.7 Practical Takeaways</h3>
+<h3>12.8 Practical Takeaways</h3>
 <p>LangChain&#39;s distilled principles for harness iteration (<a href="https://blog.langchain.com/improving-deep-agents-with-harness-engineering/">LangChain — Improving Deep Agents with Harness Engineering</a>):</p>
 <ol>
 <li><strong>Context engineering on behalf of agents</strong> — onboard the model into its environment with directory structures, available tools, coding best practices, problem-solving strategies.</li>
@@ -4801,15 +4891,15 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p>HumanLayer&#39;s parallel set (<a href="https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents">HumanLayer — Skill Issue: Harness Engineering for Coding Agents</a>):</p>
 <p>What worked: starting simple and adding configuration only after real failures; iterating and throwing away things that did not help; distributing battle-tested configurations across the team via repository-level config; optimizing for iteration speed rather than likelihood of one-shotting; pruning capabilities once you know what you actually need.</p>
 <p>What did not work: designing the ideal harness upfront; installing dozens of skills and MCP servers &quot;just in case&quot;; running the full test suite at the end of every session; micro-optimizing which sub-agents could access which tools.</p>
-<h3>12.8 The Misleading Data on AGENTS.md</h3>
+<h3>12.9 The Misleading Data on AGENTS.md</h3>
 <p>A worth-reading detail: an ETH Zurich study tested 138 agentfiles (the generic term for AGENTS.md / CLAUDE.md-style instruction files) across various repos and found that LLM-generated ones hurt performance while costing 20% more, that human-written ones helped only about 4%, that agents spent 14–22% more reasoning tokens processing context-file instructions, and that codebase overviews and directory listings did not help in that benchmark because agents could discover repository structure on their own (<a href="https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents">HumanLayer — Skill Issue: Harness Engineering for Coding Agents</a> citing the ETH Zurich paper).</p>
 <p>HumanLayer reads this as confirming their own AGENTS.md guidance — keep files concise, avoid auto-generation, use progressive disclosure rather than dumping every instruction up front, keep contents universally applicable rather than full of conditional rules. Their own CLAUDE.md is under 60 lines.</p>
 <p>This should not be read as &quot;do not write repository instructions.&quot; It means the root instruction file should be a router, not an encyclopedia. OpenAI&#39;s Codex harness guidance takes the same shape: keep essential context repo-local, keep <code>AGENTS.md</code> concise, point agents to the right deeper documents, and enforce the most important rules mechanically where possible (<a href="https://openai.com/index/harness-engineering/">OpenAI — Harness Engineering</a>).</p>
 <p>The general principle: more configuration is not better. Every irrelevant instruction is an instruction the agent must process for no benefit, and the <em>instruction budget</em> matters as much as the token budget.</p>
-<h3>12.9 Reusable Harness Packages and Skills</h3>
+<h3>12.10 Reusable Harness Packages and Skills</h3>
 <p>Once a harness pattern has survived real use, it should not remain tribal knowledge in one repository. Package it. The practical unit can be a skill, a template bundle, a small scaffold generator, or a set of repo checks. The important property is that it carries both instructions and working artifacts: not just &quot;remember to maintain state,&quot; but a progress-log template, a feature-list schema, a startup script, and a validation command.</p>
 <p>The Learn Harness Engineering course demonstrates this packaging shape with <code>harness-creator</code>, a skill for creating, assessing, and improving five harness subsystems: instructions, state, verification, scope, and session lifecycle (<a href="https://walkinglabs.github.io/learn-harness-engineering/en/skills/">Learn Harness Engineering — Skills</a>). This is a useful engineering boundary. A reusable harness package should not freeze one ideal workflow forever; it should make proven defaults easy to install, easy to inspect, and easy to remove when traces show that a component is no longer load-bearing.</p>
-<h3>12.10 Meta-Harness: Optimizing the Harness Itself</h3>
+<h3>12.11 Meta-Harness: Optimizing the Harness Itself</h3>
 <p>Once evals and traces exist, the harness itself becomes an optimization object. The OpenReview survey points to <em>meta-harness</em> work that searches over harness structure, prompting strategy, tool interface, and control loop choices rather than treating the harness as fixed (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview — Agent Harness Engineering: A Survey</a>).</p>
 <p>The pragmatic version is not fully automated architecture search. It is disciplined experimentation:</p>
 <ul>
@@ -4819,7 +4909,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Measure the whole closed loop, not only model output: success rate, pass^k reliability, latency, cost, human escalations, and security false positives.</li>
 </ul>
 <p>This extends the load-bearing idea. Harness components should earn their keep continuously. If a component improves reliability only for rare high-value tasks, route it selectively. If it no longer helps after a model upgrade, remove it.</p>
-<h3>12.11 Cross-Layer Coupling</h3>
+<h3>12.12 Cross-Layer Coupling</h3>
 <p>ETCLOVG is also a debugging map. When traces show a failure, the apparent bad model decision may be a symptom of another layer (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview — Agent Harness Engineering: A Survey</a>):</p>
 <ul>
 <li>A tool-selection error may come from the <strong>Tool</strong> layer, because the action space is too large or the schema hides the important affordance.</li>
@@ -4850,6 +4940,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Trace spans should be structured</strong>: model calls, tool calls, retrieval, context assembly, permissions, cost, and outcome state need machine-readable telemetry.</li>
 <li><strong>A standard is emerging for that telemetry</strong>: OpenTelemetry&#39;s GenAI semantic conventions (<code>invoke_agent</code>, <code>chat</code>, <code>execute_tool</code> spans) let agent traces join the ordinary observability stack and codify content-capture patterns for privacy.</li>
 <li><strong>Production traces should become regression cases</strong>: real failures are the highest-signal eval tasks if privacy and provenance are preserved.</li>
+<li><strong>Self-improvement must be an external, bounded release loop</strong>: review and group corrections, convert them into evals and scoped change tasks, then gate, canary, and roll back versioned artifacts.</li>
 <li><strong>The trained harness is not automatically optimal</strong>: leaderboard snapshots show the same model moving substantially under different harnesses.</li>
 <li><strong>Stress-test components when models change</strong>: every harness component encodes an assumption that may go stale as models improve.</li>
 <li><strong>Model–harness co-evolution is real</strong>: post-training loops the harness into model training, creating coupling that breaks when either side changes unexpectedly.</li>
@@ -4869,6 +4960,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Walking Labs, <em>Learn Harness Engineering — Skills</em>. <a href="https://walkinglabs.github.io/learn-harness-engineering/en/skills/">https://walkinglabs.github.io/learn-harness-engineering/en/skills/</a></li>
 <li>OpenTelemetry, <em>Semantic conventions for generative AI spans</em>. <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/">https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/</a></li>
 <li><em>Agent Harness Engineering: A Survey</em>, OpenReview / TMLR submission, 2026. <a href="https://openreview.net/pdf?id=3hXEPbG0dh">https://openreview.net/pdf?id=3hXEPbG0dh</a></li>
+<li>OpenAI, <em>Building Self-Improving Tax Agents with Codex</em>, 2026. <a href="https://openai.com/index/building-self-improving-tax-agents-with-codex/">https://openai.com/index/building-self-improving-tax-agents-with-codex/</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>Chapter 13: System Prompts and Instruction Architecture</h1>
@@ -4908,6 +5000,9 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>on-demand <strong>skills</strong> loaded for a particular task (Ch 4).</li>
 </ul>
 <p>These compose at runtime into the effective instruction set the model sees. The lesson of <a href="./12-trace-driven-iteration.md">Chapter 12</a> carries over: do not assume more project instruction is always better. The evidence on sprawling <code>AGENTS.md</code> files is mixed, and an over-specified project layer can fight the builder harness it sits on top of. The instruction architecture is something to measure, not to maximize.</p>
+<h3>13.8 Scoped Review Rules as an Instruction Interface</h3>
+<p>Repository instructions can target not only code generation but review. OpenAI&#39;s custom Codex review guidance treats concise <code>AGENTS.md</code> rules as a <strong>review interface</strong>: each rule should describe a specific defect, where it applies, and how a reviewer can recognize it; directory-scoped files narrow rules to the code they govern (<a href="https://developers.openai.com/blog/custom-code-review-rules-for-codex">OpenAI — Custom Code Review Rules for Codex</a>).</p>
+<p>Good review rules are short, testable, and high signal—&quot;flag a new endpoint that bypasses <code>authorize()</code>&quot; rather than &quot;follow security best practices.&quot; They point to the relevant code or policy and, when possible, to a deterministic check. Rules should be versioned and evaluated like any other instruction, because noisy rules create false positives and teach humans to ignore the review surface. This is progressive disclosure applied to quality policy: load the rule near the code it governs, keep global instructions universal, and graduate stable invariants into linters or tests.</p>
 <hr>
 <h2>Diagram: The Instruction Stack</h2>
 <figure class="mermaid-fig"><pre class="mermaid">flowchart TD
@@ -4935,6 +5030,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Separate what belongs where</strong>: role and policy in the system prompt, mechanics in tool descriptions, changing facts in just-in-time retrieval.</li>
 <li><strong>Assemble for the cache</strong>: stable instructions first, volatile material last, or prefix caching silently breaks.</li>
 <li><strong>Aim for the right altitude</strong>: specific enough to steer, general enough to transfer; resist patching every trace with a new hardcoded rule.</li>
+<li><strong>Review rules are an instruction interface</strong>: scope concise, testable defect rules near the code they govern, measure their signal, and move stable invariants into deterministic checks.</li>
 </ul>
 <h2>Further Reading</h2>
 <ul>
@@ -4942,6 +5038,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Anthropic Applied AI Team, <em>Effective Context Engineering for AI Agents</em>, Anthropic, Sep 2025. <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents</a></li>
 <li>Dex Horthy, <em>12-Factor Agents</em>, HumanLayer, Apr 2025. <a href="https://www.humanlayer.dev/blog/12-factor-agents">https://www.humanlayer.dev/blog/12-factor-agents</a></li>
 <li>Simon Willison, <em>The lethal trifecta for AI agents</em>, Jun 2025. <a href="https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/">https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/</a></li>
+<li>OpenAI, <em>Custom Code Review Rules for Codex</em>, Jul 2026. <a href="https://developers.openai.com/blog/custom-code-review-rules-for-codex">https://developers.openai.com/blog/custom-code-review-rules-for-codex</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>Chapter 14: Model Selection, Routing, and Reasoning Models</h1>
@@ -5035,7 +5132,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Act and report</strong> for actions that are consequential but observable and reversible — leave a clear trace the human can review after the fact rather than blocking on approval.</li>
 <li><strong>Ask first</strong> for irreversible or high–blast-radius actions: deleting data, sending an external message, spending money, touching production. This is exactly the <em>lethal trifecta</em> boundary (Ch 5) — the moment an agent is about to combine private data, untrusted input, and external reach is the moment a human should be in the loop.</li>
 </ul>
-<p>The map is the same capability–control tradeoff the book returns to in the <a href="./18-outlook.md">Outlook</a>: more autonomy is more capability and more control burden. The interface is where that tradeoff is made concrete, action by action.</p>
+<p>The map is the same capability–control tradeoff the book returns to in <a href="./18-agent-fleets-identity-control-plane.md">Chapter 18</a>: more autonomy is more capability and more control burden. The interface is where that tradeoff is made concrete, action by action.</p>
 <h3>15.4 Approval as a Tool Call</h3>
 <p>HumanLayer&#39;s twelve-factor manifesto makes the cleanest structural move: <em>contact humans with tool calls</em>. Instead of treating human approval as a special control-flow exception, model it as just another tool the agent can invoke — <code>request_human_approval(action, context)</code> — whose result comes back into the loop like any other observation (<a href="https://www.humanlayer.dev/blog/12-factor-agents">HumanLayer — 12-Factor Agents</a>).</p>
 <p>This unifies human interaction with the rest of the architecture. The approval request is an event in the event log (Ch 9), so it is durable, replayable, and auditable. It composes with the long-running patterns of <a href="./07-long-running-agents.md">Chapter 7</a>: an agent can request approval, suspend, and resume hours later when a human responds, because its state lives in the log, not in a held-open connection. And it makes the human a first-class participant in the trace (<a href="./12-trace-driven-iteration.md">Chapter 12</a>) rather than an out-of-band interruption.</p>
@@ -5053,7 +5150,8 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 </ul>
 <h3>15.8 Supervising Many Agents</h3>
 <p>As agents proliferate, the human role shifts from doing the work to supervising agents that do it — and then to supervising <em>many</em> agents at once. This is the leverage the field is moving toward, and it changes the interface requirements. One human overseeing ten agents cannot read every trace; the interface must surface what needs attention: which agents are blocked on approval, which are uncertain, which produced results that failed verification.</p>
-<p>This raises supervision to a fleet-level concern that the <a href="./18-outlook.md">Outlook</a> flags as open — human approval interfaces and harness coherence at scale are not solved. The principle that does hold: make supervision <em>cheap and meaningful</em>. Cheap, so a human can oversee many agents without drowning; meaningful, so the oversight is real and not a rubber stamp. Every technique in this chapter — stake-proportionate prompting, approval-as-tool-call, evidence-rich review surfaces, steering, calibrated transparency — is in service of that one goal.</p>
+<p>Code review becomes the bottleneck as agents produce changes faster than humans can inspect them. The queue should therefore be ordered by <strong>risk and evidence</strong>, not arrival time or raw trace length: failed deterministic checks, high-blast-radius actions, security-sensitive paths, novel tool use, policy-rule hits, weak or conflicting grader evidence, and large unexplained diffs rise to the top. Low-risk changes with strong verification can be summarized or sampled; consequential changes retain full artifacts. Custom scoped review rules (§13.8) make this routing more precise.</p>
+<p>This raises supervision to the fleet-level control-plane concern of <a href="./18-agent-fleets-identity-control-plane.md">Chapter 18</a>. The principle that does hold is to make supervision <em>cheap and meaningful</em>. Cheap, so a human can oversee many agents without drowning; meaningful, so the oversight is real and not a rubber stamp. Every technique in this chapter—stake-proportionate prompting, approval-as-tool-call, evidence-rich review surfaces, steering, calibrated transparency—is in service of that one goal.</p>
 <hr>
 <h2>Diagram: Stake-Proportionate Interaction</h2>
 <figure class="mermaid-fig"><pre class="mermaid">flowchart TD
@@ -5079,6 +5177,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Make interaction stake-proportionate</strong>: act silently for reversible low-stakes actions, act-and-report for observable ones, ask first for irreversible or high–blast-radius ones — the lethal-trifecta boundary.</li>
 <li><strong>Model approval as a tool call</strong>: it becomes durable, replayable, auditable, and composes with long-running suspend/resume.</li>
 <li><strong>Show evidence, not just conclusions</strong>: an agent whose work is cheap to verify and reject is one a human can actually supervise — at one agent or at a fleet.</li>
+<li><strong>Fleet review is a risk-ranked queue</strong>: surface failed checks, sensitive paths, policy hits, novel actions, and weak evidence before low-risk, well-verified work.</li>
 </ul>
 <h2>Further Reading</h2>
 <ul>
@@ -5087,6 +5186,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>David Dworken and Oliver Weller-Davies, <em>Beyond Permission Prompts: Making Claude Code More Secure and Autonomous</em>, Anthropic, Oct 2025. <a href="https://www.anthropic.com/engineering/claude-code-sandboxing">https://www.anthropic.com/engineering/claude-code-sandboxing</a></li>
 <li>Saleema Amershi et al., <em>Guidelines for Human-AI Interaction</em>, CHI 2019. <a href="https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/">https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/</a></li>
 <li>Eric Horvitz, <em>Principles of Mixed-Initiative User Interfaces</em>, CHI 1999. <a href="https://www.microsoft.com/en-us/research/publication/principles-of-mixed-initiative-user-interfaces/">https://www.microsoft.com/en-us/research/publication/principles-of-mixed-initiative-user-interfaces/</a></li>
+<li>OpenAI, <em>Custom Code Review Rules for Codex</em>, Jul 2026. <a href="https://developers.openai.com/blog/custom-code-review-rules-for-codex">https://developers.openai.com/blog/custom-code-review-rules-for-codex</a></li>
 </ul>
 </section>
 <section class="chapter"><h1>Chapter 16: Computer-Use and Multimodal Agents</h1>
@@ -5157,8 +5257,10 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Tianbao Xie et al., <em>OSWorld: Benchmarking Multimodal Agents for Open-Ended Tasks in Real Computer Environments</em>, 2024. <a href="https://arxiv.org/abs/2404.07972">https://arxiv.org/abs/2404.07972</a></li>
 </ul>
 </section>
-<section class="chapter"><h1>Chapter 17: Cost, Privacy, and Production Operations</h1>
+<section class="chapter"><h1>Chapter 17: AgentOps — Cost, Privacy, and Production Operations</h1>
 <p>The chapters so far have built an agent that works. Running it in production for real users adds three concerns that the agent loop itself hides: what each run <em>costs</em>, what it does with <em>sensitive data</em>, and how the harness is <em>changed safely</em> once people depend on it. None is glamorous, and each is where a working demo quietly fails to become a working product. <a href="./05-sandboxing-guardrails.md">Chapter 5</a> covered the security threat model and <a href="./11-infrastructure-noise.md">Chapter 11</a> covered measurement noise; this chapter covers the operational economics, data governance, and release discipline around them.</p>
+<p>The emerging name for this operating discipline is <strong>AgentOps</strong>. AWS groups it into four connected pillars: <strong>governance and security</strong>, <strong>build and operations</strong>, <strong>evaluation</strong>, and <strong>observability</strong> (<a href="https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/">AWS — AgentOps</a>). The useful part of the term is lifecycle scope. An agent is planned, developed, built, tested, deployed, maintained, monitored, and eventually retired; production ownership spans that whole path rather than beginning at the monitoring dashboard.</p>
+<p>AgentOps also changes the unit of release. The deployable artifact is not just model code or a prompt. It is a versioned bundle of model and inference settings, system and project instructions, tool catalog and schemas, memory policy, sandbox image, identity and authorization policy, graders, budgets, and routing rules. A release record should name that complete configuration so an incident can be attributed and rolled back. Chapter 18 moves one level up: the control plane registers these artifacts and governs their identities and fleet lifecycle, while AgentOps operates and improves them.</p>
 <h3>17.1 Cost: Budgeting the Agent</h3>
 <p>An agent is the most expensive way to run a model, because a single user request expands into many model calls, tool round-trips, and — with reasoning models — long internal token streams (<a href="./14-model-selection-routing-reasoning.md">Chapter 14</a>). Worse, the cost of a task is not known in advance: an open-ended loop can take three turns or thirty. This is the operational reason the book keeps returning to &quot;do the simplest thing that works&quot; (<a href="./06-agentic-workflow-patterns.md">Chapter 6</a>) — every agentic turn is a recurring charge, not a one-time one.</p>
 <p>A production agent therefore needs an explicit <em>budget</em>, the way <a href="./07-long-running-agents.md">Chapter 7</a> needed a checkpoint. Concretely:</p>
@@ -5207,7 +5309,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>ISO/IEC 42001:2023</strong>, the first AI management-system standard, is the AI analogue of ISO 27001: it specifies how an organization establishes, operates, and continually improves a management system for its AI, and it is certifiable (<a href="https://www.iso.org/standard/42001">ISO/IEC 42001:2023</a>).</li>
 <li><strong>The EU AI Act</strong> (Regulation (EU) 2024/1689) is the first comprehensive AI law. It classifies systems by risk tier and imposes binding obligations — risk management, data governance, transparency, human oversight, logging — on high-risk uses, with provisions phasing in through 2026–2027 (<a href="https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng">EU AI Act — Regulation (EU) 2024/1689</a>). Note that the two are complementary but distinct: ISO 42001 certification is evidence of good process, not automatic proof of AI Act compliance.</li>
 </ul>
-<p>None of these replaces the engineering in this book; they organize it and make it legible to auditors, customers, and regulators. The <a href="./18-outlook.md">Outlook</a> flags cross-layer governance coherence as an open problem precisely because policy, audit, and runtime enforcement still live in separate layers — these frameworks are the current best scaffolding for keeping them aligned.</p>
+<p>None of these replaces the engineering in this book; they organize it and make it legible to auditors, customers, and regulators. The <a href="./19-outlook.md">Outlook</a> flags cross-layer governance coherence as an open problem precisely because policy, audit, and runtime enforcement still live in separate layers — these frameworks are the current best scaffolding for keeping them aligned.</p>
 <hr>
 <h2>Diagram: The Production Wrapper</h2>
 <figure class="mermaid-fig"><pre class="mermaid">flowchart TD
@@ -5237,6 +5339,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Multi-tenancy demands isolation</strong>: scope workspaces, credentials, memory, and prefix caches per tenant, and carry tenant identity in the event log — state bleed and authority bleed are catastrophic.</li>
 <li><strong>Two caches, two risk profiles</strong>: the prefix cache serves identical context cheaply; a semantic cache serves <em>similar</em> queries and can skip whole calls, but a false hit returns a wrong answer — tune its threshold and eval it like any harness change.</li>
 <li><strong>Releasing a harness change is a statistical deploy</strong>: gate on evals, canary gradually, version the whole configuration together, and turn production failures into regression cases.</li>
+<li><strong>AgentOps owns the whole lifecycle</strong>: governance/security, build/operations, evaluation, and observability apply from planning through retirement; release the model, tools, memory, policy, sandbox, graders, and budgets as one versioned configuration.</li>
 <li><strong>Governance frameworks span guidance to law</strong>: OWASP LLM Top 10 and NIST AI RMF organize the controls; ISO/IEC 42001 certifies the process; the EU AI Act makes obligations binding for high-risk uses.</li>
 </ul>
 <h2>Further Reading</h2>
@@ -5250,17 +5353,175 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li>Fu Bang, <em>GPTCache: An Open-Source Semantic Cache for LLM Applications</em>, NLP-OSS @ EMNLP 2023. <a href="https://github.com/zilliztech/GPTCache">https://github.com/zilliztech/GPTCache</a></li>
 <li><em>ISO/IEC 42001:2023 — Information technology — Artificial intelligence — Management system</em>, ISO, 2023. <a href="https://www.iso.org/standard/42001">https://www.iso.org/standard/42001</a></li>
 <li><em>Regulation (EU) 2024/1689 (Artificial Intelligence Act)</em>, European Union, Jun 2024. <a href="https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng">https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng</a></li>
+<li>AWS, <em>AgentOps: Operationalize Agentic AI at Scale with Amazon Bedrock AgentCore</em>, 2026. <a href="https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/">https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/</a></li>
 </ul>
 </section>
-<section class="chapter"><h1>Chapter 18: Outlook</h1>
-<h3>18.1 The Field Is Young</h3>
+<section class="chapter"><h1>Chapter 18: Agent Fleets, Identity, and the Control Plane</h1>
+<p>Loop engineering asks how one autonomous task should start, act, verify, and stop. Production systems now face the next unit of design: many agents, created by many teams, operating across many environments and organizations. The hard questions move upward. Which agents exist? Who published this version? On whose behalf is it acting? Which tools, data, money, and network destinations may it reach? How is a running agent suspended, upgraded, or revoked? What evidence connects an action to the exact identity, policy, model, and artifact that produced it?</p>
+<p>The emerging answer is an <strong>agent control plane</strong>. Borrowing the distinction from distributed systems, the <em>data plane</em> performs work—model calls, tool calls, code execution, and agent-to-agent messages. The <em>control plane</em> declares and enforces the desired operating state around that work: registry, identity, authorization, routing, lifecycle, policy, lineage, and audit. It does not make an individual agent smarter. It makes a fleet governable.</p>
+<h3>18.1 From Agent Program to Agent Fleet</h3>
+<p>A single agent can be configured with a prompt, several tools, and a local state file. A fleet adds problems that local configuration cannot solve:</p>
+<ul>
+<li>duplicate or abandoned agents with unclear ownership;</li>
+<li>several versions sharing a name but not behavior;</li>
+<li>credentials copied into prompts, sandboxes, or environment variables;</li>
+<li>tool access that outlives the task or user who authorized it;</li>
+<li>policy applied differently across chat, scheduled runs, and A2A delegation;</li>
+<li>incidents where no one can reconstruct which artifact or authority caused an action.</li>
+</ul>
+<p>The platform shift in §9.2 anticipated this scope. A fleet needs a source of truth for agents and capabilities, a runtime authority that can mint and revoke task-scoped access, and lifecycle services that reconcile what <em>should</em> be running with what <em>is</em> running. AgentOps (Ch 17) operates and improves the system across its lifecycle; the control plane supplies the shared governance substrate on which those operations depend.</p>
+<p>The boundary should remain explicit:</p>
+<ul>
+<li><strong>Data plane:</strong> inference, retrieval, tool execution, sandbox processes, messages, and results.</li>
+<li><strong>Control plane:</strong> definitions, identities, policy decisions, placement, versions, budgets, revocation, and audit.</li>
+</ul>
+<p>Keeping policy out of the probabilistic data path where possible is the central design move. The agent may propose an action; deterministic control-plane services decide whether the named identity may perform that operation in this context.</p>
+<h3>18.2 Agent Identity: Who—or What—Is Acting?</h3>
+<p>User identity alone is insufficient. One user may launch several agents with different purposes and privileges; an agent may run on a schedule after the initiating session ends; one agent may delegate to another; and several versions of an agent may coexist. <strong>Agent identity</strong> is the durable machine identity of the agentic principal, distinct from the human, service account, runtime process, and model it uses.</p>
+<p>NIST&#39;s concept paper on software-agent identity and authority decomposes the problem into identification, authentication, authorization, delegation, audit, and non-repudiation, while calling out prompt injection and confused-deputy behavior as reasons ordinary service identity is not enough (<a href="https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents">NIST — Identity and Authorization for Software Agents</a>). A practical identity record should answer:</p>
+<ul>
+<li><strong>Principal:</strong> which agent definition and version is acting?</li>
+<li><strong>Sponsor:</strong> which person or organization owns it?</li>
+<li><strong>Delegator:</strong> on whose behalf is this particular run acting?</li>
+<li><strong>Purpose:</strong> what bounded task or workflow justified the authority?</li>
+<li><strong>Runtime:</strong> which harness, model, sandbox image, and policy versions are executing?</li>
+<li><strong>Lifetime:</strong> when was the identity issued, and when does it expire or become revocable?</li>
+</ul>
+<p>Do not collapse these into one long-lived API key. A fleet should use workload identity and short-lived task tokens, with explicit delegation chains. The agent authenticates as itself; the authorization decision combines that identity with the delegating user, tenant, purpose, environment, and requested operation. This prevents a low-risk research agent from silently inheriting the full authority of the human who launched it.</p>
+<h3>18.3 The Agent Registry</h3>
+<p>An <strong>agent registry</strong> is the inventory and discovery layer for the fleet. It tells humans, orchestrators, gateways, and other agents what exists and which artifact they are about to trust. Google Cloud&#39;s Agent Registry models agents alongside MCP servers, endpoints, skills, skill revisions, and publishers; AWS Agent Registry and Microsoft 365&#39;s Agent Registry reflect the same move toward a governed catalog rather than scattered deployment URLs (<a href="https://docs.cloud.google.com/agent-registry/overview">Google Cloud — Agent Registry Overview</a>; <a href="https://aws.amazon.com/about-aws/whats-new/2026/04/aws-agent-registry-in-agentcore-preview/">AWS — Agent Registry in AgentCore</a>; <a href="https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry?view=o365-worldwide">Microsoft — Agent Registry</a>).</p>
+<p>A useful registry entry contains more than a name and description:</p>
+<ul>
+<li>immutable agent and version identifiers;</li>
+<li>publisher and accountable owner;</li>
+<li>supported tasks, input/output contracts, and endpoints;</li>
+<li>tool, MCP, skill, memory, model, and sandbox dependencies;</li>
+<li>requested permissions, data classes, network destinations, and budget class;</li>
+<li>eval and security attestation for the version;</li>
+<li>deployment status, deprecation date, and revocation state;</li>
+<li>lineage to the source, build, configuration, and policy bundle.</li>
+</ul>
+<p>Discovery and governance must meet at the registry. Search results should be filtered by what the caller is allowed to invoke, and orchestration should resolve an immutable version rather than a mutable display name. Registration is not approval: a new entry can be visible as a draft without being authorized for production traffic. Promotion should require ownership, eval, security, and policy gates; deprecation should identify dependents before removal.</p>
+<h3>18.4 Runtime Authorization and Delegation</h3>
+<p>Registration says what an agent <em>is</em>. Authorization decides what a particular run <em>may do now</em>. This decision must be narrower than the union of everything the agent could ever need.</p>
+<p>A robust flow is:</p>
+<ol>
+<li>A user or service starts a run with a stated purpose and tenant.</li>
+<li>The control plane resolves an approved agent version.</li>
+<li>Policy computes the intersection of agent capability, delegator authority, task need, environment, and risk.</li>
+<li>An identity broker issues short-lived, audience-bound credentials or capability tokens.</li>
+<li>Proxies attach credentials at the tool boundary; raw secrets do not enter the model context or sandbox.</li>
+<li>Every use records the identity, delegation chain, policy version, operation, resource, and result.</li>
+<li>Completion, timeout, policy change, or incident revokes the lease.</li>
+</ol>
+<p>AWS AgentCore Identity describes the product form of this pattern: agent identities, credential providers, and delegated access to external resources without embedding user credentials in agent code (<a href="https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-agentcore-identity-securing-agentic-ai-at-scale/">AWS — AgentCore Identity</a>). The architectural point is vendor-neutral: authority is issued just in time and presented just at the boundary.</p>
+<p>A2A delegation makes the chain explicit. Agent A should not send Agent B a bearer token with all of A&#39;s privileges. It should request a narrower token naming B as the audience, the delegated task as purpose, the permitted operation and resource, and a short expiry. If B delegates again, the new authority cannot exceed the intersection of the existing chain. This blocks <strong>trust escalation</strong> (Ch 3): a low-trust worker cannot persuade a privileged parent to launder its result into a high-privilege action without a new policy decision.</p>
+<h3>18.5 The Agent Gateway and Policy Enforcement</h3>
+<p>The <strong>agent gateway</strong> is the enforcement point on the data-plane path. It can broker model calls, MCP and API tool calls, A2A messages, egress, and sometimes memory access. The gateway is valuable because instructions such as &quot;never send secrets&quot; are probabilistic; a gateway can deterministically deny an unauthorized destination, strip a credential, enforce a budget, or require human approval.</p>
+<p>Each request should arrive with a signed or otherwise verifiable execution envelope:</p>
+<pre><code class="language-text">agent identity + version
+delegating principal + tenant
+task purpose + run/session id
+requested action + resource
+policy and configuration versions
+budget and expiry
+trace/span correlation id
+</code></pre>
+<p>Policy then returns more than allow or deny. Useful outcomes include <strong>allow</strong>, <strong>deny</strong>, <strong>allow with redaction</strong>, <strong>allow in a stronger sandbox</strong>, <strong>require human approval</strong>, and <strong>allow with a lower budget or read-only scope</strong>. The decision and its inputs become part of the trace. This is how the stake-proportionate interaction of Chapter 15 and the containment matrix of Chapter 5 become consistent across every agent rather than conventions each team reimplements.</p>
+<p>Gateway placement matters. A central gateway gives uniform enforcement and visibility but can become a latency bottleneck and single point of failure. Local sidecars reduce latency and survive partial disconnection but make policy distribution and evidence collection harder. Mature designs often separate centralized policy administration from distributed enforcement, with signed policy bundles, fail-closed rules for consequential actions, and carefully chosen fail-open behavior only for low-risk reads.</p>
+<h3>18.6 Fleet Lifecycle: Reconcile, Suspend, Upgrade, Revoke</h3>
+<p>An agent has more lifecycle states than deployed or stopped. A useful fleet state machine includes <strong>draft</strong>, <strong>evaluated</strong>, <strong>approved</strong>, <strong>deployed</strong>, <strong>suspended</strong>, <strong>deprecated</strong>, <strong>revoked</strong>, and <strong>retired</strong>. Runs have a separate state machine—queued, active, waiting for approval, checkpointed, completed, failed, or canceled—and sandboxes have another (Ch 7). The control plane relates these lifecycles without conflating them.</p>
+<p>The governing pattern is reconciliation: compare declared state with observed state and take deterministic action.</p>
+<ul>
+<li>If an agent version is revoked, block new runs, revoke credentials, and suspend or terminate affected in-flight runs according to risk.</li>
+<li>If a policy changes, identify which sessions require re-authorization rather than letting old authority persist indefinitely.</li>
+<li>If a version is upgraded, canary it against a bounded traffic slice while retaining the old version for rollback (Ch 17).</li>
+<li>If an owner leaves or a publisher is compromised, traverse the registry dependency graph to find agents, skills, MCP servers, and schedules that inherit that trust.</li>
+<li>If a run loses its connection, preserve the durable session and reacquire a sandbox or worker rather than duplicating the task (Ch 7).</li>
+</ul>
+<p>Fleet kill switches belong here. They should revoke the capability at gateways and identity brokers, not merely send &quot;stop&quot; to a model. Scope matters: operators need to stop one run, one version, one publisher, one tenant, one tool dependency, or the entire fleet without using the broadest switch for every incident.</p>
+<h3>18.7 Lineage, Audit, and Non-Repudiation</h3>
+<p>Ordinary logs answer &quot;what request hit this service?&quot; Agent audit must answer a longer causal question:</p>
+<blockquote>
+<p>Which user or service delegated which purpose to which agent version, running under which model, harness, tools, memory, sandbox, and policy; which evidence led to which decision; which authority allowed the side effect; and who approved or overrode it?</p>
+</blockquote>
+<p>The answer is a lineage graph connecting registry artifacts, build attestations, identities, delegation events, session and run IDs, trace spans, policy decisions, human approvals, tool results, memory writes, and final environmental outcomes. Stable content hashes or immutable version identifiers keep a later edit from rewriting the history of what ran.</p>
+<p><strong>Non-repudiation</strong> should be used carefully. A signed event can show that a particular workload identity produced a request and that a policy service authorized it; it cannot prove that a human understood an approval dialog or that a model&#39;s natural-language rationale is truthful. Strong audit therefore combines cryptographic integrity with operational evidence: append-only logs, trusted timestamps, credential and policy versions, outcome checks, approval identity, and retention rules. Store enough to investigate, but apply the privacy discipline of Chapter 17—an audit system that indiscriminately preserves prompts, secrets, and personal data creates a second security problem.</p>
+<p>Lineage also makes evaluation and improvement safer. A production correction can be traced to the exact artifact that failed, turned into a redacted regression case, and used to promote a new version without mutating the old one (Ch 12). The control plane supplies the custody chain; the eval gate supplies the evidence.</p>
+<h3>18.8 Open Problems in the Control Plane</h3>
+<p>The control plane is emerging, not settled. The most important open problems are:</p>
+<ul>
+<li><strong>Portable identity and delegation.</strong> Agent Cards and registries describe capability, but cross-platform standards for principal identity, delegation chains, revocation, and purpose-bound authority remain immature.</li>
+<li><strong>Policy composition.</strong> User policy, tenant policy, agent policy, tool policy, data-residency rules, and human approvals can conflict. Precedence and explanation need a portable semantics.</li>
+<li><strong>Memory governance.</strong> Provenance, permission-at-retrieval, expiry, correction, and poisoning defense are not consistently represented across memory products.</li>
+<li><strong>Cross-organizational lineage.</strong> A2A chains cross audit domains; each organization may expose too little evidence for the other to assess trust, or too much private trace data.</li>
+<li><strong>Evaluator authority.</strong> A model judge can block a deploy or trigger an incident. Its identity, calibration, conflicts, and appeal path need the same rigor as other privileged decision-makers (Ch 10).</li>
+<li><strong>Fleet-level supervision.</strong> Risk ranking, alert deduplication, and meaningful human control must scale without turning the operator into a rubber stamp (Ch 15).</li>
+<li><strong>Control-plane compromise.</strong> Centralized registries, policy services, and identity brokers are high-value targets. Their blast radius demands separation of duties, signed artifacts, minimal trust roots, and independent recovery paths.</li>
+</ul>
+<p>The direction is clear even while the standards are not: agents are becoming principals in distributed systems. The mature harness is no longer only a loop around a model. It is a governed relationship among identities, artifacts, policies, environments, evidence, and people.</p>
+<hr>
+<h2>Diagram: The Agent Control Plane</h2>
+<figure class="mermaid-fig"><pre class="mermaid">flowchart TB
+    subgraph CP["Control Plane"]
+        REG["Registry&lt;br/&gt;agents · tools · skills · versions"]
+        ID["Identity &amp; Delegation&lt;br/&gt;agent · sponsor · user · purpose"]
+        POL["Policy &amp; Gateway&lt;br/&gt;authorize · redact · approve · deny"]
+        LIFE["Fleet Lifecycle&lt;br/&gt;deploy · suspend · upgrade · revoke"]
+        AUD["Lineage &amp; Audit&lt;br/&gt;artifacts · decisions · outcomes"]
+        REG --&gt; ID --&gt; POL --&gt; LIFE --&gt; AUD
+    end
+
+    subgraph DP["Data Plane"]
+        RUN["Agent Run&lt;br/&gt;model + harness"]
+        BOX["Sandbox / Runtime"]
+        TOOL["Tools · MCP · APIs"]
+        PEER["Peer Agents / A2A"]
+        MEM["Memory"]
+        RUN --&gt; BOX
+        RUN --&gt; TOOL
+        RUN --&gt; PEER
+        RUN --&gt; MEM
+    end
+
+    CP --&gt;|"identity · policy · version · budget"| DP
+    DP --&gt;|"events · evidence · outcome · cost"| CP
+    HUMAN["Human Owner / Reviewer"] --&gt;|"delegate · approve · revoke"| CP</pre></figure>
+<p><em>The data plane does the work; the control plane decides which identity, artifact, authority, lifecycle, and evidence govern that work.</em></p>
+<hr>
+<h2>Key Takeaways</h2>
+<ul>
+<li><strong>The fleet is the next unit after the loop</strong>: loop engineering governs one task; a control plane governs many agents, versions, environments, and organizations.</li>
+<li><strong>Separate data plane from control plane</strong>: agents propose and execute work; deterministic services register artifacts, issue authority, enforce policy, reconcile lifecycle, and preserve evidence.</li>
+<li><strong>Agent identity is distinct from user and runtime identity</strong>: bind every run to an agent version, sponsor, delegator, purpose, environment, and expiry.</li>
+<li><strong>A registry is a governed source of truth</strong>: include ownership, dependencies, permissions, attestations, deployment state, and immutable lineage—not only discovery metadata.</li>
+<li><strong>Authority should be just-in-time and purpose-bound</strong>: use short-lived, audience-scoped credentials attached at the tool boundary, with delegation that can only narrow.</li>
+<li><strong>The gateway turns policy into enforcement</strong>: allow, deny, redact, strengthen isolation, reduce scope, or require approval—and record why.</li>
+<li><strong>Lifecycle is reconciliation</strong>: independently manage agent definitions, runs, and sandboxes; make suspension, migration, canary, rollback, and revocation first-class.</li>
+<li><strong>Audit is a causal lineage graph</strong>: connect user delegation, agent and policy versions, evidence, authorization, side effects, and outcomes while minimizing sensitive content.</li>
+</ul>
+<h2>Further Reading</h2>
+<ul>
+<li>NIST, <em>Identity and Authorization for Software Agents</em>, Feb 2026. <a href="https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents">https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents</a></li>
+<li>Google Cloud, <em>Agent Registry Overview</em>, 2026. <a href="https://docs.cloud.google.com/agent-registry/overview">https://docs.cloud.google.com/agent-registry/overview</a></li>
+<li>AWS, <em>AWS Agent Registry in Amazon Bedrock AgentCore (Preview)</em>, Apr 2026. <a href="https://aws.amazon.com/about-aws/whats-new/2026/04/aws-agent-registry-in-agentcore-preview/">https://aws.amazon.com/about-aws/whats-new/2026/04/aws-agent-registry-in-agentcore-preview/</a></li>
+<li>AWS, <em>Introducing Amazon Bedrock AgentCore Identity: Securing Agentic AI at Scale</em>, 2026. <a href="https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-agentcore-identity-securing-agentic-ai-at-scale/">https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-agentcore-identity-securing-agentic-ai-at-scale/</a></li>
+<li>Microsoft, <em>Agent Registry in the Microsoft 365 Admin Center</em>, 2026. <a href="https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry?view=o365-worldwide">https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry?view=o365-worldwide</a></li>
+<li>Anthropic Safeguards Research Team, <em>How We Contain Claude</em>, May 2026. <a href="https://www.anthropic.com/engineering/how-we-contain-claude">https://www.anthropic.com/engineering/how-we-contain-claude</a></li>
+<li>Google Cloud, <em>Agent Executor: Google&#39;s Distributed Agent Runtime</em>, 2026. <a href="https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/">https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/</a></li>
+<li>AWS, <em>AgentOps: Operationalize Agentic AI at Scale with Amazon Bedrock AgentCore</em>, 2026. <a href="https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/">https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/</a></li>
+</ul>
+</section>
+<section class="chapter"><h1>Chapter 19: Outlook</h1>
+<h3>19.1 The Field Is Young</h3>
 <p>Much of the vocabulary used in this book — initializer agents, context firewalls, sprint contracts, reasoning sandwiches, ambient affordances, computational vs. inferential controls — entered the mainstream agent-engineering conversation within the last twelve to eighteen months. Some underlying ideas are older, but the shared language is recent. Most of the source articles for this textbook were published in 2025 and 2026. The field is moving faster than any single book can document — and there is a number attached to that pace: METR finds the task-completion <em>time horizon</em> of frontier models (the human-task-length they clear 50% of the time) has doubled roughly every seven months (§7.11) (<a href="https://arxiv.org/abs/2503.14499">Kwa et al. — Measuring AI Ability to Complete Long Tasks</a>). A book about what a harness must supply is, in part, a book about a moving target.</p>
 <p>LangChain frames the trajectory honestly: as models improve, some of what lives in the harness today will be absorbed into the model. Models will get better at planning, self-verification, and long-horizon coherence natively, requiring less context injection. But the space of interesting harness combinations does not shrink as models improve. It moves (<a href="https://blog.langchain.com/the-anatomy-of-an-agent-harness/">LangChain — The Anatomy of an Agent Harness</a>; <a href="https://www.anthropic.com/engineering/harness-design-long-running-apps">Anthropic — Harness Design for Long-Running Application Development</a>).</p>
-<h3>18.2 Open Problems</h3>
+<h3>19.2 Open Problems</h3>
 <p>Several recur across the literature:</p>
 <ul>
 <li><strong>Behavioral harnesses for functional correctness</strong>. Maintainability and architecture-fitness harnesses have decades of pre-existing tooling. Behavior harnesses — does the application functionally do what the user wants? — do not. Today most teams rely on AI-generated tests, and the consensus is that this is not yet good enough (<a href="https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html">Thoughtworks — Harness Engineering</a>).</li>
 <li><strong>Harness coherence at scale</strong>. As guides and sensors multiply, how do they stay consistent? How do we know when sensors that never fire indicate quality versus inadequate detection? There is no equivalent of code coverage or mutation testing for harness coverage yet.</li>
+<li><strong>Control-plane portability</strong>. Registries, identities, policies, gateways, and audit systems now exist, but their schemas and authority models remain platform-specific. Moving an agent between clouds or organizations without losing provenance, policy meaning, or revocation semantics is still hard (Ch 18).</li>
 <li><strong>Cross-layer governance coherence</strong>. The OpenReview survey highlights that policy, permission prompts, audit logs, constitutional instructions, and runtime hooks often live in separate layers and may interfere rather than compose. Portable policy and audit languages are still missing (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview — Agent Harness Engineering: A Survey</a>).</li>
 <li><strong>Standardized readiness reporting</strong>. If model scores depend on execution environment, tool surface, context policy, retry rules, and governance gates, benchmark reports need a harness bill of materials. Today there is no widely adopted format for publishing that configuration (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview — Agent Harness Engineering: A Survey</a>).</li>
 <li><strong>Cost-quality-speed trilemma</strong>. Stronger sandboxes, richer observability, deeper verification, and stricter governance usually increase cost and latency. Mature harnesses need explicit policy for which checks run synchronously, which run offline, and which risks justify expensive controls (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview — Agent Harness Engineering: A Survey</a>).</li>
@@ -5271,8 +5532,9 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><strong>Just-in-time tool assembly</strong>. Harnesses that dynamically assemble the right tools and context for a given task, rather than pre-configuring everything, are explored by LangChain among others (<a href="https://blog.langchain.com/improving-deep-agents-with-harness-engineering/">LangChain — Improving Deep Agents with Harness Engineering</a>).</li>
 <li><strong>Tracing as documentation</strong>. LangChain&#39;s observation that &quot;in software, the code documents the app; in AI, the traces do&quot; hints at a different model of system documentation that the field has not fully worked out (<a href="https://blog.langchain.com/the-anatomy-of-an-agent-harness/">LangChain — The Anatomy of an Agent Harness</a>).</li>
 <li><strong>End-to-end supply-chain governance</strong>. Tool integrity is only one piece. Agents also depend on MCP servers, external packages, datasets, retrieval sources, and generated dependency names. Provenance across that full chain is still underdeveloped (<a href="https://openreview.net/pdf?id=3hXEPbG0dh">OpenReview — Agent Harness Engineering: A Survey</a>).</li>
+<li><strong>Evaluator integrity under consequence</strong>. Model judges can be influenced by how their verdict will be used, while generators can learn to optimize against known graders. Blinding, abstention, ensembles, and meta-evals help, but no general method makes a semantic verifier both scalable and consequence-independent (Ch 10).</li>
 </ul>
-<h3>18.3 The Standing Advice</h3>
+<h3>19.3 The Standing Advice</h3>
 <p>A few principles repeat across nearly every article in the corpus:</p>
 <ul>
 <li><strong>Treat context as a finite resource</strong>. Find the smallest set of high-signal tokens that produces the desired outcome.</li>
@@ -5290,7 +5552,9 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
       Behavioral harnesses for functional correctness
       AI-generated tests not yet good enough
       No mutation testing equivalent for harnesses
+      Evaluator integrity under consequence
     Governance
+      Control-plane portability
       Cross-layer policy coherence
       Portable audit and policy languages
       Human approval interfaces
@@ -5320,7 +5584,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <ul>
 <li><strong>The shared vocabulary is young</strong>: many terms became common in 2025–2026, even when the underlying ideas are older.</li>
 <li><strong>Models absorb harness, but harness moves</strong>: as models improve and take on more native capabilities, the interesting harness work moves to harder problems, not away.</li>
-<li><strong>Open problems now span the full ETCLOVG stack</strong>: behavioral correctness, harness coherence, governance coherence, readiness reporting, cost-quality-speed, capability-control, async coordination, continual learning, just-in-time tool assembly, and traces-as-documentation.</li>
+<li><strong>Open problems now span the full ETCLOVG stack</strong>: behavioral correctness, evaluator integrity, control-plane portability, harness and governance coherence, readiness reporting, cost-quality-speed, capability-control, async coordination, continual learning, just-in-time tool assembly, and traces-as-documentation.</li>
 <li><strong>Five standing principles cut across all contexts</strong>: finite context, simplest-that-works, read-the-transcripts, iterate-load-bearing, tailor-to-model.</li>
 <li><strong>Harness engineering is permanent work</strong>: not scaffolding to discard once models improve, but the ongoing craft of building effective systems around increasingly capable cores.</li>
 </ul>
@@ -5415,6 +5679,12 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><p>Linux Foundation, <em>Linux Foundation Launches the Agent2Agent Protocol Project</em>, Jun 2025.
 <a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents</a></p>
 </li>
+<li><p>OpenAI, <em>Connect Private MCP Servers to OpenAI Products</em>, Jun 2026.
+<a href="https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products">https://developers.openai.com/blog/connect-private-mcp-servers-to-openai-products</a></p>
+</li>
+<li><p>OpenAI, <em>Programmatic Tool Calling</em>, 2026.
+<a href="https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling">https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling</a></p>
+</li>
 </ul>
 <hr>
 <h2>Specs and Workflow Design</h2>
@@ -5466,6 +5736,12 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><p>Thinkst, <em>Canarytokens</em> (free tripwire tokens).
 <a href="https://canarytokens.org/">https://canarytokens.org/</a></p>
 </li>
+<li><p>Anthropic Safeguards Research Team, <em>How We Contain Claude</em>, May 2026.
+<a href="https://www.anthropic.com/engineering/how-we-contain-claude">https://www.anthropic.com/engineering/how-we-contain-claude</a></p>
+</li>
+<li><p>Google Cloud, <em>Agent Executor: Google&#39;s Distributed Agent Runtime</em>, 2026.
+<a href="https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/">https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/</a></p>
+</li>
 </ul>
 <hr>
 <h2>Agent Capability Measurement</h2>
@@ -5513,6 +5789,15 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <li><p>OpenTelemetry, <em>Semantic conventions for generative AI spans</em>.
 <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/">https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/</a></p>
 </li>
+<li><p>Anthropic Safeguards Research Team, <em>Agentic Misalignment: Summer 2026 Update</em>, 2026.
+<a href="https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/">https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/</a></p>
+</li>
+<li><p>OpenAI, <em>Trustworthy Third-Party Evaluations: Foundations</em>, 2026.
+<a href="https://openai.com/index/trustworthy-third-party-evaluations-foundations/">https://openai.com/index/trustworthy-third-party-evaluations-foundations/</a></p>
+</li>
+<li><p>OpenAI, <em>Building Self-Improving Tax Agents with Codex</em>, 2026.
+<a href="https://openai.com/index/building-self-improving-tax-agents-with-codex/">https://openai.com/index/building-self-improving-tax-agents-with-codex/</a></p>
+</li>
 </ul>
 <hr>
 <h2>Runtimes, Harnesses, and Reference Implementations</h2>
@@ -5527,8 +5812,12 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <hr>
 <h2>Instructions and Prompting</h2>
 <ul>
-<li>Eric Wallace et al., <em>The Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions</em>, OpenAI, Apr 2024.
-<a href="https://arxiv.org/abs/2404.13208">https://arxiv.org/abs/2404.13208</a></li>
+<li><p>Eric Wallace et al., <em>The Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions</em>, OpenAI, Apr 2024.
+<a href="https://arxiv.org/abs/2404.13208">https://arxiv.org/abs/2404.13208</a></p>
+</li>
+<li><p>OpenAI, <em>Custom Code Review Rules for Codex</em>, Jul 2026.
+<a href="https://developers.openai.com/blog/custom-code-review-rules-for-codex">https://developers.openai.com/blog/custom-code-review-rules-for-codex</a></p>
+</li>
 </ul>
 <hr>
 <h2>Model Selection, Routing, and Reasoning</h2>
@@ -5587,6 +5876,9 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <hr>
 <h2>Cost, Privacy, and Governance Frameworks</h2>
 <ul>
+<li><p>AWS, <em>AgentOps: Operationalize Agentic AI at Scale with Amazon Bedrock AgentCore</em>, 2026.
+<a href="https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/">https://aws.amazon.com/blogs/machine-learning/agentops-operationalize-agentic-ai-at-scale-with-amazon-bedrock-agentcore/</a></p>
+</li>
 <li><p>OWASP, <em>Top 10 for Large Language Model Applications</em>, 2025.
 <a href="https://genai.owasp.org/llm-top-10/">https://genai.owasp.org/llm-top-10/</a></p>
 </li>
@@ -5601,6 +5893,25 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 </li>
 <li><p>Fu Bang, <em>GPTCache: An Open-Source Semantic Cache for LLM Applications</em>, NLP-OSS @ EMNLP 2023.
 <a href="https://github.com/zilliztech/GPTCache">https://github.com/zilliztech/GPTCache</a></p>
+</li>
+</ul>
+<hr>
+<h2>Agent Fleets, Identity, and Control Plane</h2>
+<ul>
+<li><p>NIST, <em>Identity and Authorization for Software Agents</em>, Feb 2026.
+<a href="https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents">https://www.nist.gov/news-events/news/2026/02/new-concept-paper-identity-and-authority-software-agents</a></p>
+</li>
+<li><p>Google Cloud, <em>Agent Registry Overview</em>, 2026.
+<a href="https://docs.cloud.google.com/agent-registry/overview">https://docs.cloud.google.com/agent-registry/overview</a></p>
+</li>
+<li><p>AWS, <em>AWS Agent Registry in Amazon Bedrock AgentCore (Preview)</em>, Apr 2026.
+<a href="https://aws.amazon.com/about-aws/whats-new/2026/04/aws-agent-registry-in-agentcore-preview/">https://aws.amazon.com/about-aws/whats-new/2026/04/aws-agent-registry-in-agentcore-preview/</a></p>
+</li>
+<li><p>AWS, <em>Introducing Amazon Bedrock AgentCore Identity: Securing Agentic AI at Scale</em>, 2026.
+<a href="https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-agentcore-identity-securing-agentic-ai-at-scale/">https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-agentcore-identity-securing-agentic-ai-at-scale/</a></p>
+</li>
+<li><p>Microsoft, <em>Agent Registry in the Microsoft 365 Admin Center</em>, 2026.
+<a href="https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry?view=o365-worldwide">https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry?view=o365-worldwide</a></p>
 </li>
 </ul>
 <hr>
@@ -5659,6 +5970,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>MemGPT</strong> — A memory architecture that treats the context window as OS-style &quot;main memory&quot; and external stores as &quot;disk,&quot; letting the model page information in and out via function calls (virtual context management) (Ch 3).</p>
 <p><strong>Mem0</strong> — A memory layer that dynamically extracts, consolidates, and retrieves salient facts across sessions, with an optional graph variant for entity relations (Ch 3).</p>
 <p><strong>Sleep-time compute</strong> — Processing context offline between requests — anticipating likely queries and precomputing inferences — to cut the compute a later query needs (Ch 3).</p>
+<p><strong>Persistent memory poisoning</strong> — An attack in which untrusted content is promoted into durable memory and later treated as trusted state, allowing an injection to survive context resets and steer future runs (Ch 3, 5).</p>
 <hr>
 <h2>Sub-Agents and Workflows</h2>
 <p><strong>Sub-agent</strong> — A specialized agent that handles a focused task in its own context window and returns only a condensed summary to its parent (Ch 3).</p>
@@ -5668,6 +5980,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>Micro-agent</strong> — A small, focused agent (≈3–20 steps) embedded in an otherwise deterministic workflow, rather than an open-ended &quot;loop until done&quot; agent (Ch 6, 9).</p>
 <p><strong>Multi-agent topology</strong> — The coordination shape of a multi-agent system: orchestrator–worker, hierarchical, blackboard/shared-memory, or debate/voting (Ch 3, 6).</p>
 <p><strong>MAST (Multi-Agent System failure taxonomy)</strong> — An empirical taxonomy of 14 multi-agent failure modes in three categories: specification issues, inter-agent misalignment, and task verification (Ch 3).</p>
+<p><strong>Trust escalation</strong> — A delegation failure where a low-privilege worker&#39;s claim is accepted by a higher-privilege parent, which then acts with authority the worker did not possess (Ch 3, 18).</p>
 <p><strong>Reasoning / self-correction patterns</strong> — Single-agent deliberation patterns that trade tokens for reliability: Reflexion (self-critique memory), Self-Refine (critique-and-revise), CRITIC (tool-grounded critique), Tree of Thoughts and LATS (branching search), and ReWOO (plan-then-execute) (Ch 6).</p>
 <hr>
 <h2>Tools and Sandboxing</h2>
@@ -5676,11 +5989,13 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>Progressive disclosure</strong> — Loading tool definitions, files, or instructions only when needed, rather than all up front (Ch 4).</p>
 <p><strong>Skill</strong> — A reusable, file-backed capability (often a <code>SKILL.md</code> plus supporting code) that an agent can load on demand (Ch 4).</p>
 <p><strong>Code execution (as a meta-tool)</strong> — Presenting tools as a code API the agent invokes by writing code, rather than as direct calls — sharply reducing token cost (Ch 4).</p>
+<p><strong>Programmatic tool calling</strong> — Having the model write a bounded program that filters, joins, ranks, deduplicates, aggregates, or validates tool results inside a runtime, reducing model round-trips and context transfer (Ch 4).</p>
 <p><strong>Shell</strong> — A command-line interface such as Bash or zsh. In agent systems, shell access is powerful because it lets the agent run tests, inspect files, install packages, and compose ad hoc tools (Ch 1, 4, 5).</p>
 <p><strong>Filesystem</strong> — The directories and files the agent can read or write. It acts as workspace, durable memory, and a collaboration surface between agents and humans (Ch 1, 2, 5).</p>
 <p><strong>Sandbox</strong> — An isolated environment, with filesystem and network boundaries, within which an agent can act freely without per-action approval prompts (Ch 5).</p>
 <p><strong>Sandbox liveness</strong> — The sandbox&#39;s role as an authorization region: it lets an agent act without per-action approval prompts while staying inside configured boundaries (Ch 5).</p>
 <p><strong>Governance</strong> — Harness mechanisms for identity, permission policy, scoped credentials, human approval, audit logs, and cross-layer security accountability (Ch 5, 18).</p>
+<p><strong>Agentic readiness</strong> — The degree to which a system is safe and legible for autonomous callers: idempotent mutations, explicit operation state, machine identity, clear retry semantics, observable outcomes, and compensating actions (Ch 5).</p>
 <p><strong>Delegated auth</strong> — A pattern where the agent acts through scoped credentials or a proxy-authorized identity rather than inheriting the user&#39;s full ambient authority (Ch 5).</p>
 <p><strong>Supply-chain provenance</strong> — Evidence about the origin and integrity of tools, packages, datasets, MCP servers, and retrieval sources the agent depends on (Ch 5, 18).</p>
 <p><strong>Hook / middleware</strong> — Harness-executed scripts or checkpoints that run automatically on lifecycle events (start, post-tool-call, stop), enforcing rules deterministically (Ch 5).</p>
@@ -5702,6 +6017,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>Failure attribution</strong> — Labeling an agent failure by likely harness layer — for example execution, tool interface, context, lifecycle, observability, verification, or governance — before choosing a fix (Ch 10, 12).</p>
 <p><strong>Task / trial</strong> — A <em>task</em> has defined inputs and success criteria; a <em>trial</em> is a single attempt at it (Ch 10).</p>
 <p><strong>Grader</strong> — A component that scores some aspect of a trial: code-based, model-based, or human (Ch 10).</p>
+<p><strong>Evaluator integrity</strong> — The trustworthiness of the grading system itself, supported by blinded judgment, deterministic evidence, abstention, calibration, meta-evals, versioning, and reproducible audit artifacts (Ch 10).</p>
 <p><strong>Transcript (trace, trajectory)</strong> — The full record of a trial: every message, tool call, and result (Ch 10, 12).</p>
 <p><strong>Outcome</strong> — The final environmental state at the end of a trial, distinct from the agent&#39;s text response (Ch 10).</p>
 <p><strong>Capability eval / regression eval</strong> — Capability evals measure what an agent can newly do (low pass rates, climbing); regression evals protect what it already does reliably (near 100%) (Ch 10).</p>
@@ -5718,15 +6034,16 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>Agent platform</strong> — Infrastructure beyond a local framework: durable workspaces, managed sandboxes, identity, billing, observability, evaluation, governance, and human handoff across many runs and users (Ch 9, 18).</p>
 <p><strong>Checkpoint / resume</strong> — A reliability pattern where an agent periodically saves enough state to restart after failure or context reset without losing work (Ch 7, 9).</p>
 <p><strong>Durable execution</strong> — An infrastructure guarantee that each workflow step is persisted so a crashed or interrupted agent resumes from the last recorded step; non-deterministic model/tool calls are recorded and replayed, not recomputed (Ch 7).</p>
-<p><strong>Time horizon</strong> — METR&#39;s capability metric: the human-task length a model completes with 50% reliability; the frontier value has roughly doubled every seven months (Ch 7, 18).</p>
+<p><strong>Time horizon</strong> — METR&#39;s capability metric: the human-task length a model completes with 50% reliability; the frontier value has roughly doubled every seven months (Ch 7, 19).</p>
 <p><strong>Stateless reducer</strong> — Modeling an agent as a pure fold over an event log, making it serializable, replayable, and testable (Ch 9).</p>
 <p><strong>Model–harness co-evolution</strong> — The coupling created when frontier models are post-trained with their harnesses in the loop, so that changing either side can degrade performance (Ch 12).</p>
 <p><strong>Span telemetry</strong> — Structured trace data represented as a tree of spans for model calls, tool calls, retrieval, context assembly, permissions, costs, and outcomes (Ch 12).</p>
 <p><strong>OpenTelemetry GenAI semantic conventions</strong> — An emerging standard schema of span and attribute names for LLM and agent telemetry (<code>invoke_agent</code>, <code>chat</code>, <code>execute_tool</code> spans), letting agent traces join the ordinary observability stack (Ch 12).</p>
 <p><strong>Trace-to-eval loop</strong> — Converting real production failures into redacted, reproducible regression cases with outcome assertions (Ch 12).</p>
+<p><strong>Controlled self-improvement</strong> — An external, versioned loop that turns reviewed production corrections into bounded change tasks, gates them on evals, and uses canary and rollback rather than allowing a deployed agent to modify itself in place (Ch 12, 17).</p>
 <p><strong>Meta-harness</strong> — Treating harness design itself as an optimization object: prompts, tools, retries, context policies, evaluators, and control loops are ablated or searched using eval feedback (Ch 12).</p>
-<p><strong>Cost-quality-speed trilemma</strong> — The tradeoff that stronger execution environments, observability, verification, and governance improve reliability but increase cost and latency (Ch 18).</p>
-<p><strong>Capability-control tradeoff</strong> — The design axis where more authority, tools, memory, and autonomy improve capability while expanding the control, provenance, and audit problem (Ch 18).</p>
+<p><strong>Cost-quality-speed trilemma</strong> — The tradeoff that stronger execution environments, observability, verification, and governance improve reliability but increase cost and latency (Ch 19).</p>
+<p><strong>Capability-control tradeoff</strong> — The design axis where more authority, tools, memory, and autonomy improve capability while expanding the control, provenance, and audit problem (Ch 18, 19).</p>
 <p><strong>Ralph Wiggum loop</strong> — A hook that intercepts an agent&#39;s exit attempt and reinjects the original prompt in a clean context window, forcing it to continue against its goal (Ch 7, 8).</p>
 <p><strong>Loop engineering</strong> — Treating the agent loop itself as the unit of design — specifying the trigger, topology, verifier, and stop rules that surround the model so it can run unattended. The operator-facing view of the outer control loop (Ch 8).</p>
 <p><strong>Trigger (heartbeat)</strong> — What starts a loop pass without a human prompt: a schedule, a webhook, or another agent (Ch 8).</p>
@@ -5758,6 +6075,7 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>Accessibility tree</strong> — A structured, semantic representation of a UI (roles, labels, states) built for assistive technology; often a more compact and exact screen encoding than raw pixels or DOM (Ch 16).</p>
 <hr>
 <h2>Cost and Operations</h2>
+<p><strong>AgentOps</strong> — The lifecycle discipline for operating agents across governance and security, build and operations, evaluation, and observability, from planning through retirement (Ch 17).</p>
 <p><strong>Per-task budget</strong> — An explicit ceiling on tokens, tool calls, or cost for a single agent run, after which the agent stops and asks rather than looping indefinitely (Ch 17).</p>
 <p><strong>Cost attribution</strong> — Attaching token and dollar cost to each span of a trace, turning &quot;the agent is expensive&quot; into a specific, fixable engineering finding (Ch 17).</p>
 <p><strong>Multi-tenancy / tenant isolation</strong> — Serving many users or organizations from one platform while preventing state bleed (context/memory/cache leaking across tenants) and authority bleed (acting with the wrong tenant&#39;s credentials) (Ch 17).</p>
@@ -5765,6 +6083,16 @@ globalThis["mermaid"] = globalThis.__esbuild_esm_mermaid_nm["mermaid"].default;
 <p><strong>Semantic cache</strong> — A cache that serves <em>similar</em> (not just identical) requests by embedding the query and returning a stored response above a similarity threshold; can skip whole model calls but risks false hits (Ch 17).</p>
 <p><strong>AI management system (ISO/IEC 42001)</strong> — The first certifiable standard for governing an organization&#39;s AI: how to establish, operate, and continually improve an AI management system — the AI analogue of ISO 27001 (Ch 17).</p>
 <p><strong>EU AI Act</strong> — Regulation (EU) 2024/1689, the first comprehensive AI law; it classifies systems by risk tier and imposes binding obligations on high-risk uses (Ch 17).</p>
+<hr>
+<h2>Fleet, Identity, and Control Plane</h2>
+<p><strong>Agent fleet</strong> — A governed collection of agent definitions, versions, runs, sandboxes, tools, identities, and owners rather than one locally configured agent (Ch 18).</p>
+<p><strong>Agent control plane</strong> — Shared infrastructure that registers agent artifacts, manages identity and delegated authority, enforces policy, reconciles lifecycle, and preserves lineage and audit across a fleet; distinct from the data plane that performs work (Ch 18).</p>
+<p><strong>Agent identity</strong> — The durable machine identity of an agentic principal, distinct from its user, sponsor, runtime process, model, and individual session (Ch 18).</p>
+<p><strong>Agent registry</strong> — A governed source of truth for agent and capability definitions, versions, ownership, dependencies, requested permissions, attestations, deployment state, and lineage (Ch 18).</p>
+<p><strong>Delegated authorization</strong> — Granting an agent short-lived, audience- and purpose-bound authority derived from a user or service, with each further delegation able only to narrow the grant (Ch 5, 18).</p>
+<p><strong>Agent gateway</strong> — A data-plane enforcement point that evaluates the identity and execution envelope for model, tool, MCP, A2A, egress, or memory requests and can allow, deny, redact, reduce scope, strengthen isolation, or require approval (Ch 18).</p>
+<p><strong>Lineage</strong> — The causal graph connecting an agent action to its publisher, source and build, configuration, identity and delegation chain, policy decision, trace evidence, approval, and environmental outcome (Ch 18).</p>
+<p><strong>Non-repudiation</strong> — Evidence strong enough to attribute a request and authorization to particular workload and policy identities, using signed or integrity-protected events plus timestamps and immutable versions; it does not prove a human understood an approval or a model rationale was truthful (Ch 18).</p>
 </section>
 
 <script>

@@ -1,37 +1,37 @@
 # Chapter 9: Twelve Factors for Production Agents
 
-The previous chapters described individual harness techniques: context management, tools, sandboxing, workflows, and long-running handoffs. This chapter steps back: HumanLayer's "12 Factor Agents" is best read as a production checklist that ties those techniques back to ordinary software architecture. It borrows the naming style of the classic Twelve-Factor App, but the factors are specific to LLM agents — and it is a manifesto, not a complete reference architecture.
+The previous chapters examined individual harness techniques: context management, tools, sandboxing, workflows, and handoffs for long-running work. This chapter steps back to consider how those techniques fit into ordinary software architecture. HumanLayer's "12 Factor Agents" is best understood as a production checklist. It borrows its name from the classic Twelve-Factor App, but its factors apply specifically to LLM agents. It is a manifesto, not a complete reference architecture.
 
-Two software concepts do a lot of work in this chapter. *State* is the information needed to continue execution: the current step, retry counts, approvals, user messages, tool results, and business objects touched so far. An *event log* is the append-only record from which that state can be reconstructed. When an agent is modeled as a reducer over events, pause/resume, replay, debugging, and testing become ordinary software problems rather than hidden conversation state.
+Two software concepts underpin this chapter. *State* is all the information required to continue execution: the current step, retry counts, approvals, user messages, tool results, and the business objects affected so far. An *event log* is an append-only record from which that state can be reconstructed. Model the agent as a reducer over those events, and pause/resume, replay, debugging, and testing become ordinary software problems instead of operations on hidden conversation state.
 
 ### 9.1 The Twelve Factors as Software Architecture
 
 The twelve principles, drawn from many production deployments ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)):
 
-1. **Natural Language to Tool Calls**: the atomic pattern is converting user phrasing into a structured JSON call that deterministic code executes.
-2. **Own Your Prompts**: do not outsource prompt engineering to a framework's black box. Write prompts as first-class code so they can be tested, evaluated, and tuned.
-3. **Own Your Context Window**: standard message-format is one option; custom XML-tagged event logs that pack history into a single user message are another. The aim is maximum information density with minimum tokens.
-4. **Tools Are Just Structured Outputs**: a tool call is a model emitting JSON that names an intent and parameters. Deterministic code decides what to do with it.
-5. **Unify Execution State and Business State**: don't separate "current step / next step / retry count" from "what happened in the conversation." Infer execution state from a single event log.
-6. **Launch / Pause / Resume with Simple APIs**: agents are programs; they should support standard lifecycle operations, including pause-between-tool-selection-and-execution.
-7. **Contact Humans with Tool Calls**: rather than relying on the model's choice of plain-text vs. structured output, give it explicit `request_human_input` tools with structured options (urgency, format, choices).
-8. **Own Your Control Flow**: hijack the loop to break for approval, summarize tool results, run LLM-as-judge over outputs, manage memory, log and trace, rate-limit, or sleep durably.
-9. **Compact Errors into Context Window**: leaving errors visible enables self-healing; with a counter on consecutive errors, escalate to a human after a threshold. The verb is *compact* because accumulating raw stack traces blows the token budget and feeds context rot (see Foundations ch 9) — keep the latest or a summarized error in context, and drop or fold older repeated traces so the error history does not crowd out the working context.
-10. **Small, Focused Agents**: keep individual agent scope to 3–10, maybe 20 steps. Larger context = worse performance.
-11. **Trigger from Anywhere**: enable launches from Slack, email, SMS, webhooks, crons. Combined with factor 7, this enables the *outer loop* — agents kicked off by events that contact humans for help when they reach critical points.
-12. **Make Your Agent a Stateless Reducer**: a fold over events. Pure, serializable, replay-able. Replay is only deterministic if every LLM response and tool result is captured as an event: on resume you fold over the recorded results, you do not re-invoke the model or re-run side-effecting tools.
+1. **Natural Language to Tool Calls**: the fundamental pattern is to convert the user's request into a structured JSON call, then let deterministic code execute it.
+2. **Own Your Prompts**: do not outsource prompt engineering to a framework's black box. Treat prompts as first-class code so you can test, evaluate, and tune them.
+3. **Own Your Context Window**: a standard message format is one option; another is a custom, XML-tagged event log that packs history into a single user message. In either case, the goal is to maximize useful information while minimizing token use.
+4. **Tools Are Just Structured Outputs**: a tool call is structured JSON from the model that specifies an intent and its parameters. Deterministic code then decides how to act on it.
+5. **Unify Execution State and Business State**: do not maintain "current step / next step / retry count" separately from "what happened in the conversation." Instead, derive execution state from a single event log.
+6. **Launch / Pause / Resume with Simple APIs**: agents are programs, so they should support standard lifecycle operations. This includes pausing after tool selection but before tool execution.
+7. **Contact Humans with Tool Calls**: do not depend on the model to choose correctly between plain text and structured output. Give it an explicit `request_human_input` tool with structured fields such as urgency, format, and choices.
+8. **Own Your Control Flow**: take control of the loop so you can pause for approval, summarize tool results, apply an LLM-as-judge to outputs, manage memory, log and trace activity, enforce rate limits, or sleep durably.
+9. **Compact Errors into Context Window**: keep errors visible so the agent can recover from them, and use a consecutive-error counter to escalate to a human after a threshold. The key word is *compact*: raw stack traces consume the token budget and contribute to context rot (see Foundations ch 9). Keep the latest error or a useful summary in context, and fold or remove older repeated traces so they do not crowd out the information needed to continue.
+10. **Small, Focused Agents**: keep each agent's scope to roughly 3–10 steps, or perhaps 20. Larger contexts tend to reduce performance.
+11. **Trigger from Anywhere**: allow launches from Slack, email, SMS, webhooks, and cron jobs. Together with factor 7, this creates the *outer loop*: events start agents, and agents contact people when they reach critical decision points.
+12. **Make Your Agent a Stateless Reducer**: model the agent as a pure, serializable, replayable fold over events. Replay is deterministic only when every LLM response and tool result is captured as an event. On resume, fold over the recorded results rather than invoking the model again or rerunning tools with side effects.
 
-The deeper claim binding these together is that "agents, at least the good ones, don't follow the 'here's your prompt, here's a bag of tools, loop until you hit the goal' pattern. Rather, they are comprised of mostly just software" ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)). The factors are mostly software-engineering hygiene applied to a stateful, non-deterministic component. They should not be treated as universal laws: a research prototype, a local coding assistant, and a regulated customer-support agent will need different trade-offs. The useful lesson is the direction of travel — make state explicit, make control flow inspectable, and put human interaction behind structured interfaces.
+The deeper claim connecting these factors is that "agents, at least the good ones, don't follow the 'here's your prompt, here's a bag of tools, loop until you hit the goal' pattern. Rather, they are comprised of mostly just software" ([HumanLayer — 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents)). In other words, the factors apply familiar software-engineering discipline to a stateful, non-deterministic component. They are not universal laws. A research prototype, a local coding assistant, and a regulated customer-support agent each require different trade-offs. The practical direction is what matters: make state explicit, make control flow inspectable, and place human interaction behind structured interfaces.
 
 ### 9.2 From Agent Programs to Agent Platforms
 
-The OpenReview survey describes the ecosystem moving from agent frameworks toward agent platforms ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)). A framework packages local abstractions — agents, tools, memory stores, and loops. A platform adds durable workspaces, managed sandboxes, identity, billing, observability, evaluation, governance, and human handoff across many runs and users.
+The OpenReview survey describes an ecosystem moving from agent frameworks toward agent platforms ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)). A framework packages local abstractions such as agents, tools, memory stores, and loops. A platform adds shared infrastructure: durable workspaces, managed sandboxes, identity, billing, observability, evaluation, governance, and human handoff across many runs and users.
 
-This does not replace the twelve factors; it raises their scope. "Launch / pause / resume" becomes a platform API. "Unify execution state and business state" becomes event-log storage with tenancy and migration semantics. "Contact humans with tool calls" becomes a handoff interface with audit and permission state. "Own your control flow" becomes explicit decisions about which checks run synchronously, which run offline, and which failures justify costly recovery.
+This shift does not replace the twelve factors; it expands their scope. "Launch / pause / resume" becomes a platform API. "Unify execution state and business state" becomes event-log storage with tenancy and migration semantics. "Contact humans with tool calls" becomes a handoff interface that tracks permissions and audit history. "Own your control flow" requires explicit decisions about which checks run synchronously, which run offline, and which failures justify an expensive recovery process.
 
-The platform boundary also changes responsibility. A local agent can get away with ad hoc state files; a shared platform needs state ownership, retention policy, billing attribution, credential scoping, and replayable audit trails. The harness is no longer just the thing around one model call. It becomes the control system around many agents, many environments, and many human stakeholders.
+The platform boundary also changes who is responsible for what. A local agent may get by with ad hoc state files; a shared platform needs clear state ownership, retention policies, billing attribution, scoped credentials, and replayable audit trails. At this scale, the harness is no longer just the layer around one model call. It becomes the control system for many agents, environments, and human stakeholders.
 
-That control system is not another agent framework. It is the **agent control plane** developed in Chapter 18: a registry that says which agents and capabilities exist; an identity layer that says who is acting for whom; policy enforcement that decides what a run may do; and lifecycle, lineage, and audit services that operate across sessions. The twelve factors remain the design discipline inside each agent program; the control plane makes those programs governable as a fleet.
+That control system is not simply another agent framework. It is the **agent control plane** developed in Chapter 18: a registry of available agents and capabilities; an identity layer that records who is acting on whose behalf; policy enforcement that determines what each run may do; and lifecycle, lineage, and audit services that operate across sessions. The twelve factors remain the design discipline inside each agent program. The control plane makes a fleet of those programs governable.
 
 ---
 
@@ -62,14 +62,14 @@ mindmap
 
 ## Key Takeaways
 
-- **"Mostly just software"**: good agents are deterministic programs with a non-deterministic LLM component — not bags of tools looping until done.
-- **Own your prompts**: frameworks hide prompts; prompts should be first-class code under version control.
-- **Stateless reducer pattern**: treating the agent as a fold over an event log makes it serializable, replay-able, and testable.
+- **"Mostly just software"**: a good agent is mostly deterministic software wrapped around a non-deterministic LLM component—not a bag of tools that loops until it is done.
+- **Own your prompts**: do not let frameworks hide them. Treat prompts as first-class code under version control.
+- **Use the stateless reducer pattern**: folding an event log into current state makes the agent serializable, replayable, and testable.
 - **Platform scope changes the factors**: lifecycle, state, identity, billing, observability, and human handoff become shared infrastructure concerns.
 - **A fleet needs a control plane**: the twelve factors shape each agent program; registry, identity, policy, lifecycle, and audit govern the collection.
-- **Small, focused agents**: 3–20 steps per agent; performance degrades with context length.
-- **Contact humans with tool calls**: structured `request_human_input` tools beat relying on the model's unstructured text choices.
-- **Compact errors, don't hide them**: visible error traces enable self-healing; a consecutive-error counter provides a safety escalation path.
+- **Keep agents small and focused**: limit each agent to 3–20 steps because performance tends to degrade as context grows.
+- **Contact humans through tool calls**: a structured `request_human_input` tool is more reliable than depending on the model's choice of unstructured text.
+- **Compact errors rather than hiding them**: visible error information supports self-recovery, while a consecutive-error counter provides a safe path for escalation.
 
 ## Further Reading
 

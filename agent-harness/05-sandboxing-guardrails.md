@@ -2,34 +2,34 @@
 
 ### 5.1 The Agent Security Threat Model
 
-Most of this chapter is about *mitigations* — sandboxes, hooks, approval gates. It is worth first stating plainly what they mitigate. An agent that reads untrusted content and can act on the world has a specific risk profile ([Anthropic — Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing)):
+Most of this chapter covers *mitigations*: sandboxes, hooks, and approval gates. Before discussing them, we need to be explicit about the risks they address. An agent that can read untrusted content and act on external systems has a distinctive threat profile ([Anthropic — Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing)):
 
-- **Prompt injection** (see Foundations ch 8, "Prompt Injection as Context Confusion," and ch 12) — the model cannot reliably separate data from instructions, so untrusted content the agent reads (a web page, an issue comment, a source file, a tool result) can steer it as if it were a command.
-- **Data exfiltration** — a steered agent with network access can send secrets — SSH keys, API tokens, proprietary source — to an attacker-controlled destination.
-- **Destructive action** — a steered agent with filesystem or shell access can delete or corrupt files, or commit and push bad code.
-- **Tool and supply-chain risk** — a malicious or compromised MCP server, package, or dependency can introduce hostile tools or instructions that the agent then trusts.
+- **Prompt injection** (see Foundations ch 8, "Prompt Injection as Context Confusion," and ch 12) — the model cannot reliably distinguish data from instructions. Untrusted content that the agent reads—a web page, issue comment, source file, or tool result—can therefore steer it as if that content were a command.
+- **Data exfiltration** — a compromised or steered agent with network access can send secrets, such as SSH keys, API tokens, or proprietary source code, to an attacker-controlled destination.
+- **Destructive action** — a steered agent with filesystem or shell access can delete or corrupt files, or commit and push harmful code.
+- **Tool and supply-chain risk** — a malicious or compromised MCP server, package, or dependency can introduce hostile tools or instructions that the agent may then trust.
 
-The combination practitioners worry about most is sometimes called the *lethal trifecta*: access to private data, exposure to untrusted content, and the ability to communicate externally ([Simon Willison — The lethal trifecta for AI agents](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/)). Any one alone is survivable; all three in a single agent mean one injected instruction can read a secret and send it out. Most controls in this chapter work by breaking one leg of the trifecta — network isolation removes external communication, filesystem isolation removes private-data access, and approval gates put a human in the path of consequential actions.
+The combination practitioners worry about most is sometimes called the *lethal trifecta*: access to private data, exposure to untrusted content, and the ability to communicate externally ([Simon Willison — The lethal trifecta for AI agents](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/)). Each capability can be manageable on its own. When one agent has all three, however, a single injected instruction can read a secret and send it to an attacker. Most controls in this chapter work by breaking one leg of the trifecta. Network isolation removes external communication, filesystem isolation removes access to private data, and approval gates place a human in the path of consequential actions.
 
-The framing to carry into the rest of the chapter: the model is not a trusted component. It is a capable but steerable core, and the harness is what stands between a hostile instruction and a real-world consequence.
+The key premise for the rest of the chapter is that the model is not a trusted component. It is capable, but it can be steered. The harness is what stands between a hostile instruction and a real-world consequence.
 
-Anthropic's later containment work sharpens the threat model along two dimensions ([Anthropic — How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude)). First, risk can originate with a **misusing user**, **model misbehavior**, or an **external attacker** steering the model through content. Second, defenses can be placed in the **model**, the **execution environment**, or at the **external-content boundary**. This matrix is useful because no one layer covers every origin: alignment cannot guarantee that a model will ignore an injection, and a sandbox cannot decide whether a permitted email is semantically harmful. Production containment is defense in depth across all three.
+Anthropic's later containment work sharpens this threat model along two dimensions ([Anthropic — How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude)). Risk can originate from a **misusing user**, from **model misbehavior**, or from an **external attacker** steering the model through content. Defenses, in turn, can be placed in the **model**, the **execution environment**, or at the **external-content boundary**. This matrix matters because no single defensive layer covers every source of risk. Alignment cannot guarantee that a model will ignore an injection, while a sandbox cannot determine whether a permitted email is semantically harmful. Production containment therefore requires defense in depth across all three layers.
 
 ### 5.2 The Permission Fatigue Problem
 
-Coding agents that run with no oversight are dangerous; coding agents that ask permission for every action are unusable. Anthropic frames this as approval fatigue: "Constantly clicking 'approve' slows down development cycles and can lead to 'approval fatigue,' where users might not pay close attention to what they're approving, and in turn making development less safe" ([Anthropic — Beyond Permission Prompts: Making Claude Code More Secure and Autonomous](https://www.anthropic.com/engineering/claude-code-sandboxing)). The solution is structural: define boundaries within which the agent can act freely, and only ask for permission when those boundaries are crossed.
+Coding agents that operate without oversight are dangerous, but agents that request permission for every action are impractical. Anthropic describes the resulting problem as approval fatigue: "Constantly clicking 'approve' slows down development cycles and can lead to 'approval fatigue,' where users might not pay close attention to what they're approving, and in turn making development less safe" ([Anthropic — Beyond Permission Prompts: Making Claude Code More Secure and Autonomous](https://www.anthropic.com/engineering/claude-code-sandboxing)). The solution is structural: establish boundaries within which the agent can act freely, and request permission only when an action crosses one of them.
 
-In their internal usage, sandboxing safely reduces permission prompts by 84% ([Anthropic — Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing)).
+In Anthropic's internal use, sandboxing safely reduced permission prompts by 84% ([Anthropic — Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing)).
 
 ### 5.3 Sandbox as Cage, Reset Button, and License
 
-The OpenReview survey makes the sandbox's role broader than security. In agent systems, a sandbox has three simultaneous purposes ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)):
+The OpenReview survey presents the sandbox as more than a security mechanism. In an agent system, it serves three purposes at once ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)):
 
 - **Security**: it bounds the blast radius of unpredictable model-generated actions and prompt-injection-driven behavior.
 - **Reproducibility**: it gives evals, training trajectories, and long-running sessions a resettable baseline. A container or microVM can be destroyed and rebuilt; a developer workstation cannot.
 - **Liveness**: it defines a region where the agent is allowed to act without asking a human on every file write, package install, or network call.
 
-That third purpose is specific to the agent era. A sandbox is not just a cage; it is also a license. By moving permission from a per-action question to a session configuration, it makes long-horizon autonomy usable without collapsing into approval fatigue.
+The third purpose is distinctive to agent systems. A sandbox is not only a cage; it is also a license to act. By moving permission decisions from individual actions into session-level configuration, it makes long-horizon autonomy practical without producing constant approval prompts.
 
 Containment should scale with the work. Three recurring patterns form a useful ladder ([Anthropic — How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude)):
 
@@ -37,83 +37,83 @@ Containment should scale with the work. Three recurring patterns form a useful l
 - A **human-in-the-loop sandbox** supports interactive work: safe operations proceed automatically, while boundary crossings suspend for approval.
 - A **sealed virtual machine** isolates higher-risk workloads behind a stronger kernel and network boundary, at greater startup and operational cost.
 
-The right question is not "is it sandboxed?" but "which resources remain reachable, which state survives reset, and what authority can cross the boundary?" Resettable compute does not neutralize a credential mounted inside it, a poisoned memory written outside it, or an egress path that can transmit private data.
+The useful question is not simply "Is it sandboxed?" Instead, ask which resources remain reachable, which state survives a reset, and what authority can cross the boundary. Resettable compute does not neutralize a credential mounted inside the sandbox, a poisoned memory written outside it, or an egress path capable of transmitting private data.
 
 ### 5.4 Filesystem and Network Isolation Must Be Paired
 
-Claude Code's sandbox enforces two boundaries simultaneously, and Anthropic argues both are required. Filesystem isolation prevents a prompt-injected agent from modifying sensitive files; network isolation prevents it from leaking data or downloading malware. Without network isolation, a compromised agent could exfiltrate SSH keys; without filesystem isolation, a compromised agent could escape the sandbox and reach the network ([Anthropic — Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing)).
+Claude Code's sandbox enforces filesystem and network boundaries together, and Anthropic argues that both are necessary. Filesystem isolation prevents a prompt-injected agent from modifying sensitive files. Network isolation prevents it from leaking data or downloading malware. Without the network boundary, a compromised agent could exfiltrate SSH keys. Without the filesystem boundary, it could escape the sandbox and gain network access ([Anthropic — Beyond Permission Prompts](https://www.anthropic.com/engineering/claude-code-sandboxing)).
 
-The implementation builds on OS-level primitives — Linux bubblewrap and macOS seatbelt — and covers not just direct Claude Code interactions but any subprocess. Network access is funneled through a Unix domain socket to a proxy that enforces domain restrictions and handles user confirmation for newly requested domains. The runtime is open-sourced.
+The implementation builds on OS-level primitives—Linux bubblewrap and macOS seatbelt—and applies to subprocesses as well as direct Claude Code interactions. Network traffic passes through a Unix domain socket to a proxy, which enforces domain restrictions and asks the user to confirm newly requested domains. The runtime is open source.
 
-Claude Code on the web extends this to a cloud sandbox where sensitive credentials (git credentials, signing keys) are never inside the sandbox with the agent at all. A custom proxy handles git interactions, attaching scoped credentials only after validating that the operation is permitted (e.g., pushing only to the configured branch).
+Claude Code on the web extends the design to a cloud sandbox in which sensitive credentials, including git credentials and signing keys, never reside inside the sandbox with the agent. A custom proxy handles git interactions and attaches scoped credentials only after confirming that an operation is permitted—for example, that a push targets the configured branch.
 
-An egress allowlist should be understood as a **capability grant**, not as a harmless list of destinations. Allowing a package registry permits downloading executable code; allowing a source host may permit publishing content; allowing a general web endpoint can complete the exfiltration leg of the lethal trifecta. Policies should therefore bind destination, protocol, operation, identity, and task—not domain alone—and log which rule authorized each connection.
+An egress allowlist is a **capability grant**, not merely a list of harmless destinations. Access to a package registry permits the agent to download executable code. Access to a source host may permit it to publish content. Access to a general web endpoint can complete the exfiltration leg of the lethal trifecta. Policies should therefore bind network access to a destination, protocol, operation, identity, and task—not to a domain alone—and log the rule that authorized each connection.
 
-Containment must also begin **before trust is established**. Opening a repository can trigger configuration loading, dependency discovery, language servers, hooks, or local listeners before a user sees a trust dialog. Treat project-open and config-load paths as hostile: parse without executing where possible, disable automatic hooks and listeners, and delay credentials and egress until the workspace has been explicitly trusted ([Anthropic — How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude)).
+Containment must also begin **before trust is established**. Opening a repository can trigger configuration loading, dependency discovery, language servers, hooks, or local listeners before the user sees a trust dialog. Treat project-open and configuration-load paths as hostile. Parse without executing where possible, disable automatic hooks and listeners, and withhold credentials and egress until the workspace has been explicitly trusted ([Anthropic — How We Contain Claude](https://www.anthropic.com/engineering/how-we-contain-claude)).
 
 ### 5.5 Governance: Identity, Policy, and Audit
 
-Sandbox boundaries are necessary but not sufficient. The Governance layer asks who the agent is acting for, what authority it has, how authority changes with task context, and what evidence remains after the action ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
+Sandbox boundaries are necessary, but they are not sufficient. The governance layer asks who the agent represents, what authority it holds, how that authority changes with the task context, and what evidence remains after an action ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
 
 Three design moves matter in production:
 
-- **Identity and delegated auth**: the agent should act under scoped credentials or delegated identity, not under a user's full ambient authority. Credential vaults and proxies should attach secrets only at the boundary where the operation is authorized.
+- **Identity and delegated auth**: the agent should act through scoped credentials or delegated identity, not with a user's full ambient authority. Credential vaults and proxies should attach secrets only at the boundary where the operation is authorized.
 - **Context-dependent permission policy**: static allow/deny lists are inspectable but blunt. Task-aware policies can evaluate tool name, arguments, session state, target repo, network domain, and user role before each invocation, while a deterministic checker enforces the result.
 - **Audit-grade traces**: logs must capture not only the tool call, but the identity, permission decision, policy version, arguments, output summary, and whether a human approved escalation.
 
-This is also where supply-chain attacks become harness concerns. MCP tool poisoning, tool squatting, rug-pull updates, hallucinated packages, and retrieval-source poisoning all cross the line between "tool interface" and "governance." A safe harness needs provenance and integrity checks for tools, packages, datasets, and retrieval sources, not only prompts that say "be careful."
+This is also where supply-chain attacks become harness concerns. MCP tool poisoning, tool squatting, rug-pull updates, hallucinated packages, and retrieval-source poisoning all cross the boundary between tool interfaces and governance. A safe harness needs provenance and integrity checks for tools, packages, datasets, and retrieval sources; a prompt that merely says "be careful" is not enough.
 
 ### 5.6 Hooks and Middleware as Programmatic Enforcement
 
-The sandbox is one form of programmatic guardrail; hooks and middleware are another, finer-grained one. Claude Code supports user-defined commands or scripts that run automatically on lifecycle events — at agent start, after a tool call, on stop, and so on ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)). LangChain's middleware concept is structurally similar. Some hooks are fully deterministic scripts; others are procedural checkpoints that inject context back into the model. The reliability comes from the harness executing them automatically, not from the model remembering a rule.
+A sandbox is one kind of programmatic guardrail. Hooks and middleware provide a finer-grained alternative. Claude Code supports user-defined commands or scripts that run automatically at lifecycle events, such as agent start, after a tool call, or on stop ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)). LangChain's middleware follows a similar structure. Some hooks are fully deterministic scripts; others are procedural checkpoints that inject context back into the model. Their reliability comes from automatic execution by the harness, not from the model remembering a rule.
 
-Common uses are notifications (sounds when an agent finishes), automated approvals or denials (deny migration commands; ask the user to run them instead), integrations (post a Slack message, open a PR), and verification (run typecheck and build on stop, surface errors to the agent so it has to fix them before finishing). HumanLayer's example hook runs Biome and TypeScript in parallel on every Claude stop, exits silently on success, and on failure surfaces only the errors with exit code 2, telling the harness to re-engage the agent.
+Common uses include notifications, automated approvals or denials, integrations, and verification. A hook might play a sound when an agent finishes, deny a database migration and ask the user to run it, post a Slack message, open a pull request, or run type checking and a build before the agent stops. HumanLayer's example runs Biome and TypeScript in parallel whenever Claude attempts to stop. It exits silently on success; on failure, it returns only the errors with exit code 2, causing the harness to re-engage the agent.
 
-LangChain reports this kind of middleware was central to lifting their deepagents-cli from Top 30 to Top 5 on Terminal-Bench 2.0. Their `PreCompletionChecklistMiddleware` intercepts the agent before exit and reminds it to run a verification pass against the task spec; a `LocalContextMiddleware` runs at start to map the working directory and discover available tools; a `LoopDetectionMiddleware` tracks per-file edit counts and prompts the agent to reconsider after N edits to the same file, breaking "doom loops" of small variations on a broken approach ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
+LangChain reports that this kind of middleware helped move deepagents-cli from the Top 30 to the Top 5 on Terminal-Bench 2.0. Its `PreCompletionChecklistMiddleware` intercepts the agent before exit and prompts it to verify its work against the task specification. `LocalContextMiddleware` runs at startup to map the working directory and discover available tools. `LoopDetectionMiddleware` counts edits to each file and, after N edits to the same file, asks the agent to reconsider its approach. This can break "doom loops" in which the agent repeatedly tries small variations of a failing strategy ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
 
-The survey's governance taxonomy makes those hooks part of a wider enforcement pipeline: pre-invocation checks can deny unsafe tool calls, post-invocation hooks can taint or redact untrusted outputs before they enter context, stop hooks can require verification or audit updates, and escalation hooks can route ambiguous cases to humans. The more consequential the action, the less it should depend on the model remembering an instruction.
+The survey's governance taxonomy places these hooks within a broader enforcement pipeline. Pre-invocation checks can deny unsafe tool calls. Post-invocation hooks can mark or redact untrusted outputs before they enter context. Stop hooks can require verification or audit updates, and escalation hooks can route ambiguous cases to humans. The more consequential an action is, the less its safety should depend on the model remembering an instruction.
 
 ### 5.7 Feedforward and Feedback: A Cybernetic View
 
-Thoughtworks' Birgitta Böckeler offers a higher-level taxonomy ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)). Outer-harness controls fall into two directions:
+Thoughtworks' Birgitta Böckeler offers a higher-level taxonomy for these controls ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)). Outer-harness controls operate in two directions:
 
-- **Guides (feedforward)** anticipate the agent's behavior and steer it before it acts. They increase the probability of good output on the first attempt — instructions in AGENTS.md, skills, reference documentation, language-server hints.
-- **Sensors (feedback)** observe after the agent acts and help it self-correct. Tests, linters, type checkers, AI code review.
+- **Guides (feedforward)** anticipate the agent's behavior and steer it before it acts. Examples include instructions in AGENTS.md, skills, reference documentation, and language-server hints. Their goal is to increase the probability of a good result on the first attempt.
+- **Sensors (feedback)** observe the agent's work after it acts and help it self-correct. Tests, linters, type checkers, and AI code review all serve this role.
 
-A harness with only feedforward guides keeps issuing rules but never learns whether they work; a harness with only feedback sensors keeps catching the same mistake without preventing recurrence. Both are needed.
+A harness with only feedforward guides keeps issuing rules but never determines whether they work. A harness with only feedback sensors repeatedly catches mistakes without helping prevent them. Both are necessary.
 
-Within each direction there is a second axis:
+Each direction can be divided along a second axis:
 
 - **Computational** controls — linters, type checkers, structural tests — are deterministic, run in milliseconds to seconds, and produce reliable results.
 - **Inferential** controls — semantic analysis, AI code review, LLM-as-judge — handle nuance but are slower, more expensive, and non-deterministic.
 
-The two axes are independent. Coding conventions in AGENTS.md are inferential feedforward. ArchUnit tests checking module boundaries on commit are computational feedback. A `/code-review` skill is inferential feedback. A pre-bootstrap script that sets up the project structure is computational feedforward. A well-engineered harness mixes all four.
+The two axes are independent. Coding conventions in AGENTS.md are inferential feedforward; ArchUnit tests that check module boundaries on commit are computational feedback. A `/code-review` skill provides inferential feedback, while a pre-bootstrap script that creates the project structure is computational feedforward. A well-engineered harness combines all four types.
 
 ### 5.8 Three Regulation Categories
 
-Böckeler further distinguishes harnesses by what they regulate ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)):
+Böckeler also distinguishes harnesses by the qualities they regulate ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)):
 
-- **Maintainability harness** — internal code quality, duplication, complexity, coverage, style. The easiest category, with a long history of pre-existing tooling.
-- **Architecture fitness harness** — performance, observability, debuggability. Captures cross-cutting "fitness functions" of the application.
-- **Behavior harness** — does the application functionally behave the way it should? This is the unsolved category. Today, most teams rely on functional specs as feedforward and AI-generated test suites as feedback, occasionally augmented with mutation testing — and Böckeler is candid that trusting AI-generated tests "is not good enough yet."
+- **Maintainability harness** — regulates internal code quality, duplication, complexity, coverage, and style. This is the easiest category because it can draw on a long history of existing tools.
+- **Architecture fitness harness** — regulates performance, observability, and debuggability. It captures the application's cross-cutting "fitness functions."
+- **Behavior harness** — asks whether the application behaves as intended. This remains the least-solved category. Most teams currently use functional specifications as feedforward and AI-generated test suites as feedback, sometimes supplemented by mutation testing. Böckeler is candid that trusting AI-generated tests "is not good enough yet."
 
-The point of these categories is to make it possible to assess harness coverage. A harness that is strong on maintainability but weak on behavior gives a false sense of safety.
+These categories make harness coverage easier to assess. A harness that is strong on maintainability but weak on behavior can create a false sense of safety.
 
 ### 5.9 Timing: Keep Quality Left
 
-Continuous integration teaches that the earlier you find issues the cheaper they are to fix, and the same holds for harness design. Fast computational sensors (linters, fast tests) should run before commit; expensive computational and inferential sensors (mutation testing, broader code review) run post-integration in the pipeline; continuous-drift sensors (dead-code detection, dependency scanners, log-anomaly judges) run outside the change lifecycle altogether ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
+Continuous integration teaches that the earlier a problem is found, the cheaper it is to fix. The same principle applies to harness design. Fast computational sensors, such as linters and quick tests, should run before commit. More expensive computational and inferential sensors, such as mutation testing and broader code review, can run after integration in the pipeline. Continuous-drift sensors—including dead-code detection, dependency scanners, and log-anomaly judges—operate outside the change lifecycle altogether ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
 
-The OpenAI Codex team's harness, as Böckeler notes, follows the same shape: layered architecture enforced by custom linters and structural tests, plus recurring "garbage collection" passes that scan for drift and have agents suggest fixes.
+As Böckeler notes, the OpenAI Codex team's harness follows the same pattern: custom linters and structural tests enforce a layered architecture, while recurring "garbage collection" passes scan for drift and ask agents to suggest fixes.
 
 ### 5.10 Harnessability, Agentic Readiness, and Ambient Affordances
 
-Not every codebase is equally amenable to harnessing. A strongly-typed language brings type-checking sensors for free; clear module boundaries afford architectural constraint rules; opinionated frameworks like Spring abstract away details the agent does not have to worry about ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
+Not every codebase is equally easy to harness. A strongly typed language provides type-checking sensors by default. Clear module boundaries make architectural constraints enforceable. Opinionated frameworks such as Spring hide details that the agent would otherwise need to manage ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
 
-A term Böckeler credits to Ned Letcher, *ambient affordances*, captures this: properties of the environment itself that make it legible, navigable, and tractable to agents ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)). Greenfield teams can engineer affordances in from day one; legacy teams face the inverse — the harness is most needed where it is hardest to build.
+The term *ambient affordances*, which Böckeler credits to Ned Letcher, captures these properties of the environment that make it legible, navigable, and manageable for agents ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)). Greenfield teams can design these affordances from the start. Legacy teams face the opposite situation: a harness is often most necessary where it is hardest to build.
 
-Anticipating the future, Böckeler suggests *harness templates* — bundled guides and sensors per service topology (CRUD service in JVM, event processor in Go, dashboard in Node) — that ride along with existing service templates. Böckeler invokes Ashby's Law of Requisite Variety to make the case formally — a regulator must have at least as much variety as the system it governs — so committing to a constrained topology is itself a variety-reduction move that makes a comprehensive harness more achievable ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
+Looking ahead, Böckeler proposes *harness templates*: bundles of guides and sensors for specific service topologies, such as a JVM CRUD service, a Go event processor, or a Node dashboard. These could accompany existing service templates. She invokes Ashby's Law of Requisite Variety to formalize the argument: a regulator must have at least as much variety as the system it governs. Choosing a constrained topology reduces that variety and makes a comprehensive harness more achievable ([Thoughtworks — Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)).
 
-The broader production term is **agentic readiness**: can an autonomous caller understand, invoke, observe, retry, and—when necessary—undo the system safely? A service can be easy for a human developer yet hostile to an agent if its APIs have hidden side effects, ambiguous errors, or no stable operation identifiers. Readiness improves when:
+The broader production concept is **agentic readiness**: can an autonomous caller safely understand, invoke, observe, retry, and, when necessary, undo an operation? A service may be easy for a human developer to use yet hostile to an agent if its APIs conceal side effects, return ambiguous errors, or lack stable operation identifiers. Readiness improves when:
 
 - mutations accept idempotency keys and expose operation status;
 - APIs distinguish read, propose, commit, and compensate rather than hiding them behind one opaque call;
@@ -121,18 +121,18 @@ The broader production term is **agentic readiness**: can an autonomous caller u
 - errors state what failed, whether a retry is safe, and what evidence would prove recovery;
 - state changes are observable, attributable, and reversible through compensating actions where literal undo is impossible.
 
-These are ambient affordances for autonomous software. They reduce the amount of probabilistic reasoning the model must do and give the control plane in Chapter 18 stable surfaces for policy, lifecycle, and audit.
+These features act as ambient affordances for autonomous software. They reduce the amount of probabilistic reasoning required from the model and give the Chapter 18 control plane stable surfaces for policy, lifecycle management, and audit.
 
 ### 5.11 Operational Safety: Circuit Breakers, Kill Switches, Budgets, and Canaries
 
-Sandboxes, governance, and hooks (§5.3–5.6) bound what an agent *may* do. A second family of controls bounds what happens when the agent or its tools *misbehave at runtime*. These are borrowed almost unchanged from distributed-systems reliability and security operations, and they belong in the harness because a steered or looping agent cannot be trusted to apply them to itself.
+Sandboxes, governance, and hooks (§5.3–5.6) constrain what an agent *may* do. A second family of controls limits the consequences when the agent or its tools *misbehave at runtime*. These controls come almost unchanged from distributed-systems reliability and security operations. They belong in the harness because an agent that has been steered or caught in a loop cannot be trusted to apply them to itself.
 
-- **Circuit breakers.** Wrap a flaky or expensive dependency — a tool, a downstream service, a sub-agent — so that after a threshold of failures the breaker trips and further calls fail fast instead of hanging or retrying into a storm ([Fowler — CircuitBreaker](https://martinfowler.com/bliki/CircuitBreaker.html)). For agents this bounds the blast radius of a tool that starts erroring or an agent stuck retrying the same failing action — the counterpart to "keep the wrong stuff in" (Ch 3): that pattern keeps one failure visible, while the breaker keeps failures from recurring without limit.
-- **Kill switches.** A human- or policy-triggered stop that halts an agent, or an entire fleet, immediately and independently of the agent's own control flow. Because a prompt-injected agent may be actively working against its instructions, the switch has to live in the harness — a supervisor process, a revocable credential, a sandbox teardown — not in a prompt that says "stop if asked."
-- **Action budgets, iteration caps, and cost governors.** Hard limits on tool calls, tokens, wall-clock time, or spend, after which the loop stops and escalates rather than running away. This is the operational form of the loop stop rules of Chapter 8 and the per-task budgets of Chapter 17: an unbounded loop is both a runaway bill and a runaway blast radius.
-- **Canary tokens.** Fake secrets — an unused API key, a decoy file, a tripwire URL — planted where a prompt-injected agent would try to read or exfiltrate them. A callback on a canary is a high-signal alarm that the agent has been steered into touching data it should not ([Thinkst — Canarytokens](https://canarytokens.org/)). Unlike the sandbox, a canary does not *prevent* the exfiltration leg of the lethal trifecta (§5.1); it *detects* it, which is what makes it a useful last line when prevention is imperfect.
+- **Circuit breakers.** Wrap a flaky or expensive dependency—a tool, downstream service, or sub-agent—so that the breaker trips after a threshold of failures. Subsequent calls fail fast instead of hanging or producing a retry storm ([Fowler — CircuitBreaker](https://martinfowler.com/bliki/CircuitBreaker.html)). For agents, this limits the blast radius of an erroring tool or an agent that repeatedly retries the same failing action. It complements the Chapter 3 advice to "keep the wrong stuff in": that pattern keeps one failure visible, while the breaker prevents the failure from recurring without limit.
+- **Kill switches.** Provide a human- or policy-triggered mechanism that can halt one agent or an entire fleet immediately, independently of the agent's own control flow. A prompt-injected agent may be actively working against its instructions, so the switch must live in the harness—as a supervisor process, revocable credential, or sandbox teardown—not in a prompt that says "stop if asked."
+- **Action budgets, iteration caps, and cost governors.** Set hard limits on tool calls, tokens, wall-clock time, or spending. When a limit is reached, the loop stops and escalates rather than continuing unchecked. This is the operational form of the loop stop rules in Chapter 8 and the per-task budgets in Chapter 17: an unbounded loop creates both an unbounded bill and an unbounded blast radius.
+- **Canary tokens.** Place fake secrets—an unused API key, decoy file, or tripwire URL—where a prompt-injected agent might try to read or exfiltrate them. A callback from a canary is a high-signal warning that the agent has been steered toward data it should not touch ([Thinkst — Canarytokens](https://canarytokens.org/)). Unlike a sandbox, a canary does not *prevent* the exfiltration leg of the lethal trifecta (§5.1); it *detects* it. That makes it a useful final line of defense when prevention is imperfect.
 
-The framing matches the rest of the chapter: the more consequential the failure, the less it should depend on the model choosing to avoid it. Prevention (sandboxes, policy) and detection (canaries, drift alerts in Ch 17) compose; neither alone is sufficient.
+The principle is consistent throughout the chapter: the more consequential a failure is, the less its prevention should depend on the model choosing to avoid it. Prevention through sandboxes and policy works together with detection through canaries and the drift alerts discussed in Ch 17. Neither is sufficient alone.
 
 ---
 
@@ -162,19 +162,19 @@ quadrantChart
 
 ## Key Takeaways
 
-- **The threat model comes first**: prompt injection, data exfiltration, destructive action, and supply-chain risk — the *lethal trifecta* of private data + untrusted content + external communication is the core danger every control targets.
-- **Sandboxing reduces permission prompts by 84%** while maintaining safety — structural boundaries beat approval dialogs.
+- **The threat model comes first**: prompt injection, data exfiltration, destructive action, and supply-chain risk all become especially dangerous when private data, untrusted content, and external communication form the *lethal trifecta*.
+- **Sandboxing reduces permission prompts by 84%** while maintaining safety: structural boundaries are more effective than repeated approval dialogs.
 - **Sandboxing has three jobs**: security, reproducibility, and liveness.
 - **Filesystem and network isolation must be paired**: each addresses a different attack vector, and either alone is insufficient.
-- **Containment is a matrix, not one sandbox**: cover misuse, model misbehavior, and external attack across model, environment, and content-boundary defenses; choose ephemeral containers, interactive sandboxes, or sealed VMs by risk.
-- **Egress is authority**: an allowed destination grants a real capability, so bind network access to operation, identity, and task—and establish no ambient trust while a project is merely being opened.
+- **Containment is a matrix, not a single sandbox**: defend against misuse, model misbehavior, and external attack at the model, environment, and content boundaries; choose ephemeral containers, interactive sandboxes, or sealed VMs according to risk.
+- **Egress is authority**: an allowed destination grants a real capability, so bind network access to the operation, identity, and task—and grant no ambient trust merely because a project has been opened.
 - **Governance is more than approvals**: identity, scoped credentials, policy checks, provenance, and audit trails must compose across tools and sessions.
 - **Hooks and middleware are programmatic enforcement**: they run regardless of model memory, making them more reliable than prompt-only constraints.
 - **Feedforward and feedback are both required**: guides without sensors have no learning loop; sensors without guides react but don't prevent.
 - **Three categories of harness coverage**: maintainability (well-tooled), architecture fitness (achievable), and behavior (the unsolved problem).
 - **Ambient affordances matter**: strongly-typed languages and opinionated frameworks make harnessing easier from day one.
 - **Agentic readiness is an API property**: idempotency, explicit operation status, machine identity, retry semantics, observable state, and compensating actions make systems safer for autonomous callers.
-- **Runtime safety needs operational controls too**: circuit breakers, kill switches, action/cost budgets, and canary tokens bound misbehavior when it happens — they live in the harness because a steered agent cannot be trusted to stop itself.
+- **Runtime safety also requires operational controls**: circuit breakers, kill switches, action and cost budgets, and canary tokens limit misbehavior when it occurs. They belong in the harness because a steered agent cannot be trusted to stop itself.
 
 ## Further Reading
 

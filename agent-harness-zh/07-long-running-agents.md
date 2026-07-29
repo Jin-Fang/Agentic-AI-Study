@@ -1,146 +1,150 @@
-# 第 7 章：长运行代理与多上下文窗口任务
+# 第 7 章：长时运行代理与跨上下文窗口任务
 
 ### 7.1 交接班问题
 
-Anthropic 的 “Effective Harnesses for Long-Running Agents” 用一个比喻说明核心挑战：想象一个软件项目由轮班工程师完成，每个工程师上班时都不知道前一班发生了什么 ([Anthropic - Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents))。由于上下文窗口有限，而多数项目都会超过一个窗口，agent 需要桥接 session 的机制。
+Anthropic 在 “Effective Harnesses for Long-Running Agents” 中用轮班来比喻这个核心难题：设想一个软件项目由多名工程师轮流接手，每位新到岗的工程师都完全不知道上一班发生了什么 ([Anthropic - Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents))。上下文窗口也形成了类似的边界。多数有一定规模的项目都无法在单个窗口内完成，因此代理需要一种可靠机制，将状态从一个会话传递到下一个会话。
 
-单靠压缩不总是足够。在 Anthropic 的长运行应用实验中，即使 Claude Agent SDK 有自动压缩，一个简单的 Opus 4.5 loop 也无法可靠地从“build a clone of claude.ai”这样的高层次 prompt 构建生产质量应用。失败集中在两类：agent 试图一次性完成应用，却在实现中途耗尽上下文，留下问题给下一 session 清理；或者前面构建了一些功能后，后续 agent 直接宣称任务完成。
+单靠上下文压缩并不总能解决问题。在 Anthropic 的长时运行应用实验中，即使 Claude Agent SDK 会自动压缩上下文，一个简单的 Opus 4.5 循环仍无法根据“build a clone of claude.ai”这类概括性提示词，稳定构建出生产级应用。失败反复呈现为两种模式：一种是代理试图一次完成整个应用，却在实现中途耗尽上下文，只能把残局留给下一会话；另一种是后续代理看到已有部分功能完成，便误判整个项目已经结束。
 
 ### 7.2 Initializer + Coding Agent 模式
 
-Anthropic 的解决方案将工作拆成两个角色 ([Anthropic - Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents))：
+Anthropic 将工作分给两个不同角色，以解决这一问题 ([Anthropic - Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents))。
 
-**Initializer agent** 只运行一次，使用专门 prompt，产出：
+**初始化代理（initializer agent）**使用专门的提示词，只运行一次，负责生成：
 
-- 启动开发服务器的 `init.sh`。
-- 每个 session 更新的 `claude-progress.txt` 日志。
+- 用于启动开发服务器的 `init.sh` 脚本。
+- 每个会话都要更新的 `claude-progress.txt` 日志。
 - 初始 git commit。
-- 完整 feature-list 文件（JSON；他们先试过 Markdown，但模型更容易不当编辑它）。在 claude.ai clone 中，列表超过 200 个 feature，每个初始 `passes: false`。
+- 一份完整的功能清单。Anthropic 采用 JSON，是因为实验中模型更容易不当地修改 Markdown 清单。在 claude.ai 克隆项目中，这份文件包含 200 多项功能，初始状态全部标记为 `passes: false`。
 
-Feature list 中每项是 JSON object，包含 category、description、验证步骤和 `passes` boolean。Coding agent 允许翻转 `passes`，但被强烈告知不允许删除或编辑 feature。
+清单中的每项功能都是一个 JSON 对象，包含类别、说明、验证步骤和 `passes` 布尔值。编程代理可以修改 `passes` 的值，但指令明确禁止它删除或改写功能条目本身。
 
-**Coding agent** 在后续每个 session 运行，使用不同 prompt，要求增量推进。每个 session 从结构化 warm-up 开始：
+**编程代理（coding agent）**负责之后的每个会话。它的提示词强调增量推进，每个会话都从一套结构化的准备流程开始：
 
 1. 运行 `pwd` 确认目录。
-2. 读取 git log 和 progress file，了解上次做了什么。
-3. 读取 feature-list，选择最高优先级未完成 feature。
-4. 运行 `init.sh` 启动 dev server，并在实现新功能前跑基本 e2e test。
-5. 实现一个 feature。
-6. 端到端验证。Anthropic 使用 Puppeteer MCP 做浏览器驱动验证，因为 agent 否则容易在 unit test 通过但实际失败时宣称完成。
-7. 用描述性 message commit，并更新 progress file。
+2. 读取 git 日志和进度文件，了解上一会话处理了什么。
+3. 读取功能清单，选择优先级最高的未完成功能。
+4. 运行 `init.sh` 启动开发服务器，并在实现新功能前完成一次基本的端到端测试。
+5. 实现一项功能。
+6. 对功能进行端到端验证。Anthropic 使用 Puppeteer MCP 驱动浏览器验证，因为仅靠单元测试时，代理可能在测试通过、实际功能却不可用的情况下误报完成。
+7. 使用清晰的提交信息提交修改，并更新进度文件。
 
-这个模式的好处是：agent 被迫在 session 边界进入干净状态，也就是适合 merge 到 main branch 的状态。下一位 agent 不需要先清理上一位留下的问题。
+这套模式要求每个会话结束时，仓库都达到代码合并到主分支前所需的干净状态。这样，下一位代理可以直接继续工作，不必先花时间收拾上一位留下的问题。
 
 ### 7.3 会话生命周期与干净退出
 
-长运行 harness 需要显式的 session 生命周期：启动、预热、选择有边界的工作、验证、记录证据、干净退出。最后一步很关键。如果一个 session 结束时测试失败、临时文件残留、feature list 没更新、progress note 含糊，下一位 agent 的前几轮就会用来重建状态，而不是推进任务。
+长时运行的 harness 需要明确规定会话生命周期：启动、准备、选择范围有限的任务、验证结果、记录证据，然后干净退出。最后一步尤其重要。如果会话结束时仍有失败的测试、遗留的临时文件、未更新的功能清单或含糊的进度说明，下一位代理就必须先重建上一轮的状态，之后才能继续推进。
 
-因此，干净退出应当成为完成定义的一部分：
+因此，“干净退出”应成为完成标准的一部分：
 
 - 标准启动路径仍然可用。
-- 相关 build、lint、test 或端到端检查已经运行；失败要么修复，要么记录成 blocker。
-- 进度工件写清楚改了什么、验证了什么、哪里仍不确定、下一步最好做什么。
-- Feature list 或 task list 反映真实状态：没有证据的条目不能标记为 passing。
-- 临时调试文件、注释掉的实验代码和过时笔记要删除，或明确隔离。
+- 已运行相关的 build、lint、test 或端到端检查；任何失败要么已经修复，要么已记录为阻塞项。
+- 进度工件清楚说明修改了什么、验证了什么、还有哪些不确定之处，以及下一步最适合做什么。
+- 功能清单或任务清单与实际状态一致：没有证据的条目不得标记为通过。
+- 临时调试文件、被注释掉的实验代码和过时笔记已经删除，或被明确隔离。
 
-OpenAI 在 Codex harness 工作中描述了类似的维护循环：agent 生成的系统会复制仓库里已有的模式，所以架构规则和“黄金原则”要写进文档、linter 和周期性清理流程，而不是只依赖偶尔的人类品味 ([OpenAI - Harness Engineering](https://openai.com/index/harness-engineering/))。Anthropic 的 initializer/coding-agent 模式从 session 角度得出同样的操作结论：下一轮 session 应该能从仓库工件恢复，而不是依赖上一位 agent 的私有记忆。
+OpenAI 在 Codex harness 的实践中描述了类似的维护循环：代理生成的系统往往会复刻仓库中已有的模式，因此架构规则和“黄金原则”应写入文档、linter 和周期性清理流程，而不能只依赖人类偶尔进行主观把关 ([OpenAI - Harness Engineering](https://openai.com/index/harness-engineering/))。从会话边界来看，Anthropic 的 initializer/coding-agent 模式得出了同样的工程结论：新会话应当能依靠仓库工件接续工作，而不是依赖上一位代理头脑中的私有记忆。
 
-对更大的项目来说，除了 progress log，还值得维护一份轻量质量文档。Progress log 回答“上一轮发生了什么”；质量文档回答“哪些模块健康、哪些有风险、哪些对 agent 难以理解、哪些缺验证”。这个区分很重要，因为下一位 agent 不只要知道下一个 feature，还要知道代码库哪里正在退化。
+对于更大的项目，可以在进度日志之外再维护一份轻量的质量文档。进度日志回答“上一轮发生了什么”，质量文档则回答“哪些模块状态健康、哪些存在风险、哪些让代理难以理解，以及哪些缺少验证”。两者的区别很重要：下一位代理不仅需要知道接下来实现哪项功能，也需要知道代码库的哪些部分正在退化。
 
 ### 7.4 Generator-Evaluator（GAN 启发）
 
-Prithvi Rajasekaran 的后续文章将这个模式扩展到更难的问题：从短 prompt 构建生产质量应用 ([Anthropic - Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps))。其动机来自一个观察：当 agent 评估自己的工作时，即使输出普通，也会稳定地偏正面。把做事的 agent 与评判的 agent 分开是强杠杆，因为调一个独立、怀疑性的 evaluator，比让 generator 对自己严厉更容易。
+Prithvi Rajasekaran 的后续文章将这一模式扩展到更困难的问题：如何根据很短的提示词构建生产级应用 ([Anthropic - Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps))。整个设计基于一个重要观察：让代理评价自己的工作时，即使结果平庸，它的判断也会持续偏向正面。因此，将负责产出的代理与负责评判的代理分开，是提升质量的有力手段。相比要求 generator 始终严厉审视自己的输出，调校一个独立且持怀疑态度的 evaluator 更容易。
 
-受 GAN 启发，架构包含三个 agent：
+受生成对抗网络（GAN）启发，这套架构为三个代理分配了不同职责：
 
-- **Planner** 将 1-4 句 prompt 扩展为完整产品 spec，刻意停留在产品/架构层，而不是详细技术设计，以免错误级联，并被鼓励把 AI feature 编进 spec。
-- **Generator** 用 React + Vite + FastAPI + SQLite 栈按 feature 实现 spec，并用 git 管理版本。
-- **Evaluator** 使用 Playwright MCP 像用户一样点击运行中的应用，测试 UI、API endpoint、数据库状态，然后按产品深度、功能、视觉设计、代码质量 rubric 打分。每个标准都有硬阈值，一个失败就导致 sprint 失败，并给出详细反馈。
+- **Planner** 将 1-4 句话的提示词扩展成完整的产品规格。它有意停留在产品与架构层面，不预先规定详细技术设计，以免早期错误向后级联；同时，它也会被鼓励把 AI 功能纳入规格。
+- **Generator** 使用 React + Vite + FastAPI + SQLite 技术栈，按照规格逐项实现功能，并用 git 管理版本。
+- **Evaluator** 使用 Playwright MCP，以普通用户的方式操作运行中的应用，测试 UI、API 端点和数据库状态，再按照产品深度、功能、视觉设计和代码质量等标准评分。每项标准都有硬性门槛；任何一项不达标，整个 sprint 就判定失败，并生成详细反馈。
 
-两者通过 *sprint contracts* 协调：每个 sprint 前，generator 提出要构建什么以及如何验证成功；evaluator 审查直到双方同意；generator 再按合同构建。通信基于文件：一个 agent 写文件，另一个读取并回应。
+Generator 和 evaluator 通过 *sprint contracts* 协调。在每个 sprint 开始前，generator 提出要构建的内容以及如何验证成功；evaluator 审查方案，直到双方达成一致；随后 generator 按照已接受的合同实施。双方通过文件通信：一个代理写入文件，另一个读取并回应。
 
-成本很高。对于 “create a 2D retro game maker” prompt，solo run 花 20 分钟、$9，产出一个看起来像样但游戏本身不能工作的应用；实体出现在屏幕上，却不响应输入。完整 harness 花 6 小时、$200，产出带 sprite editor、level editor、AI-assisted level generation 和 playable mode 的可用应用。超过 20 倍成本买到的是能工作的产品，而不是破损 stub。
+代价也相当显著。面对 “create a 2D retro game maker” 这条提示词，单代理运行耗时 20 分钟、花费 $9，得到的应用看似合理，但游戏本身无法运行：实体显示在屏幕上，却完全不响应输入。完整 harness 耗时 6 小时、花费 $200，但产出了一个真正可用的游戏制作工具，包含 sprite editor、level editor、AI-assisted level generation 和 playable mode。超过 20 倍的成本差距，换来的是可工作的应用，而不是一组表面完整、实际失效的 stub。
 
 ### 7.5 自验证是头号杠杆
 
-LangChain 的 Top-30-to-Top-5 案例研究从另一条路得到相同结论 ([LangChain - Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/))。通过 trace 分析，他们识别出最常见的失败模式：agent 写了方案，重读自己的代码，觉得看起来没问题，然后停止。他们在系统提示中加入结构化指导：Plan、Build with verification in mind、Verify by running tests and comparing output to spec、Fix；并加入 `PreCompletionChecklistMiddleware`，在 agent 退出前强制验证。
+LangChain 的 Top-30-to-Top-5 案例研究从另一个方向得出了相同结论 ([LangChain - Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/))。通过分析运行轨迹，他们发现一种常见失败模式：代理写出解决方案，重新读一遍自己的代码，觉得“看起来没问题”，随即停止。LangChain 因此在系统提示词中加入了结构化指引：Plan、Build with verification in mind、Verify by running tests and comparing output to spec、Fix；同时引入 `PreCompletionChecklistMiddleware`，在代理退出前拦截它，并要求完成一次验证。
 
-这个模式呼应社区流传的 “Ralph Wiggum loop”：一个 hook 拦截 agent 的退出尝试，并在干净上下文窗口中重新注入原始 prompt，迫使 agent 继续对照目标工作 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
+这一做法与开发者社区流传的 “Ralph Wiggum loop” 类似：由一个 hook 拦截代理的退出尝试，再把原始提示词注入干净的上下文窗口，要求代理继续围绕最初目标工作 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
 
-LangChain 的组合改动，包括上下文 middleware 映射 cwd 和工具、build-verify 指导、loop detection，以及 high-low-high reasoning compute 的 “reasoning sandwich”，在不换模型的情况下把分数提高 13.7 点，从 52.8% 到 66.5%。
+LangChain 将多项改动组合起来，包括用上下文 middleware 映射当前工作目录和工具、加入 build-verify 指导和 loop detection，以及采用 high-low-high 推理算力分配的 “reasoning sandwich”。在模型不变的情况下，这些改动将分数从 52.8% 提高到 66.5%，增幅为 13.7 分。
 
 ### 7.6 Context Reset 与 Compaction
 
-Anthropic 的 harness-design 后续文章明确区分两者 ([Anthropic - Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps))。Compaction 是在同一对话中总结早期部分，同一个 agent 带着缩短历史继续。*Context reset* 则清空上下文，启动一个新 agent，用结构化 handoff 传递上一 agent 的状态和下一步。
+Anthropic 在后续的 harness 设计文章中明确区分了 compaction 与 context reset ([Anthropic - Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps))。Compaction 是在原对话中总结较早的内容，让同一个代理带着缩短后的历史继续工作。*Context reset* 则彻底清空上下文，启动一个全新的代理，再通过结构化交接传递上一位代理的状态和下一步计划。
 
-两者解决不同问题。Compaction 保持连续性。Reset 用来缓解 “context anxiety”：Anthropic 在 Sonnet 4.5 中观察到，agent 在接近它认为的上下文上限时，会过早收尾。Reset 给 agent 一个干净开局；代价是 handoff artifact 必须携带足够状态，让下一 agent 干净恢复。
+两种方法解决的问题不同。Compaction 用来维持连续性；context reset 则用来缓解 “context anxiety（上下文焦虑）”。Anthropic 在 Sonnet 4.5 中观察到，代理一旦接近自己认为的上下文上限，就会过早收尾。Reset 能让新代理从干净状态开始，但代价是交接工件必须保存足够多的状态，确保下一位代理可靠地恢复工作。
 
-当 Opus 4.5 基本自行修复 context-anxiety 行为后，Anthropic 能够完全从 harness 中删除 context reset。这是第 12 章 model-harness coupling 的明确例子。
+当 Opus 4.5 本身基本消除了 context anxiety 行为后，Anthropic 便可以从 harness 中完全移除 context reset。这正是第 12 章所讨论的模型与 harness 耦合关系的一个清晰例子。
 
 ### 7.7 Managed Agents：解耦 Brain、Hands 与 Session State
 
-OpenReview 综述强调了一个平台化方向，Anthropic 后续称为 managed agents：把模型侧的 **brain**、执行侧的 **hands**，以及持久 **session/event log** 分开 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。Brain 决定应该发生什么；hands 在可替换环境中运行 shell、编辑文件、浏览和调用外部服务；session log 记录足以重建任一侧的状态。
+OpenReview 的综述描述了一种平台架构，Anthropic 后来将其称为 managed agents：把模型侧负责决策的 **brain**、执行侧负责操作的 **hands**，以及持久化的 **session/event log** 分离开来 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。Brain 决定应该做什么；hands 在可替换的环境中运行 shell 命令、编辑文件、浏览网页并调用外部服务；session log 则记录足以重建任一侧的状态。
 
-这个拆分对长运行任务很重要：
+这个拆分对长时运行任务很重要：
 
-- 如果模型上下文耗尽，可以用 event log 和仓库工件启动新的 brain 继续。
-- 如果 sandbox 损坏、超时或被攻陷，可以从干净镜像重建 hands。
-- 如果操作需要凭据，proxy 和 vault 可以在边界处附加凭据，而不是把 secret 放进 sandbox。
-- 如果部署在 agent 运行中发生变化，平台可以在渐进 handoff 中同时保留新旧 worker 版本。
+- 如果模型上下文耗尽，可以根据 event log 和仓库工件启动新的 brain，继续原有任务。
+- 如果 sandbox 损坏、超时或遭到入侵，可以用干净镜像重新构建 hands。
+- 如果操作需要凭据，可以由 proxy 和 vault 在系统边界附加凭据，而不必把 secret 放入 sandbox。
+- 如果代理运行期间发生部署变更，平台可以在逐步交接过程中同时保留新旧 worker 版本。
 
-这样看，context reset 只是恢复机制之一。生产级长运行 harness 还需要环境重置、凭据隔离、可恢复 event log，以及 in-flight session 的迁移规则。
+由此可见，context reset 只是恢复手段之一。生产级的长时运行 harness 还需要环境重置、凭据隔离、支持恢复的 event log，以及对运行中会话的迁移规则。
 
 即使产品界面把它们统称为一个“agent”，也应保持三套生命周期彼此独立：
 
-- **session** 是持久的对话与 event history；
-- **harness run** 是某组 model、policy 与 orchestration 配置的一次执行；
-- **sandbox** 是可替换的计算环境，有自己的 image、filesystem 与 network lease。
+- **session** 是持久保存的对话与事件历史；
+- **harness run** 是某套模型、策略和编排配置的一次具体执行；
+- **sandbox** 是可替换的计算环境，拥有自己的镜像、文件系统和网络租约。
 
-混淆它们会让恢复变得不安全。替换崩溃的 sandbox 不应抹掉 session；重置模型上下文不应静默保留已经受损的进程状态；升级 harness 也不应改写早期事件的 provenance。三者都应有明确 ID 与版本，使控制平面能分别 resume、migrate 或 revoke。
+混淆这三套生命周期会使恢复过程变得不安全。替换崩溃的 sandbox 不应抹掉 session；重置模型上下文不应悄悄保留已经受损的进程状态；升级 harness 也不应改写早期事件的来源记录。三者都应具有明确的 ID 和版本，使控制平面能够分别对它们执行恢复、迁移或撤销。
 
 ### 7.8 多代理研究系统
 
-对具有并行结构的任务，例如有许多独立线索要探索的研究，第 6 章的 orchestrator-worker 模式适用。Anthropic 的研究功能用 Claude Opus 4 做 lead agent，用 Claude Sonnet 4 做 sub-agents ([Anthropic - How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system))。Lead 分析查询、制定策略、派生并行 sub-agents；每个 sub-agent 搜索并返回浓缩发现；lead 综合；citation agent 再为论断标注来源。
+对于具有并行结构的任务，例如需要探索许多独立线索的研究工作，第 6 章的 orchestrator-worker 模式非常适合。Anthropic 的研究功能使用 Claude Opus 4 担任 lead agent，Claude Sonnet 4 担任 sub-agents ([Anthropic - How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system))。Lead agent 分析查询、制定策略并并行启动 sub-agents；每个 sub-agent 负责搜索并返回提炼后的发现；lead agent 汇总这些结果，最后由 citation agent 为相关论断标注来源。
 
-他们经验中出现八条 prompt engineering 原则：
+Anthropic 从实践中总结出八条提示词工程原则：
 
-1. **像 agent 一样思考**：在 Console 中用完全相同工具模拟 prompt，观察逐步行为。
-2. **教 orchestrator 如何委托**：给 sub-agent 目标、输出格式、工具指导和明确边界；模糊委托会重复或误解。
-3. **按查询复杂度缩放努力**：prompt 中明确规则，例如事实查找 1 个 agent / 3-10 次调用；比较任务 2-4 个 sub-agent / 每个 10-15 次调用；复杂研究 10+ sub-agent，防止过度投入。
-4. **工具设计与选择很关键**：明确启发式，例如先检查所有可用工具、按用户意图匹配工具、优先专用工具而非通用工具。
-5. **让 agent 改进自己**：tool-testing agent 使用有缺陷 MCP 工具、观察失败并重写描述，使后续任务完成时间下降 40%。
-6. **先宽后窄**：提示 agent 从短而宽的查询开始，再逐步细化；自然倾向往往相反。
-7. **引导思考过程**：extended thinking 可作为可控 scratchpad；interleaved thinking 帮助 sub-agent 在工具调用之间评估质量和细化查询。
-8. **并行工具调用改变速度**：并行启动 sub-agents，并让 sub-agent 并行调用多个工具，在复杂查询中可将研究时间最多减少 90%。
+1. **像代理一样思考**：在 Console 中使用代理将会使用的同一组工具来模拟提示词，再逐步观察其行为。
+2. **教会 orchestrator 如何委派**：为每个 sub-agent 明确目标、输出格式、工具使用方式和任务边界。模糊的委派容易造成重复劳动或错误理解。
+3. **根据查询复杂度分配投入**：在提示词中写明投入级别，例如事实查找使用 1 个代理、调用 3-10 次；比较任务使用 2-4 个 sub-agent、每个调用 10-15 次；复杂研究使用 10 个以上 sub-agent，从而避免投入过度。
+4. **重视工具设计与选择**：明确写出启发式规则，例如先检查所有可用工具、根据用户意图选择工具，以及优先使用专用工具而非通用工具，避免代理沿错误方向行动。
+5. **让代理改进自身工具**：一个工具测试代理使用存在缺陷的 MCP 工具、观察失败，再重写工具说明，使后续使用中的任务完成时间降低了 40%。
+6. **先宽后窄**：要求代理先使用简短、宽泛的查询，再逐步缩小范围。代理的自然倾向往往恰好相反。
+7. **引导思考过程**：extended thinking 可以作为可控的规划草稿区；interleaved thinking 则帮助 sub-agent 在多次工具调用之间评估质量、细化查询。
+8. **并行调用工具能显著提速**：并行启动 sub-agents，同时允许每个 sub-agent 并行调用多个工具，在复杂查询中最多可将研究时间缩短 90%。
 
 ### 7.9 有状态 Agent 的生产可靠性
 
-Anthropic 的研究系统文章记录了 agent 长时间运行后的工程挑战 ([Anthropic - How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system))：
+Anthropic 的研究系统文章还记录了代理长时间运行后出现的工程挑战 ([Anthropic - How We Built Our Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system))：
 
-- **错误会复合**：没有 checkpoint-and-resume 基础设施，小系统故障也可能灾难化。Anthropic 结合 AI 适应性（让 agent 知道工具故障并信任它调整）与 retry logic、定期 checkpoint 等确定性 safeguard。
-- **调试需要新工具**：agent 每次运行非确定，完整生产 tracing 是主要诊断表面，用于观察决策模式和交互结构，而不必阅读对话内容。
-- **部署需要协调**：当许多 agent 正在运行时推出代码变更，需要 *rainbow deployments*，逐步把流量从旧版本切到新版本，并同时保持两者存活。
-- **同步执行制造瓶颈**：当前架构中，lead agent 等待 sub-agents 完成后再继续，简化协调但受最慢 sub-agent 阻塞。异步执行可释放更多并行性，但带来结果协调、状态一致性、错误传播挑战。
+- **错误会累积放大**：如果没有 checkpoint-and-resume 基础设施，小型系统故障也可能演变成灾难性后果。Anthropic 将 AI 的适应能力——告知代理工具正在失败，并允许它自行调整——与 retry logic、定期 checkpoint 等确定性保护措施结合起来。
+- **调试需要新的工具**：代理在不同运行之间具有非确定性，因此完整的生产 tracing 成为主要诊断界面。这类追踪可以揭示决策模式和交互结构，而无需暴露对话内容。
+- **部署需要协调**：当大量代理仍在运行时发布代码变更，需要采用 *rainbow deployments*，在新旧版本同时可用的情况下，逐步把流量从旧版本迁移到新版本。
+- **同步执行会形成瓶颈**：在 Anthropic 当前的架构中，lead agent 必须等待所有 sub-agents 完成才能继续。这样虽然简化了协调，却会让整个系统被最慢的 sub-agent 阻塞。异步执行可以释放更多并行能力，但也会带来结果协调、状态一致性和错误传播方面的新挑战。
 
 ### 7.10 持久化执行：Checkpoint、Replay 与恢复
 
-第 7.9 节指出错误会复合，而 Anthropic 的做法是把 AI 适应性与确定性的 checkpoint、retry 相结合。*持久化执行（durable execution）* 正是将这一思路一般化的系统工程学科。持久化执行引擎把工作流的每一步都持久化到日志，使得进程一旦死掉——机器故障、超时、部署、上下文窗口耗尽——就从最后记录的一步恢复，而不是从零重启。这个想法早于 agent；它正是 Temporal、DBOS 等工作流引擎提供容错的方式 ([Temporal - Durable Execution Meets AI](https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai))。它直接对应第 7.7 节的受管代理拆分：持久事件日志，正是让全新 brain 在旧 brain 消失后得以恢复的凭借。
+第 7.9 节说明了错误如何累积放大，也介绍了 Anthropic 如何将 AI 的适应能力与确定性的 checkpoint、retry 机制结合起来。*持久化执行（durable execution）* 是支撑这种做法的通用系统工程方法。持久化执行引擎把工作流的每一步写入持久日志。如果进程因为机器故障、超时、部署或上下文窗口耗尽而停止，它可以从最后记录的步骤恢复，而不必从头开始。
 
-对 agent 而言，持久化的单位是 agent 的状态——它的上下文、工具调用结果，以及它在计划中的位置。LangGraph 把这暴露为一个 *checkpointer*，在每个 super-step 保存 graph 状态，从而支持失败后恢复、human-in-the-loop 暂停，乃至时间旅行回到先前状态，并提供可选的持久化模式，在性能与崩溃可能损失的工作量之间权衡 ([LangChain - Durable Execution](https://docs.langchain.com/oss/python/langgraph/durable-execution))。
+这一思想早于代理系统。Temporal、DBOS 等工作流引擎正是用它来提供容错能力 ([Temporal - Durable Execution Meets AI](https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai))。它也直接对应第 7.7 节的 managed-agent 架构：旧 brain 消失后，新 brain 能够继续工作，依靠的正是持久化事件日志。
 
-设计上的张力是*确定性 vs. 模型*。基于 replay 的持久化假设某一步可以被重新执行以复现其效果，但模型调用与工具结果是非确定的——重跑它们会偏离已记录的历史。标准解法是把模型和工具调用当作*有副作用的 activity*，其结果只记录一次，之后从日志中 replay 而非重新计算。这正是 ReWOO（第 6.6 节）与 context reset（第 7.6 节）背后“记录观察，而不重算它”的同一逻辑，如今被做成了一种基础设施保证。
+对代理而言，需要持久化的基本单位是它的状态，包括上下文、工具调用结果，以及当前执行到计划的哪个位置。LangGraph 通过 *checkpointer* 提供这一能力，在每个 super-step 保存图状态。借助这些 checkpoint，系统可以在失败后恢复、暂停并等待人工介入，甚至回到先前状态。开发者还可以选择不同的持久化模式，在性能与崩溃时可能丢失的工作量之间做权衡 ([LangChain - Durable Execution](https://docs.langchain.com/oss/python/langgraph/durable-execution))。
 
-如此看来，持久化执行把第 7.3 节“干净退出、可从产物恢复”的纪律，从一个 agent 必须自觉记住的约定，变成了平台强制的性质。它也约束成本——任务中途崩溃，不必把此前花掉的 token 从头重付一遍——并且它也是第 17 章所需回滚能力的底座：当某次 harness 变更在生产中行为异常时，回滚正是建立在它之上。
+这里的核心设计矛盾是*确定性与模型的非确定性*。基于 replay 的持久化机制假设：重新执行某个步骤，就能复现它的效果。然而，模型调用和工具结果并不确定；再次运行可能偏离已经记录的历史。通常的解决办法，是把模型和工具调用视为*会产生副作用的 activity*：结果只生成并记录一次，之后直接从日志 replay，而不是重新计算。这与 ReWOO（第 6.6 节）和 context reset（第 7.6 节）背后的原则相同——“记录观察结果，不要重新计算”——只是如今被提升为基础设施层面的保证。
 
-Google 的 Agent Executor 把这些含义落实到了分布式规模 ([Google Cloud - Agent Executor](https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/))。状态从 event log 与 snapshot 恢复；连接丢失不等于任务丢失；**single-writer rule** 保护每个 session 不被并发修改，同时平台仍能分布式执行许多 session。runtime 还可以从过去 checkpoint 分叉一条 trajectory，用于人类干预、反事实调试，或在不污染原始 lineage 的前提下尝试另一模型或策略。
+因此，持久化执行把第 7.3 节“干净退出、可从工件恢复”的纪律，从代理必须主动遵守的约定，变成了平台强制保证的属性。它还能减少浪费：任务中途崩溃时，不必重新支付此前已经消耗的全部 token。持久状态也是第 17 章所需回滚能力的基础；当某次 harness 变更在生产环境中表现异常时，系统正是依靠它来回滚。
 
-这些能力揭示出一条一般规则：durability 不只是 retry。稳健 runtime 需要幂等 activity 或已记录结果、ownership lease、optimistic 或 single-writer concurrency control、重连语义，以及每个分支的 lineage。否则，“resume”可能重复副作用，并行 worker 也可能把一条连贯历史写成几条彼此冲突的历史。
+Google 的 Agent Executor 将这些设计结果落实到了分布式规模 ([Google Cloud - Agent Executor](https://cloud.google.com/blog/products/ai-machine-learning/agent-executor-googles-distributed-agent-runtime/))。系统从 event log 和 snapshot 中恢复状态，因此连接中断并不意味着任务丢失。**Single-writer rule** 可以避免多个执行者并发修改同一 session，同时平台仍能分布式运行大量 session。Runtime 还可以从较早的 checkpoint 分叉出一条新 trajectory，用于人工干预、反事实调试，或在不破坏原始 lineage 的前提下尝试另一种模型或策略。
+
+这些能力揭示了一条通用原则：durability 不只是 retry。稳健的 runtime 还需要幂等 activity 或已记录的结果、ownership lease、optimistic 或 single-writer concurrency control、重连语义，以及每个分支的 lineage。缺少这些保护时，“resume”可能重复触发副作用，并行 worker 也可能把一条连贯历史拆成多个互不兼容的版本。
 
 ### 7.11 “长”到底有多长？时间视野指标
 
-本章讲的是超出单个上下文窗口的任务，但“长”值得有个度量。METR 提出了一个：一个模型的*时间视野（time horizon）*是它以 50% 可靠性能完成的任务长度——以人类完成该任务所需时间来衡量。一个“50 分钟时间视野”的模型，在需要人类约五十分钟的任务上有一半时间能成功。在 2019 至 2025 年的前沿模型上测量，这个视野大约*每七个月翻一番* ([Kwa et al. - Measuring AI Ability to Complete Long Tasks](https://arxiv.org/abs/2503.14499); [METR](https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/))。
+本章讨论的是超出单个上下文窗口的任务，但“长”需要一个更精确的度量。METR 提出了*时间视野（time horizon）*指标：以熟练人类完成任务所需的时间来衡量，模型能以 50% 可靠性完成的任务长度。比如，一个“50 分钟时间视野”的模型，在熟练人类大约需要五十分钟完成的任务上，有一半概率能够成功。对 2019 至 2025 年前沿模型的测量显示，这个时间视野大约*每七个月翻一番* ([Kwa et al. - Measuring AI Ability to Complete Long Tasks](https://arxiv.org/abs/2503.14499); [METR](https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/))。
 
-对本章有两点意义。第一，这个视野是*模型加其 harness* 的性质，而非模型自身的性质：本章的 handoff、checkpoint、自我验证机制，正是 harness 把有效视野拉长到超出裸模型自身所能维持的手段——这是第 12 章模型-harness 耦合从能力侧看到的样子。第二，该指标重新框定了何时值得构建本章这套机制。随着内在视野增长，一些脚手架变得不再必要——Anthropic 随模型进步先后去掉了 context reset 与 sprint 分解（第 7.6 节、第 12 章）——但*有趣*的长视野任务前沿也随之外移。harness 的工作会迁移到更难的问题，而非消失（第 19 章）。
+这个指标对本章有两点意义。第一，时间视野是*模型与其 harness 共同具有的属性*，而非只取决于模型本身。交接、checkpoint 和自验证机制可以延长有效时间视野，使系统能够处理超出裸模型自身能力范围的任务。这就是从能力角度观察第 12 章所说的模型与 harness 耦合。
+
+第二，这个指标有助于判断何时值得建设长时运行基础设施。随着模型自身的时间视野增长，一些脚手架会变得多余。Anthropic 就曾随着模型进步，先后移除 context reset 和 sprint 分解（第 7.6 节、第 12 章）。与此同时，值得处理的长时任务边界也会继续向外扩展。因此，harness 工程不会消失，而是转向更困难的问题（第 19 章）。
 
 ---
 
@@ -178,18 +182,18 @@ sequenceDiagram
 
 ## 要点
 
-- **交接班问题是根本性的**：上下文限制意味着 agent 需要结构化 handoff，而不是只依赖更大窗口。
-- **Initializer + coding agent 是有用的长周期模式**：规划与增量执行分角色。
-- **干净退出是完成定义的一部分**：每轮 session 都应留下可用启动路径、更新后的状态工件、验证证据，以及不会拖累下一轮的工作区。
-- **Generator 与 evaluator 分离是强杠杆**：agent 对自己输出偏正面，独立 evaluator 更可靠。
-- **Sprint contracts 协调多 agent 工作**：构建前用文件沟通并约定成功标准。
-- **Context reset 可以缓解 context anxiety**：有时带结构化 handoff 的全新开始优于压缩。
-- **Managed agents 解耦 brain、hands 和状态**：模型上下文、沙箱执行、凭据和 event log 应能独立失败并恢复。
-- **Session、harness run 与 sandbox 是三套不同生命周期**：分别标识和版本化它们，使 reset、migration 或 revocation 只作用于目标层。
-- **自验证是头号杠杆**：退出前强制验证，在不换模型的情况下提升 13.7 分。
-- **持久化执行把可恢复性变成基础设施保证**：把每一步持久化到日志，使全新 agent 能在崩溃、上下文耗尽或部署后恢复——把非确定的模型/工具调用当作已记录的副作用，而非要重算的步骤。
-- **分布式 durability 需要 ownership 与 lineage**：single-writer session state、重连、snapshot、幂等 activity 与 trajectory branching，才能把 retry 变成安全恢复。
-- **时间视野度量“多长”**：METR 的任务完成视野（模型有 50% 时间能完成的人类任务长度）大约每七个月翻一番——而它是模型加 harness 的性质，这正是本章机制能拉长它的原因。
+- **交接班问题是根本性的**：受上下文限制，代理需要结构化交接机制，不能只依赖更大的窗口。
+- **Initializer + coding agent 是实用的长时任务模式**：由不同角色分别负责规划和增量执行。
+- **干净退出是完成标准的一部分**：每个会话都应留下可用的启动路径、更新后的状态工件、验证证据，以及不会拖累下一会话的工作区。
+- **分离 generator 与 evaluator 是提升质量的有力手段**：代理评价自己的输出时往往偏向正面，独立 evaluator 更可靠。
+- **Sprint contracts 用来协调多个代理**：每个构建 sprint 开始前，通过文件沟通并约定成功标准。
+- **Context reset 可以缓解 context anxiety**：有时，带有结构化交接的全新上下文比 compaction 更有效。
+- **Managed agents 将 brain、hands 和状态解耦**：模型上下文、sandbox 执行、凭据与 event log 应能独立发生故障并恢复。
+- **Session、harness run 和 sandbox 拥有不同的生命周期**：应分别标识并版本化，确保重置、迁移或撤销只影响目标层。
+- **自验证是最关键的杠杆**：退出前强制执行验证，在模型不变的情况下将分数提高了 13.7 分。
+- **持久化执行把可恢复性变成基础设施保证**：将每一步写入持久日志，使新代理能在崩溃、上下文耗尽或部署后继续工作；非确定性的模型和工具调用应被视为已记录的副作用，而不是重新计算的步骤。
+- **分布式 durability 需要 ownership 与 lineage**：single-writer session state、重连、snapshot、幂等 activity 和 trajectory branching 共同把简单 retry 转化为安全恢复。
+- **时间视野用来衡量任务到底有多“长”**：METR 的时间视野是模型能以 50% 可靠性完成的任务长度，以熟练人类所需时间计；这一指标大约每七个月翻一番。它由模型与 harness 共同决定，因此本章的机制可以延长它。
 
 ## 延伸阅读
 

@@ -2,31 +2,33 @@
 
 ### 12.1 Traces Are the Feedback Loop
 
-Models today are largely black boxes; their inner mechanisms are hard to interpret. But their inputs and outputs are visible in text, and that is enough to drive systematic improvement. LangChain treats traces as the primary surface for harness debugging: every agent action is stored, including latency, token counts, costs, and tool invocations ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
+Today's models remain largely black boxes: their internal mechanisms are difficult to interpret. Their inputs and outputs, however, are visible, and that is enough to support systematic improvement. LangChain therefore treats traces as the primary surface for debugging a harness. It records every agent action, along with latency, token counts, costs, and tool invocations ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
 
-Their *Trace Analyzer Skill* automates the loop:
+Its *Trace Analyzer Skill* automates this loop:
 
 1. Fetch experiment traces from LangSmith.
 2. Spawn parallel error-analysis agents; the main agent synthesizes findings and suggestions.
 3. Aggregate feedback and make targeted changes to the harness.
 
-This is structurally similar to boosting in classical machine learning — iteration focuses on mistakes from previous runs. Human review at step 3 is helpful but not strictly required, mainly to catch changes that overfit to specific tasks at the cost of generalization.
+The structure resembles boosting in classical machine learning: each iteration focuses on mistakes from earlier runs. Human review at step 3 is helpful, though not strictly required. Its main value is catching changes that improve a few specific tasks at the expense of broader performance.
 
 ### 12.2 Runtime and Process Observability
 
-Trace-driven iteration needs two kinds of observability. **Runtime observability** records what the system did: tool calls, command outputs, browser actions, latency, token usage, errors, retries, and final environment state. This is the layer LangChain emphasizes when it stores every agent action and aggregates failure patterns from traces.
+Trace-driven iteration depends on two kinds of observability. **Runtime observability** records what the system actually did: tool calls, command outputs, browser actions, latency, token usage, errors, retries, and the final state of the environment. This is the layer LangChain emphasizes when it stores every agent action and aggregates recurring failure patterns from traces.
 
-**Process observability** records why the current work should be accepted: task scope, sprint contracts, rubrics, verification evidence, excluded work, and handoff notes. Anthropic's generator-evaluator harness made this explicit with sprint contracts negotiated before implementation and evaluator rubrics that produced specific feedback when a sprint failed ([Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)).
+**Process observability** records what success meant and why the completed work should be accepted: task scope, sprint contracts, rubrics, verification evidence, excluded work, and handoff notes. Anthropic's generator-evaluator harness made this explicit. Before implementation, a negotiated sprint contract established the scope; if a sprint failed, the evaluator used a rubric to provide specific feedback ([Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)).
 
-The two layers reinforce each other. Runtime signals without process artifacts tell you what happened but not whether it satisfied the intended scope. Process artifacts without runtime signals can become plausible paperwork around broken behavior. A production harness should make both inspectable: the task trajectory, the acceptance criteria, and the evidence that the environment actually reached the desired state.
+The two layers reinforce each other. Runtime signals without process artifacts show what happened, but not whether the result met the intended scope. Process artifacts without runtime signals can become convincing paperwork wrapped around broken behavior. A production harness should make both inspectable: the task trajectory, the acceptance criteria, and the evidence that the environment reached the desired state.
 
-The OpenReview survey adds a useful implementation detail: agent traces should be structured as trees of spans, not flat logs ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)). At minimum, trace spans should cover model calls, tool invocations, retrieval steps, context-assembly operations, latency, token usage, cost, retries, permission decisions, and final outcome state.
+The OpenReview survey adds an important implementation detail: agent traces should be structured as trees of spans rather than flat logs ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)). At a minimum, those spans should cover model calls, tool invocations, retrieval steps, context-assembly operations, latency, token usage, cost, retries, permission decisions, and the final outcome state.
 
-That structure is now being standardized. OpenTelemetry — the vendor-neutral observability standard already used across distributed systems — is defining *GenAI semantic conventions*: an agreed schema of span and attribute names for LLM and agent telemetry ([OpenTelemetry — Semantic conventions for generative AI spans](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/)). The conventions name the spans a harness produces — a top-level `invoke_agent`, child `chat` spans for each model call, and `execute_tool` spans for each tool invocation — plus standard metrics such as operation duration and token usage. Adopting them buys two things. First, agent traces join the *same* observability stack as the rest of a system's services, so latency, cost, and errors are queryable with existing tooling rather than a bespoke agent logger. Second, the standard confronts the privacy problem directly: it defines explicit patterns for whether to record prompt and completion content at all — omit it, attach it to the span, or store it externally and reference it — and recommends against capturing sensitive payloads by default, which is exactly the redaction discipline §12.3 and Chapter 17 require. (As of this writing the GenAI conventions are still marked *Development*, so exact names will shift; the value is the direction, not the version number.)
+That structure is now being standardized. OpenTelemetry, the vendor-neutral observability standard already used across distributed systems, is defining *GenAI semantic conventions*: a shared schema of span and attribute names for LLM and agent telemetry ([OpenTelemetry — Semantic conventions for generative AI spans](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/)). The conventions name the spans a harness produces, including a top-level `invoke_agent` span, child `chat` spans for model calls, and `execute_tool` spans for tool invocations. They also define standard metrics such as operation duration and token usage.
+
+Adopting these conventions offers two benefits. First, agent traces can use the *same* observability stack as the rest of the system. Teams can query latency, cost, and errors with existing tools instead of maintaining a bespoke agent logger. Second, the standard addresses privacy directly. It defines explicit options for prompt and completion content: omit it, attach it to the span, or store it externally and record a reference. It also recommends against capturing sensitive payloads by default, matching the redaction discipline required by §12.3 and Chapter 17. As of this writing, the GenAI conventions are still marked *Development*, so exact names may change. Their value lies in the direction of the standard, not in any one version.
 
 ### 12.3 From Production Trace to Regression Case
 
-Observability should feed verification. A trace that exposes a real production failure is too valuable to remain only a debugging artifact. The mature loop is:
+Observability should feed directly into verification. A trace that captures a real production failure is too valuable to remain only a debugging artifact. A mature workflow is:
 
 1. Capture a failed or surprising production trajectory.
 2. Redact sensitive data and freeze the relevant environment or fixture.
@@ -34,11 +36,11 @@ Observability should feed verification. A trace that exposes a real production f
 4. Write a deterministic or model-graded assertion for the corrected behavior.
 5. Add the case to the regression suite, with the original trace as evidence.
 
-This turns traces into a source of eval tasks. It also prevents teams from optimizing against synthetic benchmark tasks while missing the failures their own users generate. The boundary with governance matters: trace-to-eval pipelines must preserve privacy, provenance, and permission metadata, or they will produce tests that are useful technically but unsafe operationally.
+This workflow turns traces into a source of eval tasks. It also prevents teams from optimizing for synthetic benchmarks while overlooking failures encountered by their own users. Governance remains part of the pipeline: trace-to-eval systems must preserve privacy, provenance, and permission metadata. Otherwise, they may produce tests that are technically useful but operationally unsafe.
 
 ### 12.4 From Practitioner Correction to a Bounded Improvement Task
 
-OpenAI's tax-agent case study closes the loop one step further. Expert corrections and production traces did not directly rewrite the deployed agent. They became reviewed findings, tailored evals, and bounded Codex tasks that could be verified before release ([OpenAI — Building Self-Improving Tax Agents with Codex](https://openai.com/index/building-self-improving-tax-agents-with-codex/)).
+OpenAI's tax-agent case study extends the loop by one more step. Expert corrections and production traces did not directly rewrite the deployed agent. Instead, they became reviewed findings, tailored evals, and bounded Codex tasks that could be verified before release ([OpenAI — Building Self-Improving Tax Agents with Codex](https://openai.com/index/building-self-improving-tax-agents-with-codex/)).
 
 A safe improvement pipeline has explicit custody at every step:
 
@@ -49,83 +51,83 @@ A safe improvement pipeline has explicit custody at every step:
 5. Gate the patch on the targeted eval, the wider regression suite, security checks, cost, and latency.
 6. Canary the version in production; monitor the original failure signal; roll back if it worsens.
 
-This is **controlled self-improvement**, not uncontrolled self-modification. The deployed agent does not edit its own prompts, tools, memory policy, or evaluator in place. An external improvement loop proposes a versioned change; independent evidence and release controls decide whether it advances. Evaluator integrity (§10.4) matters twice: the finding must be real, and the gate must not be biased toward shipping the proposed fix.
+This is **controlled self-improvement**, not uncontrolled self-modification. The deployed agent does not edit its own prompts, tools, memory policy, or evaluator in place. Instead, an external improvement loop proposes a versioned change, and independent evidence and release controls determine whether it advances. Evaluator integrity (§10.4) matters at two points: the original finding must be valid, and the release gate must not be biased toward approving the proposed fix.
 
 ### 12.5 Stress-Test Load-Bearing Components
 
-Anthropic's harness-design follow-up adds a complementary discipline ([Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)). Every component in a harness encodes an assumption about what the model cannot do on its own. As models improve, those assumptions go stale. The recommended approach: remove one component at a time, run the eval, observe.
+Anthropic's harness-design follow-up adds a complementary discipline ([Anthropic — Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)). Every harness component encodes an assumption about what the model cannot do on its own. As models improve, those assumptions can become outdated. The recommended test is simple: remove one component, run the eval, and observe the result.
 
-When Opus 4.6 launched with stronger long-context retrieval and better long-horizon coding behavior, Anthropic was able to remove the sprint construct in one version of the harness. The generator ran coherently for over two hours without sprint decomposition. The evaluator, which had been more load-bearing on earlier models, became more situational on 4.6 — useful for tasks at the edge of what the generator could do solo, unnecessary overhead within that boundary. The general principle the team articulates: "the evaluator is not a fixed yes-or-no decision. It is worth the cost when the task sits beyond what the current model does reliably solo."
+When Opus 4.6 launched with stronger long-context retrieval and better long-horizon coding behavior, Anthropic was able to remove the sprint construct from one version of its harness. The generator remained coherent for more than two hours without sprint decomposition. The evaluator, which had carried more of the workload for earlier models, became useful only in some cases: it still helped with tasks near the edge of what the generator could complete alone, but added unnecessary overhead for tasks well within that boundary. The team summarizes the principle this way: "the evaluator is not a fixed yes-or-no decision. It is worth the cost when the task sits beyond what the current model does reliably solo."
 
 ### 12.6 Model–Harness Co-Evolution
 
-Today's frontier coding models are post-trained with their harnesses in the loop ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). Useful primitives are discovered, added to the harness, and used in training the next generation, which becomes more capable within that harness. This creates a feedback loop with side effects: changing harness logic can produce worse model performance even when the change should be neutral.
+Today's frontier coding models are post-trained with their harnesses in the loop ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). Teams discover useful primitives, add them to the harness, and use them while training the next model generation. The resulting model becomes more capable within that harness. This feedback loop also creates coupling: changing the harness can reduce model performance even when the change appears behaviorally neutral.
 
-The Codex `apply_patch` tool is the canonical example. Codex models are post-trained on this specific patching format, and OpenCode — built as an open-source alternative to Claude Code — had to add an `apply_patch` tool specifically for GPT/Codex models to mimic the Codex harness; Claude and other models still use normal `edit` and `write` tools ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)).
+The Codex `apply_patch` tool is the canonical example. Codex models are post-trained on this specific patch format. OpenCode, an open-source alternative to Claude Code, therefore had to add an `apply_patch` tool specifically for GPT/Codex models so that it could mimic the Codex harness. Claude and other models continue to use conventional `edit` and `write` tools ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)).
 
 ### 12.7 But the Best Harness Is Not Always the One the Model Was Trained In
 
-The corollary, and the practical license to iterate: the harness a model was trained in is often *not* optimal for a given task. Terminal-Bench 2.0 has been a recurring data point in the practitioner discussion — HumanLayer cites Opus 4.6 in Claude Code at position 33, while the same model in a different harness places at position 5, with about four positions of leaderboard noise ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents); [LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). Treat the exact ranks as leaderboard snapshots, not timeless model facts.
+This coupling does not mean that a model's training harness is optimal for every task. Terminal-Bench 2.0 is a recurring example in practitioner discussions. HumanLayer cites Opus 4.6 ranking 33rd in Claude Code and 5th in a different harness, with roughly four positions of leaderboard noise ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents); [LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). These exact ranks are snapshots of a leaderboard, not timeless facts about the model.
 
-LangChain's case study reaches the same conclusion experimentally. They ran a Claude Opus 4.6 test on an early version of their harness that scored 59.6%, competitive but worse than their tuned Codex configuration. The principles generalized — context preparation, verification — but a few rounds of harness iteration tailored to the model would have closed the gap ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
+LangChain's case study reaches the same conclusion experimentally. Claude Opus 4.6 scored 59.6% on an early version of its harness: competitive, but below its tuned Codex configuration. The broad principles—context preparation and verification—transferred across models, but closing the remaining gap would have required several rounds of iteration tailored to Claude ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)).
 
-The pragmatic rule: if you change the model, re-examine the harness. Tune what is now load-bearing, strip what is no longer.
+The pragmatic rule is straightforward: when the model changes, re-examine the harness. Strengthen the components that have become load-bearing, and remove those that no longer help.
 
 ### 12.8 Practical Takeaways
 
-LangChain's distilled principles for harness iteration ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)):
+LangChain distills its experience with harness iteration into five principles ([LangChain — Improving Deep Agents with Harness Engineering](https://blog.langchain.com/improving-deep-agents-with-harness-engineering/)):
 
-1. **Context engineering on behalf of agents** — onboard the model into its environment with directory structures, available tools, coding best practices, problem-solving strategies.
-2. **Help agents self-verify their work** — models bias toward their first plausible solution; prompt aggressively to verify by running tests.
-3. **Tracing as a feedback signal** — debug tooling and reasoning together (models go down wrong paths because they lack a tool *or* the instructions for one).
-4. **Detect and fix bad patterns in the short term** — guardrails like loop detection are crutches that will dissolve as models improve, but are useful today.
-5. **Tailor harnesses to models** — Claude and Codex prompting guides differ for a reason; principles generalize, specifics do not.
+1. **Engineer context on the agent's behalf** — orient the model to its environment, including directory structures, available tools, coding practices, and problem-solving strategies.
+2. **Help agents verify their own work** — models tend to favor their first plausible solution, so instruct them clearly to run tests and check the result.
+3. **Use traces as a feedback signal** — debug tools and reasoning together, because a model may take the wrong path when it lacks either a tool or instructions for using it.
+4. **Contain bad patterns in the short term** — guardrails such as loop detection may become unnecessary as models improve, but they remain useful today.
+5. **Tailor the harness to the model** — Claude and Codex prompting guides differ for a reason: broad principles transfer, but implementation details often do not.
 
 HumanLayer's parallel set ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents)):
 
-What worked: starting simple and adding configuration only after real failures; iterating and throwing away things that did not help; distributing battle-tested configurations across the team via repository-level config; optimizing for iteration speed rather than likelihood of one-shotting; pruning capabilities once you know what you actually need.
+What worked: starting with a simple harness and adding configuration only after real failures; iterating quickly and discarding changes that did not help; distributing proven configurations through repository-level files; optimizing for iteration speed rather than one-shot success; and pruning capabilities once the team understood what it actually needed.
 
-What did not work: designing the ideal harness upfront; installing dozens of skills and MCP servers "just in case"; running the full test suite at the end of every session; micro-optimizing which sub-agents could access which tools.
+What did not work: trying to design the ideal harness in advance; installing dozens of skills and MCP servers "just in case"; running the full test suite at the end of every session; and micro-optimizing which tools each sub-agent could access.
 
 ### 12.9 The Misleading Data on AGENTS.md
 
-A worth-reading detail: an ETH Zurich study tested 138 agentfiles (the generic term for AGENTS.md / CLAUDE.md-style instruction files) across various repos and found that LLM-generated ones hurt performance while costing 20% more, that human-written ones helped only about 4%, that agents spent 14–22% more reasoning tokens processing context-file instructions, and that codebase overviews and directory listings did not help in that benchmark because agents could discover repository structure on their own ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) citing the ETH Zurich paper).
+One result is particularly worth noting. An ETH Zurich study tested 138 agentfiles—the generic term for AGENTS.md- or CLAUDE.md-style instruction files—across a range of repositories. It found that LLM-generated files reduced performance while increasing cost by 20%, while human-written files improved performance by only about 4%. Agents also spent 14–22% more reasoning tokens processing context-file instructions. In that benchmark, codebase overviews and directory listings did not help because agents could discover the repository structure on their own ([HumanLayer — Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) citing the ETH Zurich paper).
 
-HumanLayer reads this as confirming their own AGENTS.md guidance — keep files concise, avoid auto-generation, use progressive disclosure rather than dumping every instruction up front, keep contents universally applicable rather than full of conditional rules. Their own CLAUDE.md is under 60 lines.
+HumanLayer interprets these findings as support for its own AGENTS.md guidance: keep files concise, avoid auto-generation, use progressive disclosure instead of presenting every instruction up front, and reserve the root file for rules that apply universally rather than conditional guidance. Its own CLAUDE.md is fewer than 60 lines.
 
-This should not be read as "do not write repository instructions." It means the root instruction file should be a router, not an encyclopedia. OpenAI's Codex harness guidance takes the same shape: keep essential context repo-local, keep `AGENTS.md` concise, point agents to the right deeper documents, and enforce the most important rules mechanically where possible ([OpenAI — Harness Engineering](https://openai.com/index/harness-engineering/)).
+This does not mean "do not write repository instructions." It means that the root instruction file should act as a router, not an encyclopedia. OpenAI's Codex harness guidance follows the same pattern: keep essential context in the repository, keep `AGENTS.md` concise, direct agents to deeper documents when needed, and enforce the most important rules mechanically where possible ([OpenAI — Harness Engineering](https://openai.com/index/harness-engineering/)).
 
-The general principle: more configuration is not better. Every irrelevant instruction is an instruction the agent must process for no benefit, and the *instruction budget* matters as much as the token budget.
+The broader principle is that more configuration is not automatically better. Every irrelevant instruction consumes attention without improving the result. The *instruction budget* matters as much as the token budget.
 
 ### 12.10 Reusable Harness Packages and Skills
 
-Once a harness pattern has survived real use, it should not remain tribal knowledge in one repository. Package it. The practical unit can be a skill, a template bundle, a small scaffold generator, or a set of repo checks. The important property is that it carries both instructions and working artifacts: not just "remember to maintain state," but a progress-log template, a feature-list schema, a startup script, and a validation command.
+Once a harness pattern has proved useful in practice, it should not remain tribal knowledge confined to one repository. Package it as a skill, a template bundle, a small scaffold generator, or a set of repository checks. Whatever the format, it should include both instructions and working artifacts: not merely "remember to maintain state," but also a progress-log template, a feature-list schema, a startup script, and a validation command.
 
-The Learn Harness Engineering course demonstrates this packaging shape with `harness-creator`, a skill for creating, assessing, and improving five harness subsystems: instructions, state, verification, scope, and session lifecycle ([Learn Harness Engineering — Skills](https://walkinglabs.github.io/learn-harness-engineering/en/skills/)). This is a useful engineering boundary. A reusable harness package should not freeze one ideal workflow forever; it should make proven defaults easy to install, easy to inspect, and easy to remove when traces show that a component is no longer load-bearing.
+The Learn Harness Engineering course demonstrates this packaging model with `harness-creator`, a skill for creating, assessing, and improving five harness subsystems: instructions, state, verification, scope, and session lifecycle ([Learn Harness Engineering — Skills](https://walkinglabs.github.io/learn-harness-engineering/en/skills/)). This creates a useful engineering boundary. A reusable package should not freeze one supposedly ideal workflow forever. It should make proven defaults easy to install and inspect—and just as easy to remove when traces show that a component is no longer load-bearing.
 
 ### 12.11 Meta-Harness: Optimizing the Harness Itself
 
-Once evals and traces exist, the harness itself becomes an optimization object. The OpenReview survey points to *meta-harness* work that searches over harness structure, prompting strategy, tool interface, and control loop choices rather than treating the harness as fixed ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
+Once evals and traces exist, the harness itself becomes an object of optimization. The OpenReview survey points to *meta-harness* research that explores harness structure, prompting strategies, tool interfaces, and control-loop choices instead of treating the harness as fixed ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)).
 
-The pragmatic version is not fully automated architecture search. It is disciplined experimentation:
+In practice, this need not mean fully automated architecture search. It can begin with disciplined experimentation:
 
 - A/B test a tool schema or prompt change against the same task suite.
 - Ablate one component, such as a planner, context reset, memory layer, or evaluator.
 - Vary cost controls, retry policy, and tool-response truncation to see where quality degrades.
 - Measure the whole closed loop, not only model output: success rate, pass^k reliability, latency, cost, human escalations, and security false positives.
 
-This extends the load-bearing idea. Harness components should earn their keep continuously. If a component improves reliability only for rare high-value tasks, route it selectively. If it no longer helps after a model upgrade, remove it.
+This extends the idea of load-bearing components: every part of the harness should continue to justify its cost. If a component improves reliability only for rare, high-value tasks, route those tasks through it selectively. If it stops helping after a model upgrade, remove it.
 
 ### 12.12 Cross-Layer Coupling
 
-ETCLOVG is also a debugging map. When traces show a failure, the apparent bad model decision may be a symptom of another layer ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)):
+ETCLOVG also serves as a debugging map. When a trace shows an apparently bad model decision, the underlying cause may lie in another layer ([OpenReview — Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)):
 
 - A tool-selection error may come from the **Tool** layer, because the action space is too large or the schema hides the important affordance.
 - A premature completion may come from the **Lifecycle** layer, because exit criteria are not represented as a durable state machine.
 - A regression after cost tuning may come from the **Observability** and **Execution** layers, because resource limits changed latency, timeouts, or benchmark fidelity.
 - A security failure may come from the **Governance** layer, because policy, permissions, and audit hooks are inconsistent across training-time alignment, deployment configuration, and runtime enforcement.
 
-The practical move is to annotate trace reviews with layer hypotheses before changing prompts. Good harness iteration asks: which layer made the wrong behavior easy, invisible, or cheap? Only then should the team decide whether the fix is a prompt, a tool redesign, a sandbox change, a new metric, a stronger grader, or a governance hook.
+Before changing a prompt, annotate the trace review with hypotheses about the responsible layer. Ask which layer made the wrong behavior easy, invisible, or inexpensive. Only then decide whether the right fix is a prompt change, a redesigned tool, a sandbox adjustment, a new metric, a stronger grader, or a governance hook.
 
 ---
 

@@ -1,16 +1,16 @@
 # Preface
 
-This book is about the system that surrounds a language model when it is asked to do real work. That system has a name now — *the harness* — and a small but rapidly maturing body of literature describing how to build it. The chapters below stitch that literature into a single narrative. Readers who want to follow any thread back to its source will find the original article cited at the relevant claim.
+This book examines the system that surrounds a language model when the model is asked to do real work. That system now has a name — *the harness* — and a small but rapidly maturing body of literature on how to build it. The chapters that follow bring that literature together into a single narrative. Each claim cites the relevant original article so that readers can trace any thread back to its source.
 
-The premise of the field is simple. As Vivek Trivedy of LangChain puts it: "Agent = Model + Harness. **If you're not the model, you're the harness.**" ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). Everything else — system prompts, tools, sandboxes, memory, sub-agents, control flow, evaluation infrastructure — is the harness. The work of designing it well is what we will study.
+The field starts from a simple premise. As Vivek Trivedy of LangChain puts it: "Agent = Model + Harness. **If you're not the model, you're the harness.**" ([LangChain — The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/)). In this framing, everything around the model — system prompts, tools, sandboxes, memory, sub-agents, control flow, and evaluation infrastructure — belongs to the harness. This book studies how to design that surrounding system well.
 
-Throughout the book, a model should be understood as a component that consumes tokens and emits tokens. It may emit text for a user, or structured text that requests an action, but the action itself is always carried out by surrounding software. That distinction — model output versus real-world effect — is the reason the later chapters spend so much time on context, tools, state, tests, sandboxes, and evaluation.
+Throughout the book, think of the model as a component that consumes tokens and emits tokens. Its output may be text for a user or structured text that requests an action, but surrounding software always carries out the action itself. This distinction between model output and real-world effect explains why later chapters devote so much attention to context, tools, state, tests, sandboxes, and evaluation.
 
-The model internals this book relies on — tokens, attention and the KV-cache, the context window, sampling, retrieval, and the tool-call protocol — are covered in the companion stage-1 volume; here we name each concept in a line and build the harness-engineering layer on top of it. The genuinely new material is mostly software engineering: context, tools, state, sandboxes, and evaluation.
+The companion stage-1 volume covers the model internals this book relies on: tokens, attention and the KV-cache, the context window, sampling, retrieval, and the tool-call protocol. Here, we briefly name those concepts and build the harness-engineering layer on top of them. Most of the new material is software engineering: context, tools, state, sandboxes, and evaluation.
 
 ## Before You Start
 
-This is the second book in a two-part sequence. It assumes you have read *[LLM Foundations for Harness Engineering](../llm-foundations/)* and are comfortable with tokens, attention and the KV-cache, the context window, sampling, post-training, retrieval, the agent loop, the tool-call protocol, prompt injection, and pass@k/pass^k. Where this book names a Foundations concept, it points back (for example, "Foundations ch 9") rather than re-deriving it. A reader arriving without the stage-1 material can still follow the narrative, but should treat the one-line recaps as pointers, not as the full teaching.
+This is the second book in a two-part sequence. It assumes you have read *[LLM Foundations for Harness Engineering](../llm-foundations/)* and are comfortable with tokens, attention and the KV-cache, the context window, sampling, post-training, retrieval, the agent loop, the tool-call protocol, prompt injection, and pass@k/pass^k. When this book uses a Foundations concept, it points back to the relevant chapter (for example, "Foundations ch 9") instead of deriving the concept again. Readers who have not completed the stage-1 material can still follow the narrative, but should treat the one-line recaps as pointers rather than complete explanations.
 
 ---
 
@@ -36,7 +36,7 @@ flowchart LR
 ## Key Takeaways
 
 - A language model alone cannot maintain state, execute code, or access real-time knowledge — these are all harness-level features.
-- Harness engineering is distinct from prompt engineering: it iterates on the entire system, not just individual prompts.
+- Harness engineering is distinct from prompt engineering: it improves the entire system, not just individual prompts.
 - The field is young — most canonical articles were published in 2025 and 2026 — but is maturing rapidly.
 - Every claim in this textbook is cited so readers can follow threads back to primary sources.
 

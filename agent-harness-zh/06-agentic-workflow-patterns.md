@@ -1,61 +1,63 @@
 # 第 6 章：Agentic 工作流模式
 
-### 6.1 Workflows 与 Agents
+### 6.1 工作流与代理
 
-Anthropic 在更大的 “agentic systems” 类别中区分了两种架构 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))：
+Anthropic 将广义的“代理式系统（agentic systems）”分为两类架构 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))：
 
-- **Workflows** 通过预定义代码路径编排 LLM 和工具。
-- **Agents** 动态决定自己的流程和工具使用。
+- **工作流（workflows）**通过预先定义的代码路径编排 LLM 与工具。
+- **代理（agents）**自行决定执行过程以及如何使用工具。
 
-他们强调的第一原则是：先找到最简单可行方案，只在需要时增加复杂度。许多用例根本不需要 agent；带检索和上下文示例的单次 LLM 调用通常就足够。Workflow 适合结构明确、需要可预测性和一致性的任务；agent 适合需要灵活性和模型驱动决策的大规模场景。
+Anthropic 的首要原则是：采用能够解决问题的最简单方案，只有在任务确实需要时才增加复杂度。许多场景根本不需要代理，单次 LLM 调用配合检索和上下文示例通常就已足够。对于定义清晰的任务，工作流能提供可预测性和一致性；如果执行路径无法预先确定，系统需要由模型在运行时做出决策，代理才更合适。
 
-### 6.2 Augmented LLM
+### 6.2 增强型 LLM
 
-基本构件是 *augmented LLM*：带有检索、工具和记忆的模型。现代模型可以主动使用这些能力：生成自己的查询、选择工具、决定保留什么 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))。MCP（见第 4 章）是暴露这些增强能力的常见方式之一。
+最基本的构件是*增强型 LLM（augmented LLM）*，也就是接入了检索、工具和记忆的模型。现代模型能够主动运用这些能力，例如自行生成查询、选择工具，以及决定保留哪些信息 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))。MCP（见第 4 章）正逐渐成为向模型提供这些能力的常见方式。
 
 ### 6.3 组合式工作流模式
 
-从最简单到最灵活：
+下面这些模式从简单、受约束的形式逐步过渡到更灵活的形式：
 
-**Prompt chaining** 将任务分解成顺序步骤，每个 LLM 调用处理前一步的输出，并可加程序化 gate。适合任务可清晰分解、愿意用延迟换准确率的情况。例如：先写营销文案，再翻译。失败模式：延迟会逐步累加，早期调用的错误会向下游传播——要积极设置 gate。
+**Prompt chaining（提示链）**把任务拆成一系列顺序执行的步骤。每次 LLM 调用都处理上一步的输出，步骤之间还可以加入程序化检查。它适合能够清晰拆解的任务：缩小每次调用负责的任务范围，往往可以提高准确率，但代价是延迟增加。例如，第一次调用起草营销文案，第二次再完成翻译。它的主要风险是错误传播：链条越长，延迟累积越多，早期错误也可能污染所有后续结果。因此，应在关键边界设置检查关卡。
 
-**Routing** 对输入分类，并派发到专门后续流程。适合输入类别明确、且分类可靠的场景。例如：把客服问题路由到退款、技术支持或一般问题 pipeline。失败模式：在分类错误和模糊输入上会无声失败——要对分类器做埋点，盯住它的错误率。
+**Routing（路由）**先对输入分类，再将其分派到专门的处理路径。它适合输入可以可靠地划分为不同类别，而且各类别需要不同处理方式的场景。例如，客服系统可以把请求分别送往退款、技术支持或一般咨询流程。分类错误和含糊输入往往不会显式报错，却会让后续流程走错方向，因此必须为分类器建立监测，并持续关注错误率。
 
-**Parallelization** 同时运行多个 LLM 调用并聚合输出。两个变体是 *sectioning*（拆成独立子任务）和 *voting*（同一任务多次运行）。适合加速，或多视角能提升信心的任务，例如多 prompt 漏洞审查、内容审核投票。失败模式：voting 会把 token 成本放大 N 倍，而且相关性错误会让 N 个一致的投票产生虚假的安心感。
+**Parallelization（并行化）**同时运行多个 LLM 调用，然后汇总输出。常见形式有两种：*sectioning* 将工作拆成相互独立的子任务，*voting* 则让同一任务重复运行多次。需要降低延迟，或希望通过多个视角提高可信度时，可以采用并行化，例如使用多组提示词审查漏洞，或让多个结果共同投票进行内容审核。不过，voting 会按运行次数成倍增加 token 成本；如果各次运行犯的是相关性很强的同类错误，即使结论全都一致，也可能只是制造虚假的确定感。
 
-**Orchestrator-workers** 由中心 LLM 动态拆分任务、委托 worker LLM，并综合结果。它不同于 parallelization，因为子任务不是预先定义的。适合子任务形状依赖输入的复杂任务，例如触及多文件的 coding agent、跨多来源研究。失败模式：orchestrator 可能无界地 fan out——要限制 worker 数量和总 token 预算。
+**Orchestrator-workers（编排者—工作者）**由一个中心 LLM 动态拆解任务、把子任务委派给 worker LLM，再汇总各方结果。它与普通并行化的区别在于，子任务并非事先定义，而是在运行时根据输入决定。这种模式适合拆解方式取决于具体输入的复杂工作，例如需要修改多个文件的编程任务，或需要查阅大量来源的研究任务。它的主要风险是编排者无节制地派生 worker，因此必须同时限制 worker 数量和 token 总预算。
 
-**Evaluator-optimizer** 由一个 LLM 生成，另一个 LLM 批评，循环改进。适合有明确评价标准，且迭代带来可测收益的任务。两个信号是：人类反馈能显著提升输出；LLM 也可能产生类似反馈。例如文学翻译的 critic、多轮研究中的相关性 evaluator。失败模式：循环可能不收敛——要限制迭代次数，因为每一轮都会增加延迟和成本。
+**Evaluator-optimizer（评估者—优化者）**让生成与评估构成循环：通常由一个 LLM 产出答案，另一个 LLM 给出评价，再据此继续改进。它适合评价标准明确、迭代优化能够带来可测收益的任务。判断是否适用可以看两个信号：人类反馈是否能稳定改善结果，以及 LLM 是否有能力给出类似反馈。典型例子包括由批评者辅助的文学翻译，以及由相关性评估器指导的多轮研究。由于循环未必会自行收敛，必须设置最大迭代次数；每多一轮，都会增加延迟和成本。
 
 ### 6.4 Agent 实现的三条原则
 
-Anthropic 最后给出三条规则 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))：
+Anthropic 最后总结了三条实现原则 ([Anthropic - Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents))：
 
-1. **保持简单**。
-2. **优先透明**，明确展示 agent 的规划步骤。
-3. **认真设计 agent-computer interface**，包括工具文档和测试。
+1. **保持代理设计简单**。
+2. **优先保证透明度**，明确展示代理的规划步骤。
+3. **认真设计代理与计算机之间的接口**，包括工具文档和测试。
 
-Framework 能帮助快速开始，但也可能引入抽象层，遮蔽底层 prompt 和工具调用。Anthropic 建议在仍然摸索问题形状时，从直接 API 调用开始；当重复模式和运营需求变清楚后，再引入 framework。
+框架可以加快早期开发，但它引入的抽象层也可能遮蔽真正决定系统行为的提示词和工具调用。Anthropic 建议，在尚未摸清问题结构时先直接调用 API；等到重复模式和运维需求逐渐稳定，再引入框架来承接这些共性。
 
 ### 6.5 小代理模式
 
-HumanLayer 的实践版本表达了相同洞见 ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：“loop until done” 模式大约在 10-20 轮后会撞墙，随着累积的 context 和每轮误差不断叠加，agent 失去连贯性（见第 2 章《上下文是一种有限资源》）。有效做法是在更大的确定性 DAG（由代码定义步骤组成的有向无环图）中嵌入小而聚焦的 agent。这种把 LLM 微代理嵌入确定性代码的 harness 形态，也正是 LangChain 所描述的 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。他们的 deploybot 示例中，确定性代码负责 staging deploy、e2e test 和真正的 prod deploy 命令；LLM 只负责解释人类自然语言反馈（“能先部署 backend 吗？”）并提出更新步骤。把 agent 的作用域限制在 5-10 步，错误失控发散会少很多。
+HumanLayer 从工程实践中得出了相似结论 ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：“循环直到完成（loop until done）”的模式通常在大约 10-20 轮后遇到瓶颈。超过这个范围，上下文和每一轮的误差不断累积，代理会逐渐失去连贯性（见第 2 章《上下文是一种有限资源》）。
 
-原则可以推广：随着模型变强，agent 可处理步骤可能变多；但小而聚焦的 agent 方式让你今天就能交付，并随着模型能力增长逐步扩大范围。
+更可靠的做法，是把小而专注的代理嵌入确定性的 DAG 中；这里的 DAG 指由代码定义各步骤的有向无环图。LangChain 也描述了这种 harness 形态 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。在 deploybot 示例中，确定性代码负责预发布环境部署、端到端测试和正式生产部署命令；LLM 只在需要理解自然语言反馈时介入，例如解读“能先部署后端吗？”，然后提出调整后的步骤。将代理的职责限制在 5-10 个步骤内，可以显著减少错误失控扩散。
+
+这条原则并不会因为模型能力提升而失效。更强的代理或许能够处理更长的任务序列，但小而专注的代理能让团队现在就交付可靠系统，并在模型能力增长后逐步扩大其职责范围。
 
 ### 6.6 推理与自我纠错模式
 
-第 6.3 节的五个模式是组合式的*控制流*模式——它们编排调用。另一条研究线贡献了*推理*模式：单个 agent（或一个紧密循环）如何组织自身的思考与自我纠错。它们与工作流模式相组合，而非取代后者，且大多是值得辨识的具名研究成果。
+第 6.3 节的五种模式属于组合式*控制流*模式，解决的是如何编排调用。另一条研究路线关注*推理*模式，也就是单个代理或紧密循环如何组织推理与自我纠错。这两类模式可以彼此组合，而不是相互取代。下面这些名称经常出现在相关文献中：
 
-- **ReAct** 交错推理与行动——模型思考、调用工具、观察、重复。它是大多数 agent 循环之下的基础模式（第 1 章；《LLM Foundations》第 12 章）。
-- **Reflexion** 加了一层自我批评的记忆：一次尝试失败后，agent 用自然语言写下*为何*失败的反思，并把这段反思放进上下文再试一次——一种无需更新权重的“言语强化学习（verbal reinforcement learning）” ([Shinn et al. - Reflexion](https://arxiv.org/abs/2303.11366))。
-- **Self-Refine** 把 evaluator-optimizer 模式（第 6.3 节）收进单个模型：它生成、批评自己的输出、再修订，反复迭代直到满意 ([Madaan et al. - Self-Refine](https://arxiv.org/abs/2303.17651))。
-- **CRITIC** 把这种批评*落地*到*外部工具*——搜索、代码执行、计算器——而非仅靠内省，使纠正被世界检验，而非被模型自己的自信检验 ([Gou et al. - CRITIC](https://arxiv.org/abs/2305.11738))。
-- **Tree of Thoughts（ToT）** 用对多个分支的搜索取代单条推理链，以前瞻与回溯在提交前探索多个部分解 ([Yao et al. - Tree of Thoughts](https://arxiv.org/abs/2305.10601))。
-- **LATS** 通过在 agent 轨迹上运行蒙特卡洛树搜索（MCTS）来统一推理、行动与规划，由 LM 价值函数与反思引导搜索 ([Zhou et al. - Language Agent Tree Search](https://arxiv.org/abs/2310.04406))。
-- **ReWOO** 把规划与执行解耦：*Planner* 先写出完整计划，*Worker* 执行工具调用，*Solver* 合成答案——通过不在每次观察后重新推理来削减 token ([Xu et al. - ReWOO](https://arxiv.org/abs/2305.18323))。
+- **ReAct** 将推理与行动交替进行：模型先思考，再调用工具、观察结果，然后重复这一过程。它是多数代理循环的基础模式（第 1 章；《LLM Foundations》第 12 章）。
+- **Reflexion** 为代理增加自我反思记忆。一次尝试失败后，代理会用自然语言记录自己*为何*失败，再把这段反思放入上下文中重试。作者将其称为无需更新权重的“言语强化学习（verbal reinforcement learning）” ([Shinn et al. - Reflexion](https://arxiv.org/abs/2303.11366))。
+- **Self-Refine** 将 evaluator-optimizer 模式（第 6.3 节）收进同一个模型：模型先生成结果，再批评并修改自己的输出，如此迭代，直到结果令人满意 ([Madaan et al. - Self-Refine](https://arxiv.org/abs/2303.17651))。
+- **CRITIC** 不让批评只依赖内省，而是借助搜索、代码执行、计算器等*外部工具*来验证。这样一来，纠错依据的是外部证据，而不是模型自身的信心 ([Gou et al. - CRITIC](https://arxiv.org/abs/2305.11738))。
+- **Tree of Thoughts（ToT）** 不再沿单一推理链前进，而是搜索多个分支，通过前瞻和回溯探索若干部分解，再决定采用哪一条路径 ([Yao et al. - Tree of Thoughts](https://arxiv.org/abs/2305.10601))。
+- **LATS** 在代理轨迹上运行蒙特卡洛树搜索（MCTS），并由 LM 价值函数和反思引导搜索，从而把推理、行动与规划统一起来 ([Zhou et al. - Language Agent Tree Search](https://arxiv.org/abs/2310.04406))。
+- **ReWOO** 将规划与执行分开：*Planner* 预先写出完整计划，*Workers* 执行工具调用，*Solver* 汇总出最终答案。由于无需在每次得到观察结果后重新推理，这种结构可以减少 token 消耗 ([Xu et al. - ReWOO](https://arxiv.org/abs/2305.18323))。
 
-harness 视角把它们串起来。每个大多是用 token 和延迟换可靠性，而且——正如第 6.1 节和第 14 章所警告——这笔交易在困难、可检验的任务上才划算，在简单任务上纯属额外开销。更可信的是那些自我纠错被*落地*到工具或测试的模式（这里的 CRITIC；第 14 章由验证器把关的 cascade；第 7 章的 generator-evaluator 拆分），而非靠模型自我批评，这与本书反复出现的主题一致：验证胜于内省（第 7 章、第 10 章）。
+从 harness 的角度看，这些模式做的是相似的权衡：用更多 token 和延迟换取可靠性。正如第 6.1 节和第 14 章所提醒的，这种交换只在困难且可验证的任务上值得；对于简单任务，它只是额外开销。与单纯依靠模型自我批评相比，把自我纠错建立在工具或测试之上的模式更可信，例如本节的 CRITIC、第 14 章由验证器把关的级联，以及第 7 章的 generator-evaluator 分离。这也印证了本书反复强调的原则：验证比内省更可靠（第 7 章、第 10 章）。
 
 ---
 
@@ -82,12 +84,12 @@ flowchart TD
 
 ## 要点
 
-- **从最简单模式开始**：许多任务只需要一次 LLM 调用，过早加入 agent loop 往往浪费。
-- **Workflow 给可预测性，Agent 给灵活性**：依据子任务结构是否预先已知来选择。
+- **从最简单的模式开始**：许多任务只需要一次 LLM 调用，过早加入代理循环往往没有必要。
+- **工作流提供可预测性，代理提供灵活性**：应根据子任务结构能否预先确定来选择。
 - **五种模式覆盖多数场景**：chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer。
-- **小代理模式今天更容易落地**：把 5-10 步聚焦 agent 嵌入确定性 DAG，比“loop until done”更稳。
-- **抽象前先保留可见性**：直接 API 调用让早期行为更容易检查；模式稳定后 framework 才更划算。
-- **推理模式与工作流模式相组合**：Reflexion、Self-Refine、CRITIC、Tree of Thoughts、LATS 和 ReWOO 组织模型自身的思考——在困难、可检验的任务上最有价值，当自我纠错落地到工具或测试而非内省时最可信。
+- **小代理模式现阶段更容易可靠落地**：在确定性 DAG 中嵌入只负责 5-10 个步骤的专注型代理，通常比“循环直到完成”更稳健。
+- **引入抽象之前，先保留系统的可观察性**：直接调用 API 更便于检查早期行为；等模式稳定后，框架的价值才会显现。
+- **推理模式可以与工作流模式组合**：Reflexion、Self-Refine、CRITIC、Tree of Thoughts、LATS 和 ReWOO 用来组织模型的推理过程。它们最适合困难且可验证的任务；如果自我纠错以工具或测试为依据，而不是只靠内省，结果会更可信。
 
 ## 延伸阅读
 

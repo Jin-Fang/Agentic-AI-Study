@@ -1,59 +1,59 @@
 # 第 16 章：Computer-Use 与多模态 Agent
 
-[第 4 章](./04-tools-agent-computer-interface.md)用定义良好的工具搭出 agent–computer interface：带 schema 的函数、MCP server、code API。有一类正在壮大的 agent 工作方式不同。它们不调用干净的 API，而是像人一样操作软件——看着屏幕移动光标、往字段里打字、点按钮。这些 *computer-use* agent，以及它们依赖的多模态感知，带来了 API-工具那几章没有的 harness 问题，而它们正是当下最有野心的通用 agent 所在的前沿。
+[第 4 章](./04-tools-agent-computer-interface.md)通过定义清晰的工具构建了 agent–computer interface：带 schema 的函数、MCP server 和 code API。如今，越来越多 agent 采用另一种工作方式。它们不调用接口明确的 API，而是像人一样操作软件：观察屏幕、移动光标、在字段中输入文字并点击按钮。这类 *computer-use* agent 依赖多模态感知，也给 harness 带来了 API 型工具不会遇到的问题。当下许多目标宏大的通用 agent 也正采用这种工作方式。
 
 ### 16.1 越过 API：操作软件的 agent
 
-动机是触达范围。大多数软件没有对 agent 友好的 API；它有一个为人造的 GUI。一个能看屏幕并据此行动的 agent，能用人能用的一切——老旧桌面应用、没有 API 的网站、永远不会有人去包成 MCP 的内部工具。Anthropic 的 computer-use 模型和 OpenAI 的 Computer-Using Agent 都走这条路：模型接收截图、对其推理、并发出像“在 (x, y) 点击”或“输入这个字符串”这样的底层动作 ([Anthropic — Computer use](https://www.anthropic.com/news/3-5-models-and-computer-use)；[OpenAI — Computer-Using Agent](https://openai.com/index/computer-using-agent/))。
+核心动机是扩大 agent 能操作的软件范围。大多数软件没有对 agent 友好的 API，只有为人设计的图形界面。只要能看懂屏幕并在其中行动，agent 就能使用原本难以接入的软件，包括旧式桌面应用、没有 API 的网站，以及不太可能被封装成 MCP 的内部工具。Anthropic 的 computer-use 模型和 OpenAI 的 Computer-Using Agent 都采用这种方式：模型接收截图，判断画面内容，再发出“在 (x, y) 处点击”或“输入这个字符串”等底层动作 ([Anthropic — Computer use](https://www.anthropic.com/news/3-5-models-and-computer-use)；[OpenAI — Computer-Using Agent](https://openai.com/index/computer-using-agent/))。
 
-这是一个和[第 1 章](./01-what-is-an-agent-harness.md)里那个截然不同的 agent loop。observation 是一张图，而不是工具结果；action 是一个 UI 手势，而不是函数调用；环境是整个操作系统或浏览器，而不是一套精挑的工具集。本书关于工具、context、安全说过的一切仍然适用，但每一项都带上了视觉的、更底层的性格。
+这种 loop 与[第 1 章](./01-what-is-an-agent-harness.md)介绍的 agent loop 有显著差别：observation 是图像而不是工具结果，action 是 UI 操作而不是函数调用，环境则是整个操作系统或浏览器，而不是一套精心挑选的工具。本书关于工具、context 和安全的原则仍然适用，只是它们现在要通过视觉界面作用于更底层的操作。
 
 ### 16.2 环境就是工具面
 
-在 ACI 那章，harness engineer *选择* 工具，能让它们少而高 affordance（第 4 章）。一个 computer-use agent 从环境继承它的动作面：屏幕上每个按钮、菜单、字段都是潜在目标。[第 4 章](./04-tools-agent-computer-interface.md)里那种谨慎的工具策展，不再以同样方式可用，因为“工具”就是应用恰好在视觉上暴露出来的任何东西。
+在 ACI 那一章，harness engineer 可以*选择*工具，只提供少量用途清晰、易于正确调用的动作（第 4 章）。computer-use agent 的动作面却由环境决定：屏幕上的每个按钮、菜单和字段都可能成为操作目标。[第 4 章](./04-tools-agent-computer-interface.md)所说的精心筛选工具，在这里无法照搬，因为应用在界面中展示的所有元素都可能成为“工具”。
 
-这反转了一个关键杠杆。Harness 不再能通过提供更少工具来缩小动作空间；它必须帮 agent 准确 *感知* 动作空间，并约束 agent *被允许在哪里* 行动。设计工作从工具选择转向感知与划界——这正是接下来几节的主题。
+这改变了一个关键的设计杠杆。Harness 无法再靠减少工具数量来缩小动作空间，而必须帮助 agent 准确*识别*可用动作，并限制它*可以在哪里*行动。设计重点因此从工具选择转向感知与范围控制，这也是接下来几节的主题。
 
 ### 16.3 屏幕的几种编码
 
-屏幕可以用几种方式呈现给模型，而这个选择是一个带直接后果的 harness 决策——正是姊妹卷讲“图片变成 token”时所说的多模态要点（*LLM Foundations*，第 2 章）。主要编码：
+Harness 可以用多种形式把屏幕呈现给模型，而选择哪种形式会直接影响效果。正如姊妹卷所解释的，图像最终也会转化为 token（*LLM Foundations*，第 2 章）。常见的屏幕编码包括：
 
-- **截图像素**：保留视觉布局和样式，但 token 很重，且可能让小字模糊。模型必须用视觉去定位元素。
-- **DOM 或 HTML**（网页）：保留精确文本和结构，却丢掉了真正可见的东西——隐藏的、屏幕外的、被视觉遮挡的元素看起来都一样。
-- **Accessibility tree（可达性树）**：暴露一个为辅助技术构建的结构化、语义化视图：role、label、state，通常远比裸 DOM 紧凑。
-- **OCR**：从像素里恢复文本，却丢掉了结构和空间关系。
+- **截图像素**：保留视觉布局和样式，但会消耗大量 token，也可能让小号文字难以辨认。模型必须依靠视觉来定位元素。
+- **DOM 或 HTML**（网页）：保留精确文本和文档结构，却无法可靠反映用户实际看到的内容。隐藏、位于屏幕外或相互遮挡的元素可能难以区分。
+- **Accessibility tree（可达性树）**：提供为辅助技术设计的结构化语义视图，包含 role、label 和 state，通常比原始 DOM 紧凑得多。
+- **OCR**：从像素中恢复文字，但会丢失大量结构和空间关系。
 
-没有一种是完整的。截图显示人所见，却不显示底层结构；DOM dump 显示结构，却不显示显著性。生产系统常常 *组合* 编码——用截图看布局，加 accessibility tree 或 DOM 拿精确目标——更稳健，但花更多 context。这和检索（第 2 章）是同一个精度对预算的张力，只是现在落在视觉域里。
+没有哪一种编码能提供完整信息。截图呈现了人所看到的画面，却不包含底层结构；DOM dump 展示了结构，却无法体现视觉上的显著程度。因此，生产系统常常*组合*多种编码，例如用截图理解布局，再用 accessibility tree 或 DOM 确定准确目标。这样更稳健，但也会占用更多 context。这与检索中的精度和预算权衡（第 2 章）本质相同，只是发生在视觉领域。
 
 ### 16.4 Grounding：从“看见”到“点击”
 
-computer-use agent 独有的最难问题是 *visual grounding（视觉接地）*：把一个意图（“点击 Submit 按钮”）翻译成一个具体动作（在特定坐标点击）。模型可以正确判断某个按钮该被按，却仍发出错误的像素位置。Grounding 错误是一种在 API 工具里没有对应物的失败模式——在 API 里，点名一个函数是精确的。
+computer-use agent 特有的最大难题是 *visual grounding（视觉定位）*：把“点击 Submit 按钮”这样的意图，转换为屏幕上某个具体坐标处的点击。模型可能判断对了该按哪个按钮，却点在错误的位置。API 型工具没有直接对应的失败模式，因为选择一个具名函数是精确操作。
 
-一个常见的 harness 技术是 *Set-of-Mark prompting*：在截图上给候选可交互元素叠加编号标记，让模型选择一个离散标签（“点击元素 7”），而不是产出裸坐标 ([Yang et al. — Set-of-Mark Prompting](https://arxiv.org/abs/2310.11441))。这把一个易错的连续 grounding 问题，转成一个更可靠的离散选择，代价是 harness 必须提供一个元素检测步骤。相关的 SeeAct 工作线表明，即使强视觉模型，也需要这类 grounding 脚手架才能在真实网页上可靠行动——感知和动作是可分离的，而它们之间的缝隙正是 harness 体现价值的地方 ([Zheng et al. — GPT-4V is a Generalist Web Agent](https://arxiv.org/abs/2401.01614))。
+一种常见的 harness 技术是 *Set-of-Mark prompting*。Harness 先在截图中的候选交互元素上叠加编号，让模型选择“点击元素 7”这样的离散标签，而不是直接生成坐标 ([Yang et al. — Set-of-Mark Prompting](https://arxiv.org/abs/2310.11441))。这样可以把容易出错的连续坐标问题转化为更可靠的离散选择，但 harness 必须先检测并标记候选元素。SeeAct 相关研究也表明，即使是能力很强的视觉模型，也需要这类 grounding 脚手架，才能在真实网页上可靠行动。感知和动作是两种可以分开的能力，而 harness 的作用正是弥合两者之间的差距 ([Zheng et al. — GPT-4V is a Generalist Web Agent](https://arxiv.org/abs/2401.01614))。
 
 ### 16.5 动作空间及其失败模式
 
-Computer-use 动作是底层且有状态的，函数调用则不然。一次点击依赖屏幕处于模型以为的那个状态；一个加载慢了的页面、一个弹出的 modal、一个移位的布局，都可能让模型已经决定好的动作失效。因此 loop 必须在每个动作后重新观察——屏幕是新的 ground truth——并容忍 observation 和 action 会失去同步。
+与函数调用相比，computer-use 动作更底层，也更依赖当前状态。一次点击能否成功，取决于屏幕是否仍处于模型预期的状态。页面加载缓慢、意外弹出的 modal 或位置发生变化的布局，都可能让模型已经选定的动作失效。因此，loop 必须在每次动作后重新观察屏幕，并把新画面视为 ground truth；同时还要考虑 observation 与 action 失去同步的情况。
 
-这让[第 7 章](./07-long-running-agents.md)的头号杠杆 self-verification 更加核心。行动后，agent 应在继续之前检查屏幕是否如预期改变。它也让恢复更难：撤销一个 GUI 动作很少像逆转一次 API 调用那样干净，所以[第 15 章](./15-human-agent-interaction.md)的与风险成比例的交互更要紧——一个即将确认不可逆对话框的 computer-use agent，正是人类 checkpoint 该在的地方。
+这使[第 7 章](./07-long-running-agents.md)强调的 self-verification 更加重要。每次行动后，agent 都应先确认屏幕是否按预期变化，再继续下一步。恢复也变得更困难：撤销 GUI 操作通常不像回滚 API 调用那样干净。因此，[第 15 章](./15-human-agent-interaction.md)提出的、与风险相称的人机交互在这里尤其重要。computer-use agent 即将确认不可逆对话框时，正应该设置人类 checkpoint。
 
 ### 16.6 延迟、成本与像素的 token 重量
 
-Computer-use loop 的每个回合都往 context 里送一张图，而图在 token 上很贵——单张高分辨率截图可能和一页文字一样贵（*LLM Foundations*，第 2 章）。一个人要点三十下的任务，就是三十张截图穿过 context window，这和[第 2 章](./02-context-as-finite-resource.md)的有限上下文预算、以及 agentic 负载的 prefill 偏斜，相处得很糟。
+computer-use loop 的每个回合都会向 context 发送一张图，而图像会消耗大量 token。单张高分辨率截图的成本可能相当于一页文字（*LLM Foundations*，第 2 章）。一个需要点击三十次的任务，可能让三十张截图先后进入 context window。这会迅速消耗[第 2 章](./02-context-as-finite-resource.md)所说的有限上下文预算，也会加剧 agent 负载以 prefill 为主的特征。
 
-Harness 杠杆还是那些熟悉的，只是更尖锐。把截图缩到任务能容忍的程度——但不能再多，因为缩小可能抹掉 agent 正需要读的那段文字。信息抽取后不要把旧截图留在 context 里；保留一条关于先前屏幕显示了什么的紧凑笔记，而不是像素（[第 3 章](./03-compaction-memory-subagent.md)“把没用的东西挡在外面”的纪律，对图片尤其适用）。能用结构化编码（accessibility tree）就别用像素，把昂贵的截图留给布局真正要紧的时候。
+熟悉的 harness 杠杆在这里仍然有效，但需要更谨慎地调节。应在任务允许的范围内尽量降低截图分辨率，却不能让 agent 需要读取的文字或控件变得无法辨认。提取出有用信息后，应从 context 中移除旧截图，只保留一条简洁的屏幕内容说明。[第 3 章](./03-compaction-memory-subagent.md)“把不需要的内容挡在外面”的原则对图像尤其重要。如果 accessibility tree 等结构化表示已经足够，就应优先使用它们，只在布局确实重要时才保留成本较高的截图。
 
 ### 16.7 安全：全书最宽的攻击面
 
-一个 computer-use agent 是 [lethal trifecta](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/)（第 5 章）最浓缩的形态。它读取不可信内容（屏幕上任何网页或文档）、常常能访问私有数据（浏览器或文件系统里打开的任何东西）、并能对外通信（它能导航、提交表单、发消息）。这里的 prompt injection 不是工具结果里假设的文本；它是渲染在 agent 正盯着的网页上的恶意指令，而模型可能把它读成命令。
+computer-use agent 集中了 [lethal trifecta](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/)（第 5 章）的三个条件：它会读取屏幕上网页或文档中的不可信内容，可能通过浏览器或文件系统接触私有数据，还能通过页面跳转、提交表单或发送消息与外部通信。这里的 prompt injection 不只是藏在工具结果中的恶意文本，也可能是直接显示在网页上的指令，而模型可能误把它当成真正的命令。
 
-防线就是[第 5 章](./05-sandboxing-guardrails.md)的 sandboxing 和 governance，只是因为动作面如此之宽而更严。把 agent 跑在隔离环境里——一个专用 VM 或容器，而不是用户的主 session。划定网络和文件系统访问。在不可逆或对外动作前要求人类批准（第 15 章）。并把屏幕上的一切都当不可信 data，绝不当指令——当“data”是一整张渲染好的网页时，[第 13 章](./13-system-prompts-and-instructions.md)的 instruction-hierarchy 纪律是承重的。
+防御仍然依靠[第 5 章](./05-sandboxing-guardrails.md)介绍的 sandboxing 和 governance，只是动作面越宽，控制就必须越严格。应让 agent 在专用 VM 或容器等隔离环境中运行，而不是使用用户的主 session；限制它对网络和文件系统的访问；在执行不可逆或对外动作前要求人类批准（第 15 章）。屏幕上显示的一切都应被视为不可信 data，而不是指令。当“data”是一整张渲染后的网页时，[第 13 章](./13-system-prompts-and-instructions.md)的 instruction hierarchy 就成为关键防线。
 
 ### 16.8 评估 computer-use agent
 
-因为环境是一整个 OS 或浏览器，评估必须是环境式的，而非基于文本——[第 10 章](./10-evaluation.md)的 *outcome* 区分在这里不可回避，因为唯一要紧的是任务是否真的在环境中被完成。为此而造的真实 benchmark 提供了样板：WebArena 提供一个可自托管、真实的 web 环境，带基于执行的成功检查 ([WebArena](https://arxiv.org/abs/2307.13854))；OSWorld 把这个思路扩展到一个真实桌面操作系统上的开放式任务 ([OSWorld](https://arxiv.org/abs/2404.07972))。
+由于环境是整个操作系统或浏览器，评估必须衡量环境中的实际结果，而不能只检查文本。[第 10 章](./10-evaluation.md)对 *outcome* 的强调在这里无法回避：真正重要的是任务是否确实在环境中完成。专门设计的 benchmark 展示了这种评估方式。WebArena 提供可自托管的真实 web 环境，并通过执行结果判断任务是否成功 ([WebArena](https://arxiv.org/abs/2307.13854))；OSWorld 则把这一思路扩展到真实桌面操作系统中的开放式任务 ([OSWorld](https://arxiv.org/abs/2404.07972))。
 
-这些 benchmark 的教训印证了全书：computer-use agent 在真实任务上远未饱和，而“模型能感知屏幕”和“agent 可靠完成任务”之间的差距，正是 harness 差距——grounding 脚手架、重新观察、恢复、划界、验证。一如既往，正确的 eval 是工作负载 eval（第 10 章）：一个公开 computer-use benchmark 是背景信号；agent 能否可靠地驱动 *你的* 应用，才是发布信号。
+这些 benchmark 再次印证了本书的主线：computer-use agent 距离稳定完成真实任务仍有很大差距。“模型能看懂屏幕”与“agent 能可靠完成任务”之间，缺少的正是 harness 提供的 grounding 脚手架、重新观察、恢复、范围控制和验证机制。一如既往，真正有决定意义的是面向实际工作负载的 eval（第 10 章）。公开的 computer-use benchmark 只能提供背景证据；agent 能否可靠操作*你的*应用，才应决定它是否可以发布。
 
 ---
 
@@ -73,20 +73,20 @@ flowchart TD
     HUMAN --> REOBS
     REOBS --> OBS
 
-    SANDBOX["隔离 VM · 划界的网络/文件系统 · 屏幕=不可信 data（第 5、12 章）"] -.包裹每一步.-> OBS
+    SANDBOX["隔离 VM · 受限网络/文件系统 · 屏幕内容=不可信数据（第 5、13 章）"] -.覆盖每一步.-> OBS
 ```
 
-*感知 → grounding → 行动 → 重新观察，包在一个 sandbox 里。Grounding 把“看见”变成“点击”；重新观察应对有状态的屏幕；sandbox 容纳全书最宽的攻击面。*
+*感知 → grounding → 行动 → 重新观察，整个过程都由 sandbox 包裹。Grounding 把“看见”转化为“点击”，重新观察用于应对不断变化的屏幕状态，sandbox 则约束了本书涉及的最宽攻击面。*
 
 ---
 
 ## 要点
 
-- **Computer-use agent 用干净 API 换触达**：它们像人一样操作 GUI，因此能用没有 agent API 的软件——代价是更难的 loop。
-- **环境就是动作面**：工具策展让位于感知与划界；harness 帮 agent 准确看见动作空间，并约束它能在哪里行动。
-- **屏幕编码是 harness 选择**：像素、DOM、accessibility tree、OCR 各自保留不同的东西；组合更稳健但花 context。
-- **Grounding 是独有的失败模式**：把意图翻译成正确点击很易错；像 Set-of-Mark 这样的离散技术比裸坐标更可靠。
-- **最宽攻击面，最严 sandbox**：computer-use agent 是浓缩的 lethal trifecta——隔离它、划界它、给不可逆动作设闸，并把整个屏幕当不可信 data。
+- **Computer-use agent 以更难控制的 loop 换取更广的触达范围**：它们像人一样操作 GUI，因此能使用没有 agent API 的软件。
+- **环境本身就是动作面**：工具筛选让位于感知和范围控制；harness 必须帮助 agent 准确识别可用动作，并限制它可以在哪里行动。
+- **屏幕编码是 harness 的设计选择**：像素、DOM、accessibility tree 和 OCR 保留的信息各不相同；组合使用更稳健，却会占用更多 context。
+- **Grounding 是 computer-use 特有的失败模式**：把意图转换为正确点击很容易出错；Set-of-Mark 等离散选择技术通常比直接生成坐标更可靠。
+- **最宽的攻击面需要最严格的 sandbox**：computer-use agent 集中了 lethal trifecta，因此必须隔离运行、限制权限、为不可逆动作设置审批，并把整个屏幕视为不可信 data。
 
 ## 延伸阅读
 

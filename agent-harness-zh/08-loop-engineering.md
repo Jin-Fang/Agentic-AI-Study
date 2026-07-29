@@ -1,99 +1,99 @@
 # 第 8 章：Loop Engineering（循环工程）
 
-*Agent = Model + Harness。* 第 1 章把 agent loop 介绍为每个 agent 中心的那个循环——组装上下文、模型发出工具调用、harness 执行、把观察追加回去、重复。前面几章工程化的是这个循环的*内部*：模型看到什么、有哪些工具、在哪里运行、如何跨 session 恢复。本章讲的是把这个循环*本身*当作首要的工作单元去工程化——决定什么启动它、每一趟做什么、谁检查结果、何时停止。2026 年，这个实践有了名字：*loop engineering*，以及一句口号：别再 prompt 那个 agent，去构建那个 prompt 它的系统。
+*Agent = Model + Harness。* 第 1 章介绍了每个 agent 的核心循环：组装上下文，让模型发出工具调用，由 harness 执行，将观察结果追加到上下文，然后重复。前面几章关注的是循环*内部*的各个组成部分：模型能看到什么、可以使用哪些工具、在哪里运行，以及如何跨 session 恢复。本章则把循环*本身*作为首要的工程单元，讨论什么会启动它、每轮执行什么、由谁检查结果，以及工作何时结束。2026 年，这种实践有了一个名字：*loop engineering*，以及一句口号：不要再逐次 prompt agent，而要构建那个负责 prompt agent 的系统。
 
 ### 8.1 从 Prompting 到 Looping
 
-1.6 节勾勒了一条脉络——prompt engineering 让位于 context engineering，而后者又位于 harness engineering 之下。Loop engineering 是同一条路上的下一站，也是让这个转变对实践者变得具体的那一站。Addy Osmani 在 2026 年 6 月的文章《Loop Engineering》中给这个模式命了名，提供了它的经典解剖和如今流传的词汇 ([Addy Osmani — Loop Engineering](https://addyosmani.com/blog/loop-engineering/))。同一周，Peter Steinberger 把它压缩成一句话，一天之内触达数百万人：你不该再 prompt coding agent 了，你该设计那些 prompt 你的 agent 的 loop ([O'Reilly Radar — Loop Engineering](https://www.oreilly.com/radar/loop-engineering/))。构建了 Claude Code 的 Boris Cherny 给出了实践者版本的直白说法：他不再一回合一回合地 prompt 模型——他的工作是写驱动它的 loop ([The New Stack — Loop Engineering](https://thenewstack.io/loop-engineering/))。
+1.6 节梳理了从 prompt engineering 到 context engineering，再到更广义的 harness engineering 这一演进过程。Loop engineering 是这条路径上的下一步，也让这种转变在实践中变得更加具体。Addy Osmani 在 2026 年 6 月的文章《Loop Engineering》中为这一模式命名，描述了它的典型结构，并引入了许多如今广为使用的术语 ([Addy Osmani — Loop Engineering](https://addyosmani.com/blog/loop-engineering/))。同一周，Peter Steinberger 将这个观点浓缩成一句一天内触达数百万人的话：你不应再逐次 prompt coding agent，而应设计那些负责 prompt agent 的 loop ([O'Reilly Radar — Loop Engineering](https://www.oreilly.com/radar/loop-engineering/))。Claude Code 的构建者 Boris Cherny 则给出了更直白的实践者版本：他不再逐轮 prompt 模型，他的工作是编写驱动模型的 loop ([The New Stack — Loop Engineering](https://thenewstack.io/loop-engineering/))。
 
-这个重构很小，却是承重的。在 prompt engineering 里，人*在*循环内，每一步之间按回车、评判每个结果。Loop engineering 把人从这个内部位置移出，并提出一个更难的问题：如果你不在场去决定工作是否够好、下一步做什么，那么*什么*来决定？本章的一切都是对这个问题的回答。相对第 1 章的机制，这里没有任何新东西——还是那个 agent loop——但重心从模型的回合转向了它周围的控制结构，而那正是 harness 的地盘。Loop engineering 和 harness engineering 是紧密相关工作的两个名字；loop engineering 是运维者的说法，聚焦在那个跨长周期调度、验证并约束 agent 的*外*层循环上。
+这种视角转换听起来不大，影响却很深。在 prompt engineering 中，人始终*位于*循环内部：推进每一步，并判断每个结果。Loop engineering 将人移出这个位置，并提出一个更难的问题：如果现场没有人决定下一步做什么，也没有人判断工作是否足够好，那么应由*什么机制*来作出这些决定？本章其余内容都在回答这个问题。底层机制仍然是第 1 章介绍的 agent loop，变化的是关注重点：不再只看模型的单个回合，而是看周围那个在更长周期内调度、验证和约束 agent 的控制结构。这正是 harness 的职责所在。Loop engineering 与 harness engineering 关注的是紧密相关的工作，但前者采用的是运维者视角，重点在*外*层循环。
 
-### 8.2 一个 loop 就是带 check 的 task
+### 8.2 Loop 就是带检查的任务
 
-那本 field guide 的一句话定义是恰当的锚点：一个 loop 就是带 check 的 task，而不带 check 的 task 只是一厢情愿 ([The Agentic Loop — A Practical Field Guide](https://dev.to/truongpx396/the-agentic-loop-a-practical-field-guide-mnc))。展开来说，一个良构 loop 的一趟是：观察当前状态、采取一个有界动作、把结果对照一个固定标准做检查、决定继续还是停止。这个结构暴露出四个设计杠杆，而 loop engineering 在很大程度上就是把它们规定好的工作：
+那份实践指南给出了一个很实用的定义：loop 就是带检查的任务；没有检查的任务，只能寄希望于结果碰巧正确 ([The Agentic Loop — A Practical Field Guide](https://dev.to/truongpx396/the-agentic-loop-a-practical-field-guide-mnc))。展开来说，一个结构良好的 loop 每轮包含四步：观察当前状态，采取一个有边界的动作，依据固定标准检查结果，然后决定继续还是停止。这个结构揭示了四个设计杠杆。Loop engineering 的主要工作，就是清楚地定义它们：
 
-- **Trigger（触发器）**——什么启动一趟：一个人给的目标、一个 schedule、一个 webhook，或另一个 agent。
-- **Topology（拓扑）**——loop 如何嵌套与交接：单个 agent、一个 maker 加一个 checker，或一个 orchestrator 管一群 worker。
-- **Verifier（验证器）**——决定“够好了”的那个固定标准，以及由谁来施加它。
-- **Stop rules（停止规则）**——loop 成功、放弃或求助的明确条件。
+- **Trigger（触发器）**——什么会启动一轮执行：人给出的目标、schedule、webhook，或另一个 agent。
+- **Topology（拓扑）**——loop 如何嵌套和交接：是由单个 agent 执行，由 maker 与 checker 配合，还是由 orchestrator 管理多个 worker。
+- **Verifier（验证器）**——以什么固定标准判断“足够好”，以及由谁执行检查。
+- **Stop rules（停止规则）**——loop 在什么明确条件下成功、放弃或请求帮助。
 
-任一个留空，失败都是可预测的。没有 trigger，loop 只是一次对话。没有 verifier，它会在垃圾上宣布胜利。没有 stop rule，它会永远跑下去——或者跑到账单来为止。本章余下部分依次处理这四个杠杆。
+其中任何一项没有明确规定，失败模式都可以预见。没有 trigger，loop 就只是一段对话；没有 verifier，它可能把错误结果判为成功；没有 stop rule，它可能一直运行下去，直到耗尽预算。本章余下部分将依次讨论这些杠杆。
 
-### 8.3 Trigger 与嵌套的 loop
+### 8.3 Trigger 与嵌套 Loop
 
-Trigger 是把一个 agent 从“你去调用它”提升为“它自己会跑”的那个东西。Osmani 的解剖把它叫作 *heartbeat（心跳）*——一个无需人类 prompt 就唤醒 loop 的 schedule 或事件 ([Addy Osmani — Loop Engineering](https://addyosmani.com/blog/loop-engineering/))。正是在这里，coding agent 从一个编辑器变成一个运维关切：cron 每晚触发它、webhook 在新 issue 上触发它，或一个监督 agent 把它作为子任务触发。
+Trigger 让 agent 从一个需要按需调用的工具，变成能够自行运行的系统。Osmani 将它称为 *heartbeat（心跳）*：一种无需人类 prompt 就能唤醒 loop 的 schedule 或事件 ([Addy Osmani — Loop Engineering](https://addyosmani.com/blog/loop-engineering/))。从这一步开始，coding agent 就不再只是编辑器，而成为需要纳入运维的系统：cron 可以每晚启动它，webhook 可以在新 issue 到来时启动它，监督 agent 也可以将它作为子任务发起。
 
-Andrew Ng 通过观察这些 loop 会嵌套、且各有不同的 owner 和时间尺度，给出了这个拓扑最清晰的地图 ([Andrew Ng — The Batch, 2026 年 6 月](https://www.deeplearning.ai/the-batch/))：
+Andrew Ng 指出，这些 loop 会彼此嵌套，每层都有不同的负责人和时间尺度。这为理解 loop 的拓扑提供了一张实用的地图 ([Andrew Ng — The Batch, 2026 年 6 月](https://www.deeplearning.ai/the-batch/))：
 
-- **Agentic coding loop** 以分钟计：给定一份 spec 和一些 evals，agent 写代码、测试、迭代，直到满足 spec——回合之间没有人。
-- **Developer feedback loop** 以小时计：一个人检视已构建的东西，把 agent 引向下一步该做什么。
-- **External feedback loop** 以天计：alpha 测试者、A/B 测试、生产信号。
+- **Agentic coding loop** 以分钟计：给定 spec 和 evals 后，agent 编写代码、运行测试并持续迭代，直到满足 spec；各轮之间不需要人介入。
+- **Developer feedback loop** 以小时计：开发者检查已经完成的工作，并指导 agent 接下来做什么。
+- **External feedback loop** 以天计：alpha 测试、A/B 测试和生产环境信号揭示产品在实际使用中的表现。
 
-内层 loop 是 loop engineering 自动化得最激进的那一个；外层 loop 则是人类判断保持不可替代的地方，因为人握有 agent 缺乏的*上下文优势*——对意图、对产品到底为何而做的了解。Ng 自己的例子：一个 coding agent 无人值守地工作了约一个小时，其间在浏览器里检查了好几次自己做的东西，然后才回来要方向。设计目标就是让每个 loop 在必须上交给下一层之前，尽可能长地高效运行。
+Loop engineering 会最大限度地自动化内层 loop，而人类判断在外层 loop 中仍然不可替代。这是因为人具备 agent 所缺少的*上下文优势*：人知道工作的真实意图，也理解产品最终要解决什么问题。在 Ng 的例子中，一个 coding agent 无人值守地工作了约一小时，期间多次在浏览器中检查自己的成果，之后才返回请求进一步指导。设计目标是让每层 loop 尽可能长时间地有效运行；只有当它需要更广泛的上下文时，才将控制权交给上一层。
 
-### 8.4 Verifier 才是瓶颈
+### 8.4 Verifier 是瓶颈
 
-四个杠杆里，verifier 是 loop engineering 投入精力最集中的地方，因为它是让无人值守运行变得安全的东西。第 7 章从另一个方向确立了那条头号结论：agent 对自己的工作偏正面，所以把做工作的 agent 和评判它的 agent 分开是一个强杠杆。Loop engineering 把这个观察提升为一条设计法则——maker 不能是 checker ([Loop Engineering Crash Course](https://agentfactory.panaversity.org/docs/loop-engineering-crash-course))。一个独立的 reviewer agent，拿到的是 spec 而非 diff，并被要求带着怀疑，能抓住 generator 自圆其说糊弄过去的东西。这就是 7.4 节的 generator–evaluator 拆分和第 6 章的 evaluator-optimizer 工作流，从一种技术被提升为决定这个 loop 能不能被放手的那个东西。
+在四个杠杆中，verifier 最值得投入精力，因为它决定了无人值守运行能否做到安全。第 7 章从另一个角度讨论过同一问题：agent 往往会对自己的工作作出过于正面的判断，因此，将产出工作结果的 agent 与评估结果的 agent 分开，是一项重要的安全措施。Loop engineering 将这一观察提升为设计原则：maker 不能同时担任 checker ([Loop Engineering Crash Course](https://agentfactory.panaversity.org/docs/loop-engineering-crash-course))。独立的 reviewer agent 应拿到 spec 而不是 diff，并被要求以怀疑的态度审查结果。这样，它才有机会发现 generator 可能自行合理化并忽略的问题。因此，7.4 节的 generator–evaluator 拆分和第 6 章的 evaluator-optimizer 工作流不再只是实用技巧，而是决定 loop 能否安全独立运行的关键。
 
-社区的口号点出了杠杆的转移：写 verifier 是新的 prompt engineering ([The Agentic Loop — A Practical Field Guide](https://dev.to/truongpx396/the-agentic-loop-a-practical-field-guide-mnc))。稀缺、有价值的动作不再是措辞请求，而是把“done”定义得足够精确，好让机器能检查它。由此引出一个有用的区分：
+社区里的一句口号概括了这种重心转移：编写 verifier，就是新的 prompt engineering ([The Agentic Loop — A Practical Field Guide](https://dev.to/truongpx396/the-agentic-loop-a-practical-field-guide-mnc))。真正困难而有价值的工作，不再只是组织请求的措辞，而是把“完成”定义得足够精确，让机器能够识别。由此可以区分两类 loop：
 
-- **Closed loop（闭环）** 预先把验收标准钉成硬的、可检查的通过项——测试全绿、schema 校验通过、截图匹配。它在可预测的预算上运行，放着跑是安全的。
-- **Open loop（开环）** 朝一个模糊目标松散地探索。它需要一个更强的 verifier，因为没有它，它不会大声失败——它会成功地、自信地、成百上千次地产出看似合理的垃圾。
+- **Closed loop（闭环）** 预先将验收标准设为明确、可检查的通过条件，例如测试全部通过、schema 校验成功或截图匹配。它的预算可预测，适合无人值守运行。
+- **Open loop（开环）** 面向不够精确的目标进行探索。它更需要强有力的 verifier，因为缺少 verifier 时，它不会以明显的方式失败，反而可能反复、自信地产出看似合理却并不正确的结果。
 
-Verifier 应尽任务所允许地机械：一个测试、一次类型检查、一次 schema 校验、一个浏览器断言，最后才是对无法确定性检查之物用 LLM-as-judge——这就是第 5 章的“计算型先于推断型”排序，以及第 10 章的 grader 分类。最强的形态是用一个*全新*的模型，它对工作是如何产出的毫无记忆，因而不会继承 maker 的盲点。
+在任务允许的范围内，验证应尽量采用机械、确定性的方式。优先使用测试、类型检查、schema 校验和浏览器断言；只有无法确定性检查的属性，才交给 LLM-as-judge。这对应第 5 章“计算型先于推断型”的排序，也对应第 10 章的 grader 分类。更可靠的做法是使用一个*全新*的模型，让它不了解工作结果的生成过程，从而减少继承 maker 盲点的可能。
 
-### 8.5 Stop rule 与三个硬停
+### 8.5 Stop Rule 与三项硬限制
 
-一个能自己启动的 loop，也必须能自己停下——且理由不止“成功”。每个良构 loop 都需要明确的停止条件——success、no-op（没剩下什么可做）、ask-for-approval、blocked-or-exhausted（受阻或耗尽）——其中三个是用来兜住失控的、不可商量的硬停 ([The Agentic Loop — A Practical Field Guide](https://dev.to/truongpx396/the-agentic-loop-a-practical-field-guide-mnc))：
+能够自行启动的 loop，也必须能够自行停止，而且停止原因不能只有“成功”。每个结构良好的 loop 都需要明确处理四种结果：success、no-op（没有剩余工作）、ask-for-approval，以及 blocked-or-exhausted（受阻或资源耗尽）。此外，还需要三项不可缺少的硬限制，用来约束失控的执行过程 ([The Agentic Loop — A Practical Field Guide](https://dev.to/truongpx396/the-agentic-loop-a-practical-field-guide-mnc))：
 
-1. **最大迭代次数**——一个硬上限，比如“测试全绿，或六轮，先到先算”。
-2. **无进展检测**——若 N 趟都没产生可测量的变化，就停下，而不是空转。
-3. **预算上限**——一个 token 或美元上限，越过它 loop 就停下来问。
+1. **最大迭代次数**——设置硬上限，例如“测试全部通过，或最多执行六轮，以先达到的条件为准”。
+2. **无进展检测**——如果连续 N 轮没有产生可测量的变化，就停止执行，而不是继续空转。
+3. **预算上限**——设置 token 或金额上限；达到上限后，loop 停止并请求指示。
 
-这就是从 loop 内部看到的第 17 章的 per-task budget，而它在这里承重的原因是：人已经不在场去注意那种空转。失败模式是具体的：Uber 的一个团队把 agent 花费上限设为每月 \$1,500，此前一个无人值守的设置在四个月里烧光了它的年度 AI 预算 ([AI Builder Club — Loop Engineering Guide](https://www.aibuilderclub.com/blog/loop-engineering-guide-2026))。Ask-for-approval 这个停是通往第 15 章的桥：把升级建模为一次工具调用，能让 loop 挂起、把一个决定交给人、并在人回应时从 event log 恢复——同一个持久 approval 模式，如今成了 loop 面对任何有后果之事的指定出口。
+这些限制就是从 loop 内部观察第 17 章所说的 per-task budget。它们在这里尤其重要，因为现场没有人能够及时发现执行过程正在空转。失败并非理论风险：Uber 的一个团队曾因某个无人值守系统在四个月内耗尽全年 AI 预算，之后将 agent 的支出上限设为每月 \$1,500 ([AI Builder Club — Loop Engineering Guide](https://www.aibuilderclub.com/blog/loop-engineering-guide-2026))。Ask-for-approval 则构成了通往第 15 章的桥梁：将升级请求建模为工具调用后，loop 可以挂起，把决定交给人类，并在人类回应后从 event log 恢复。这仍是同一种持久化 approval 模式，只是现在成为 loop 遇到重大决策时的指定出口。
 
 ### 8.6 Ralph 谱系
 
-Loop engineering 不是凭空冒出来的；它是这个领域自 2022 年以来一直在爬的那把梯子的当前一级 ([The Agentic Loop — A Practical Field Guide](https://dev.to/truongpx396/the-agentic-loop-a-practical-field-guide-mnc))：
+Loop engineering 并非突然出现，而是这个领域自 2022 年以来逐步演进的最新阶段 ([The Agentic Loop — A Practical Field Guide](https://dev.to/truongpx396/the-agentic-loop-a-practical-field-guide-mnc))：
 
 - **ReAct**（2022）确立了 reason–act–observe 的基本循环，也就是第 1 章所说的 agent loop ([Yao et al. — ReAct](https://arxiv.org/abs/2210.03629))。
-- **AutoGPT**（2023）让它变得目标驱动、自主——并暴露了这门学科如今所防范的那个失败：一个没有 verifier、没有 stop rule 的 loop，会永远跑下去或跑偏。
-- **“Ralph Wiggum” loop**（2025）加入了 7.5 节所见的关键修法：每次迭代 reset 到干净的 context window，把状态锚在磁盘上的文件里而非膨胀的历史里，并重新注入目标，逼 agent 持续对照它工作。
-- **可验证完成命令**（2026），例如把退出交给一个独立 validator 模型把关的 `/goal`，把 stop rule 变成一等的、机器检查的步骤，而不是 agent 自己的意见。
-- **Orchestration**（当前）让 loop 监督 loop——被调度、以 git 为后盾，在 Ng 的嵌套时间尺度间上下交接工作。
+- **AutoGPT**（2023）使 loop 能够围绕目标自主运行，同时也暴露了这门工程学科如今着力防范的问题：没有 verifier 和 stop rule 的 loop，可能无限运行或偏离目标。
+- **“Ralph Wiggum” loop**（2025）加入了 7.5 节介绍的关键修正：每次迭代都从干净的 context window 开始，将状态保存在磁盘文件而不是不断膨胀的历史中，并重新注入目标，让 agent 始终围绕目标工作。
+- **可验证完成命令**（2026），例如由独立 validator 模型决定能否退出的 `/goal`，将 stop rule 变成一项由机器检查的一等步骤，而不再依赖 agent 对自身工作的判断。
+- **Orchestration**（当前）让 loop 可以监督其他 loop：它们由系统调度，以 git 为持久化基础，并在 Ng 所描述的嵌套时间尺度之间上下交接工作。
 
-有两条主线把这个谱系和本书其余部分连起来。Ralph 的 reset 正是*记忆活在磁盘上、而非上下文里*（第 2–3 章）的原因：一个每趟都 reset 的 loop，必须从文件重新加载状态，而那正是那几章所规定的结构化笔记和反复复述。可验证完成正是*event log 之所以重要*（第 9 章）的原因：一个状态是追加式 log 的 loop，能停止、恢复、被重放，而这正是让长周期自治可调试的东西。
+这个演进过程通过两个观点与本书其余内容相连。第一，Ralph 的 reset 解释了为什么*记忆应保存在磁盘，而不是上下文中*（第 2–3 章）：每轮都会 reset 的 loop 必须从文件重新加载状态，这正是那几章所介绍的结构化笔记和反复复述模式。第二，可验证完成解释了为什么 *event log 至关重要*（第 9 章）：当 loop 状态存储在追加式 log 中时，loop 才能停止、恢复和重放，这些能力使长周期自治变得可调试。
 
-### 8.7 一个 loop 由什么构成
+### 8.7 Loop 的组成
 
-Osmani 的解剖列出了一个持久 loop 装配起来的各个部件，而每一个都对应到前面各章已经建好的一项能力 ([Addy Osmani — Loop Engineering](https://addyosmani.com/blog/loop-engineering/))：
+Osmani 总结了持久化 loop 的组成部分。每一部分都对应前文介绍过的一项能力 ([Addy Osmani — Loop Engineering](https://addyosmani.com/blog/loop-engineering/))：
 
-- **Heartbeat**——触发一趟的 schedule 或事件（8.3 节）。
-- **Worktrees**——隔离的工作目录，让并行的趟不相撞，借用第 5 章的 sandbox 隔离。
-- **Skills**——可复用、由文件支撑、写一次并按需加载的项目知识，即第 4 章的 `SKILL.md` 模式。
-- **Connectors**——触达工作所依赖的真实工具的 MCP server 和插件（第 4 章）。
-- **Sub-agents**——作为分开角色的 maker 和 checker（8.4 节、第 3 章）。
-- **Spine（脊柱）**——一个在多次运行间存活、跨 reset 携带 loop 记忆的持久状态文件（第 2–3 章，以及 7.6 节的结构化 handoff）。
+- **Heartbeat**——触发一轮执行的 schedule 或事件（8.3 节）。
+- **Worktrees**——彼此隔离的工作目录，避免并行执行相互冲突；其基础是第 5 章介绍的 sandbox 隔离。
+- **Skills**——可复用、以文件为载体、编写一次并按需加载的项目知识，也就是第 4 章的 `SKILL.md` 模式。
+- **Connectors**——连接工作所依赖的实际工具，包括 MCP server 和插件（第 4 章）。
+- **Sub-agents**——分别担任 maker 和 checker 的 agent（8.4 节、第 3 章）。
+- **Spine（主干状态）**——能够跨多次运行持续存在，并在 reset 之间保存 loop 记忆的状态文件（第 2–3 章，以及 7.6 节的结构化 handoff）。
 
-Loop 的好坏，取决于它所对着跑的那个代码库，这也是为什么实践者描述一个仓库要“loop-ready”需具备的三项属性 ([AI Builder Club — Loop Engineering Guide](https://www.aibuilderclub.com/blog/loop-engineering-guide-2026))。它必须**可读（legible）**——一份精简的 `AGENTS.md` 索引和定制 lint，让 agent 知道代码的形状以及什么不该碰。它必须**可执行（executable）**——一个以接近零 token 成本起来、并容忍并行 worktree 的 dev server。它还必须**可验证（verifiable）**——对核心流程的 end-to-end 测试和浏览器驱动检查，好让 8.4 节的 verifier 有机械可断言之物。这些就是第 5 章的*ambient affordances*，如今是自治的前提，而不再是锦上添花。
+Loop 的效果取决于它所操作的代码库。因此，实践者提出，仓库在适合 loop 工作之前需要具备三项属性 ([AI Builder Club — Loop Engineering Guide](https://www.aibuilderclub.com/blog/loop-engineering-guide-2026))。第一是**清晰易读（legible）**：精简的 `AGENTS.md` 索引和定制 lint 应让 agent 了解代码库的组织方式，以及哪些内容不能修改。第二是**可执行（executable）**：dev server 应能以接近零 token 的成本启动，并支持并行 worktree。第三是**可验证（verifiable）**：end-to-end 测试和浏览器驱动检查应覆盖核心流程，为 8.4 节的 verifier 提供可机械判定的依据。这些都属于第 5 章所说的*环境赋能条件（ambient affordances）*；对于自治工作，它们是前提，而非锦上添花。
 
 ### 8.8 成熟度阶梯与无人值守的风险
 
-因为 loop 会把它做的一切复利放大，采用应当分级。社区的成熟度阶梯一次只爬一级，且只在当前一级已经产出你本来会亲手做的工作时才往上爬 ([The Agentic Loop — A Practical Field Guide](https://dev.to/truongpx396/the-agentic-loop-a-practical-field-guide-mnc))：
+由于 loop 会通过重复执行不断放大自身行为，采用过程应当分阶段推进。社区提出的成熟度阶梯要求一次只提升一个级别，并且只有当当前级别已经能够可靠完成原本需要人工处理的工作时，才进入下一级 ([The Agentic Loop — A Practical Field Guide](https://dev.to/truongpx396/the-agentic-loop-a-practical-field-guide-mnc))：
 
-0. **Manual（手动）**——你每回合都 prompt。
-1. **Triage（分诊）**——loop 把发现写进一个 markdown 文件，什么都不改。
-2. **Draft（草稿）**——它在隔离分支上做修复。
-3. **Verified PR（已验证 PR）**——一个独立 verifier 在人 review 之前先把关。
+0. **Manual（手动）**——每一轮都由你发出 prompt。
+1. **Triage（分诊）**——loop 将发现写入 markdown 文件，但不作任何修改。
+2. **Draft（草稿）**——loop 在隔离分支中进行修复。
+3. **Verified PR（已验证 PR）**——先由独立 verifier 检查变更，再交给人 review。
 4. **Auto-merge（自动合并）**——只留给低风险类别。
 
-这份纪律之所以存在，是因为 loop engineering 并没有消除那个难题；它只是把它挪了位置。速度把成与败一起复利放大：一个无人值守跑着的 loop，也是一个无人值守犯错的 loop，而它 ship 代码可以比人读代码更快，从而累积*comprehension debt（理解债）*——一个其主人不再完全理解的代码库 ([The New Stack — Loop Engineering](https://thenewstack.io/loop-engineering/))。验证与问责仍归人所有，在两个不可约的端点上：定义什么叫“好”的那个*意图*，以及对 ship 出去之物的*所有权* ([Loop Engineering Crash Course](https://agentfactory.panaversity.org/docs/loop-engineering-crash-course))。由此得到一条界定范围的规则：只对那些*重复、无人值守、被调度、有后果*的工作动用结构化 loop。对任何你正交互式盯着看的东西，check 就是你自己的眼睛，一次普通对话是更好的工具——为一次性任务过度工程化一个 loop，本身就是一种失败模式。
+Loop engineering 并没有消除困难，只是改变了困难所在的位置。速度既会放大成果，也会放大错误：无人值守的 loop 同样会在无人值守时犯错，而且它提交代码的速度可能超过人类审查代码的速度。由此会积累*comprehension debt（理解债）*，使代码库的所有者逐渐无法完全理解其中的实现 ([The New Stack — Loop Engineering](https://thenewstack.io/loop-engineering/))。因此，人类仍需在两个不可替代的端点承担责任：定义什么结果算“好”的*意图*，以及对最终发布内容承担的*所有权* ([Loop Engineering Crash Course](https://agentfactory.panaversity.org/docs/loop-engineering-crash-course))。这给出了一条实用的范围规则：结构化 loop 适合*重复、无人值守、定时触发且后果重要*的工作。如果你本来就在交互式地观察 agent，那么人的判断已经构成检查机制，普通对话通常更合适。为一次性任务过度设计 loop，本身也是一种失败模式。
 
 ### 8.9 超越单个 Loop：控制与 Evaluator Integrity
 
-Loop engineering 仍是单个自治任务的正确设计单元，但生产系统最终会在许多身份、版本、预算和策略之下运行许多 loop。此时，下一个设计对象是**控制平面（control plane）**：注册 agent、授予权限、调度和撤销运行、记录 lineage 并治理 fleet 的系统。第 18 章展开这一层。
+对于单个自治任务，loop engineering 是恰当的设计单元。然而，生产系统最终会在不同身份、版本、预算和策略下运行许多 loop。达到这种规模后，下一个需要设计的对象是**控制平面（control plane）**：负责注册 agent、授予权限、调度和撤销运行、记录 lineage 并治理整个 fleet 的系统。第 18 章将详细讨论这一层。
 
-Verifier 自己也需要治理。一个独立 checker 仍可能因知道判决后果而产生偏差，也可能与 maker 共享盲点，或成为优化攻击的目标。因此，第 10 章把 **evaluator integrity**——盲评、确定性证据、校准、弃权与审计——和“有一个 verifier”区分开来。只有 check 本身值得信任时，一个 engineered loop 才算真正闭环。
+Verifier 本身同样需要治理。即使 checker 与 maker 分开，它仍可能因为知道判断会带来什么后果而产生偏差，也可能与 maker 具有相同的盲点，或被其他系统针对其判定规则进行优化。因此，第 10 章将 **evaluator integrity**——盲评、确定性证据、校准、弃权和审计——作为独立于“设置 verifier”的另一项问题。只有检查机制本身值得信任时，一个 engineered loop 才真正形成闭环。
 
 ---
 
@@ -120,15 +120,15 @@ flowchart TB
 
 ## 本章要点
 
-- **Loop engineering 是 harness engineering 的外层循环视角**：别再一回合一回合地 prompt agent，去设计那个 prompt 它的系统，并规定由什么来决定工作何时够好。
-- **一个 loop 就是带 check 的 task**：观察 → 一个有界动作 → 对照固定标准验证 → 决定继续或停止。不带 check 的 task 只是一厢情愿。
-- **四个杠杆定义一个 loop**：trigger、topology、verifier、stop rules。任一个留空，失败都可预测。
-- **loop 会嵌套**：agentic coding 以分钟计、developer feedback 以小时计、external feedback 以天计——自动化内层，把人类判断留在外层。
-- **verifier 才是瓶颈**：写它是新的 prompt engineering，maker 不能是 checker，弱 check 会以 ship 出自信的垃圾这种方式无声失败。
-- **stop rule 是必需的**：最大迭代次数、无进展检测、预算上限——因为没有人在场去注意失控。
-- **Ralph 谱系是它的血统**：ReAct → AutoGPT → 干净上下文 reset → 可验证完成 → orchestration；记忆活在磁盘上，状态活在 event log 里。
-- **慢慢爬成熟度阶梯**：triage 先于 draft、draft 先于 auto-merge，且只用于重复、无人值守、有后果的工作——无人值守的速度会把错误和理解债一起复利放大。
-- **单个 loop 之后的下一个单元是 fleet**：身份、生命周期、策略、lineage 与撤销属于控制平面；verifier 的可信度则属于评测系统。
+- **Loop engineering 是从外层循环看 harness engineering**：不要逐轮 prompt agent，而要设计负责 prompt agent 的系统，并规定由什么机制判断工作已经足够好。
+- **Loop 是带检查的任务**：观察 → 执行一个有边界的动作 → 依据固定标准验证 → 继续或停止。没有检查的任务，只能寄希望于结果碰巧正确。
+- **四个杠杆定义一个 loop**：trigger、topology、verifier 和 stop rules。其中任何一项没有明确规定，都会产生可预见的失败模式。
+- **Loop 会彼此嵌套**：agentic coding 以分钟计，developer feedback 以小时计，external feedback 以天计。自动化内层 loop，同时保留外层 loop 中的人类判断。
+- **Verifier 是瓶颈**：编写 verifier 就是新的 prompt engineering。Maker 不能同时担任 checker；薄弱的检查机制可能在没有明显报错的情况下接受看似自信却不正确的工作。
+- **Stop rule 不可缺少**：设置最大迭代次数、无进展检测和预算上限，因为现场没有人能够及时发现失控的执行过程。
+- **Ralph 谱系展示了模式的演进**：ReAct → AutoGPT → 干净上下文 reset → 可验证完成 → orchestration。记忆保存在磁盘，状态记录在 event log 中。
+- **成熟度应逐级提升**：从 triage 到 draft，再到 auto-merge，并且只将更高自治级别用于重复、无人值守且后果重要的工作。无人值守的速度会同时放大错误和理解债。
+- **单个 loop 之后的下一个设计单元是 fleet**：身份、生命周期、策略、lineage 和撤销属于控制平面；verifier 的可信度则属于评测系统。
 
 ## 延伸阅读
 

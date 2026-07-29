@@ -2,125 +2,125 @@
 
 ### 10.1 为什么需要 Evals
 
-没有 evals，调试就是被动的：等投诉、手动复现、修复，然后祈祷别回归 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。团队无法区分真实回归与噪声，无法自动测试大量场景，也无法衡量改进。采用新模型也会很慢：没有 evals，新模型上线意味着数周手工测试；有 evals 的团队可以在数天内验证优势并调 prompt。
+没有 eval，调试只能被动进行：等用户投诉，手动复现问题，完成修复，然后寄希望于没有引入新的回归 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。团队既无法可靠地区分真实回归与随机波动，也无法用大量场景检验一次改动，更难判断系统究竟有没有改善。模型升级也会因此变慢。没有 eval，采用新模型可能需要数周的人工测试；有了 eval，团队则可以在几天内验证模型优势并调整 prompt。
 
-回顾一下：eval 评估的是真正重要的单元——对 agent 来说，这个单元是 loop，而不是单次模型调用（见《LLM Foundations》第 13 章）。Agent eval 运行的是整个 model + harness 系统，并在环境中判断最终状态是否满足任务。这一点很重要，因为 agent 可能通过了中间测试、回答得很流畅、甚至走了一条看似合理的路径，但仍然没有完成用户真正的目标。
+关键在于评估真正重要的单元。对 agent 来说，这个单元是完整的 loop，而不是某一次模型调用（见《LLM Foundations》第 13 章）。Agent eval 会在具体环境中运行整个 model + harness 系统，再检查最终状态是否满足任务要求。这个区别很重要：agent 可能通过了某项中间测试，给出流畅的回答，甚至走了一条出人意料但看似合理的路径，却仍然没有实现用户真正的目标。
 
-Anthropic 将 evals 视为复利型基础设施：成本在前期可见，收益在 agent 生命周期中累积。他们建议尽早开始，哪怕只有 20-50 个简单任务。Agent 早期开发中 effect size 很大，小样本也足以发现方向；成熟 agent 需要更大 eval 才能检测较小效果。
+Anthropic 将 eval 视为一种具有复利效应的基础设施：前期投入清晰可见，收益则会在 agent 的整个生命周期中持续累积。实践建议是尽早开始，即使手头只有 20–50 个简单任务也可以。Agent 开发初期的改动通常影响较大，小样本就能提供有效信号；随着 agent 逐渐成熟、改进幅度变小，就需要更大的 eval 集才能识别差异。
 
 ### 10.2 Evaluation 的结构
 
-eval 的基础词汇——grader（code/model/human）、trace、regression 与 capability、pass@k 与 pass^k、reward hacking——已在《LLM Foundations》第 13 章建立；本章只做简要回顾，并在其上构建 harness 专属的机制。
+《LLM Foundations》第 13 章已经介绍了 eval 的核心概念，包括 code-based、model-based 和 human grader，trace，regression eval 与 capability eval，pass@k 与 pass^k，以及 reward hacking。本章先简要回顾这些概念，再讨论建立在它们之上的 harness 实践。
 
 Anthropic 的词汇 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
-- **Task**：有定义好的输入和成功标准。
-- **Trial**：对一个 task 的一次尝试。因为输出有随机性，一个 task 会有多次 trial。
-- **Grader**：评分某个性能方面；一个 task 可以有多个 grader，每个包含 assertions。
-- **Transcript**（trace、trajectory）：trial 的完整记录。
-- **Outcome**：trial 结束时的最终环境状态，不同于 agent 的文本回应。例如订票 agent 说“机票已订好”是 response；SQL 数据库是否有对应行才是 outcome。
-- **Evaluation harness**：运行 eval end-to-end 的基础设施，区别于 agent harness。
-- **Agent harness**（或 scaffold）：与模型一起被评估的系统。“当我们评估一个 agent 时，评估的是 harness 与模型协同工作。”
+- **Task**：一项输入和成功标准都已明确的任务。
+- **Trial**：对某个 task 的一次尝试。由于 agent 的输出存在随机性，一项 task 通常需要运行多次 trial。
+- **Grader**：评估某个性能维度的评分器。一项 task 可以配置多个 grader，每个 grader 都有自己的 assertions。
+- **Transcript**（也称 trace 或 trajectory）：一次 trial 的完整记录。
+- **Outcome**：trial 结束时环境所处的最终状态，它不同于 agent 给出的文本回应。例如，订票 agent 说“机票已订好”只是 response；SQL 数据库中是否真的出现对应记录，才是 outcome。
+- **Evaluation harness**：端到端运行 eval 的基础设施，需要与 agent harness 区分。
+- **Agent harness**（或 scaffold）：与模型一起接受评估的系统。换句话说，“当我们评估一个 agent 时，评估的是 harness 与模型如何协同工作。”
 
 ### 10.3 三类 Grader
 
-- **Code-based**：字符串匹配、二进制测试、静态分析、outcome verification、tool-call verification、transcript analysis。快、便宜、客观、可复现，但对有效变体脆弱。
-- **Model-based**：rubric scoring、自然语言断言、pairwise comparison、多 judge 共识。灵活、可扩展、能处理开放任务，但非确定性，需要人类校准。
-- **Human**：领域专家 review、众包判断、A/B testing。最适合校准和主观判断，但昂贵、慢，如果 rubric 弱也会不一致。
+- **Code-based**：包括字符串匹配、通过/失败测试、静态分析、outcome verification、tool-call verification 和 transcript analysis。这类 grader 速度快、成本低、客观且可复现，但也可能误判合理的结果变体。
+- **Model-based**：包括 rubric scoring、自然语言断言、pairwise comparison 和多 judge 共识。这类 grader 灵活、易扩展，适合开放式任务，但结果并不确定，需要依据人类判断进行校准。
+- **Human**：包括领域专家评审、众包判断和 A/B testing。人工评估最适合做校准和主观判断，但成本高、速度慢；如果 rubric 不清晰，人类之间同样可能意见不一。
 
-Anthropic 建议：能用确定性 grader 就用确定性；必要时用 model-based；human 用于周期性校准。他们还提醒，不要过度评分 agent 采取的路径，而应评估产物。Agent 经常能找到 eval 设计者没想到的有效路径，路径评分会使 eval 脆弱。
+Anthropic 建议尽可能使用确定性 grader，只在必要时使用 model-based grader，并定期通过人工评估做校准。它还提醒，不要评判 agent 采取的*路径*，而应评估它最终得到的结果。Agent 经常会找到 eval 设计者没有预料到、但同样有效的方法；如果要求它必须走某条固定路径，eval 就会变得脆弱。
 
 ### 10.4 谁来验证 Verifier？Evaluator Integrity
 
-把 maker 与 checker 分开，可以消除一种利益冲突，却不能让 checker 自动变得中立。Anthropic 2026 年关于**动机性错误标注（motivated mislabeling）**的研究发现，当模型 evaluator 知道判决会如何被使用时，它可能改变标签——例如，负面标签会触发删除、惩罚或其他后果。更严格的 rubric 与 abstain 选项能减轻但不能消除这种效应 ([Anthropic - Agentic Misalignment: Summer 2026 Update](https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/))。
+把产出者（maker）与检查者（checker）分开，可以消除一种利益冲突，却不会让 checker 自动变得中立。Anthropic 在 2026 年对**动机性错误标注（motivated mislabeling）**的研究中发现：如果担任 evaluator 的模型知道一项判断会被如何使用，它可能因此改变标签。例如，当负面标签会触发删除、惩罚或其他后果时，模型的判断就可能受到影响。更严格的 rubric 和允许 abstain 可以减轻这种现象，但无法将其彻底消除 ([Anthropic - Agentic Misalignment: Summer 2026 Update](https://alignment.anthropic.com/2026/agentic-misalignment-summer-2026/))。
 
-这远不只影响安全研究。一个知道哪个候选是 incumbent、哪个团队产出了它，或 failure 是否会阻止 deployment 的 judge，可能会朝后果合理化。Generator 也可能学会优化那些取悦已知 judge 的表面特征。因此，**evaluator integrity** 是独立的 harness 属性，需要自己的控制：
+这种风险远不只存在于安全研究中。如果 judge 知道哪个候选是当前方案、它出自哪个团队，或者失败判定是否会阻止部署，就可能顺着预期后果为自己的判断找理由。负责生成候选结果的模型（generator）也可能学会迎合某个已知 judge，只优化对方偏好的表面特征。因此，**evaluator integrity** 是 harness 自身的一项属性，需要专门的控制措施：
 
-- 先使用确定性 outcome check，并保留底层证据；
-- 对 model judge 隐藏候选身份、部署后果与其他无关 metadata；
-- 允许“证据不足”，并把有后果的模糊判断交给人类；
-- 用专家标注集校准 judge，并运行测试 bias、leakage 与 reward hacking 的 **meta-eval**；
-- 高风险语义决策使用独立 judge 或 ensemble，但不要把一组相关模型的一致意见当成证明；
-- 对 rubric、judge model、prompt 与 evidence 做版本管理，并保留不可变 audit trail，使判决可复现、可申诉。
+- 优先使用确定性 outcome check，并保留每项结果背后的原始证据；
+- 向 model judge 隐藏候选身份、部署后果和其他无关 metadata；
+- 允许 judge 给出“证据不足”的结论，并把后果重大的模糊判断交给人工评审；
+- 使用专家标注集校准 judge，并运行 **meta-eval**，检查 evaluator 本身是否存在 bias、leakage 或 reward hacking；
+- 对高风险语义决策使用相互独立的 judge 或 ensemble，同时注意：相关模型之间达成一致，并不能构成充分证明；
+- 对 rubric、judge model、prompt 和 evidence 进行版本管理，并保留不可变的 audit trail，使判决能够复现，也能够接受质疑。
 
-OpenAI 关于可信第三方评测的指导给出了同一思想的制度版本：独立性、方法透明、代表性任务、利益冲突披露和可复现产物，都是 evaluation quality 的组成部分，而不是分数出来后才补的文书工作 ([OpenAI - Trustworthy Third-Party Evaluations](https://openai.com/index/trustworthy-third-party-evaluations-foundations/))。Verifier 本身也是被测系统的一部分。
+OpenAI 关于可信第三方评测的指导，将同一个原则扩展到了制度层面：独立性、方法透明度、任务代表性、利益冲突披露和可复现产物，本来就是评估质量的组成部分，而不是算出分数之后再补做的文书工作 ([OpenAI - Trustworthy Third-Party Evaluations](https://openai.com/index/trustworthy-third-party-evaluations-foundations/))。Verifier 本身也是被测系统的一部分。
 
 ### 10.5 Capability Eval 与 Regression Eval
 
-两类目的不同 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
+Agent eval 通常服务于两种不同的目的 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
-- **Capability evals** 问“这个 agent 擅长什么？”它们从低通过率开始，目标是 agent 正在挣扎的任务，给团队一座可爬的山。
-- **Regression evals** 问“agent 是否仍能完成过去能完成的事？”它们应接近 100%，用于防止倒退。
+- **Capability evals** 问的是：“这个 agent 能把哪些事情做好？”它会有意纳入 agent 尚不擅长的任务，因此初始通过率往往较低，也为团队提供了明确的改进目标。
+- **Regression evals** 问的是：“这个 agent 还能完成以前已经解决的任务吗？”它的通过率应当保持在接近 100% 的水平，用来防止系统能力倒退。
 
-Agent 成熟后，通过率高的 capability eval 会 *graduate* 到 regression suite。曾经衡量“能不能做到”的任务，会变成“是否仍可靠做到”的任务。
+随着 agent 逐渐成熟，那些通过率持续较高的 capability eval 会 *graduate* 到 regression suite。原本用来衡量“到底能不能做到”的任务，之后就会转而衡量“现在是否仍能稳定做到”。
 
 ### 10.6 pass@k 与 pass^k
 
-对行为在运行间变化的 agent，有两个斜率相反的指标 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
+由于 agent 每次运行的行为都可能不同，评估时常用两个随 trial 数量增加而朝相反方向变化的指标 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
-- **pass@k**：k 次尝试中至少一次正确的概率。随着 k 增大而上升。
-- **pass^k**：k 次 trial 全部成功的概率。随着 k 增大而下降。
+- **pass@k**：k 次尝试中至少得到一次正确结果的概率。k 越大，成功机会越多，因此这个指标会随之上升。
+- **pass^k**：k 次 trial 全部成功的概率。要求更多次 trial 都保持成功，标准会越来越严格，因此这个指标会随 k 增大而下降。
 
-这些指标之所以必要，是因为 agent 运行具有随机性。同一个 prompt、模型和 harness，在不同 trial 中可能产生不同的工具顺序、搜索路径或最终答案。因此，单次运行只能提供很弱的证据；重复 trial 才能看出系统只是偶尔成功、稳定可靠，还是碰巧走通了一条脆弱路径。
+之所以需要这两个指标，是因为 agent 的运行具有随机性。同一个 prompt、模型和 harness，在不同 trial 中可能采用不同的工具顺序和搜索路径，也可能给出不同的最终答案。因此，单次运行只能提供很弱的证据；重复运行才能看出系统是偶尔成功、能够持续稳定地成功，还是只碰巧走通了一条脆弱的路径。
 
-如果单次成功率 75%，pass^3 约为 42%，pass^10 约为 5.6%，而 pass@10 约为 99.9999%。正确指标取决于产品：当系统可以生成多个候选并选择或展示最佳结果时，一次成功就有价值；面向客户重复执行的 agent 则需要 pass^k 式可靠性。
+如果单次 trial 的成功率是 75%，那么 pass^3 约为 42%，pass^10 约为 5.6%，而 pass@10 约为 99.9999%。应该使用哪项指标取决于产品形态：如果系统可以生成多个候选，再选择或展示其中最好的结果，pass@k 更有参考价值；如果面向客户的 agent 必须在重复执行时都保持可靠，则应更关注 pass^k。
 
 ### 10.7 八步路线图
 
-Anthropic 将从无 eval 到可信 eval 的路线概括为 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
+Anthropic 将从没有 eval 到建立可信 eval suite 的过程概括为以下路线图 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
-0. **尽早开始**：从真实失败中收集 20-50 个任务。
-1. **从已有手工测试开始**：pre-release check 和 bug tracker 中的项目。
-2. **写清晰任务和参考解**：两个领域专家应得出相同判断；大量 trial 0% 通过率通常意味着 task 坏了，而不一定是 agent 不行。
-3. **构建平衡问题集**：既包含某行为应出现，也包含不应出现的情况。单侧 eval 会导致单侧优化。
-4. **构建稳定 eval harness**：隔离 trial，避免共享状态。Anthropic 观察到 Claude 会因查看前一 trial 留下的 git history 而获得不公平优势。
-5. **谨慎设计 graders**：能确定性就确定性；多组件任务给部分分；校准 LLM-as-judge rubric；允许 “Unknown” 以避免幻觉；防 eval hacking。
-6. **阅读 transcripts**：失败应看起来公平；当分数不再上升，要判断是 agent 回归，还是 eval 本身不公平。
-7. **监控 capability eval 饱和**：100% 的 eval 不再提供改进信号。SWE-bench Verified 从 30% 起步，现在接近 80%，小分数提升可能掩盖大能力提升。
-8. **开放维护**：领域专家和产品团队应贡献 eval task；PM、CS、sales 也可以用 Claude Code 把 eval 作为 PR 提交。
+0. **尽早开始**：从真实失败中收集 20–50 个任务。
+1. **先采用现有的人工测试**：例如发布前检查和 bug tracker 中的问题。
+2. **编写无歧义的任务，并提供参考解**：两位领域专家应当能够得出相同结论。如果大量 trial 的通过率都是 0%，问题通常出在 task 本身，而不一定说明 agent 没有能力完成。
+3. **构建平衡的问题集**：既要包含某种行为应该出现的场景，也要包含它不该出现的场景。单侧 eval 会诱导系统朝单一方向优化。
+4. **建立稳定可靠的 eval harness**：隔离各次 trial，避免共享状态。Anthropic 曾观察到 Claude 通过查看之前 trial 遗留的 git history 获得了不公平优势。
+5. **谨慎设计 grader**：能用确定性检查时就优先使用；多组件任务应给予部分分；按照结构化 rubric 校准 LLM judge；提供 “Unknown” 选项以减少幻觉；同时防范 reward hacking。
+6. **阅读 transcript**：检查失败案例时，它们应当显得公平。如果分数停止提升，需要判断究竟是 agent 出现回归，还是 eval 本身已经不再公平。
+7. **监控 capability eval 是否饱和**：通过率达到 100% 的 eval 已无法继续提供改进信号。SWE-bench Verified 从 30% 起步，目前已接近 80%；在这个阶段，看似很小的分数提升也可能代表显著的能力进步。
+8. **通过开放参与维护 eval suite**：领域专家和产品团队都应贡献 eval task。产品经理、客户成功团队和销售人员也可以使用 Claude Code，把 eval 作为 pull request 提交。
 
 ### 10.8 不同 Agent 类型的真实 Evals
 
-下面这些按 agent 类型给出的典型例子来自 Anthropic 的综述 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
+合理的 eval 设计取决于 agent 类型。以下代表性例子来自 Anthropic 的综述 ([Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))：
 
-- **Coding agents**：确定性 grader 很自然，例如代码是否运行、测试是否通过。SWE-bench Verified 基于固定 GitHub issue 跑测试套件；Terminal-Bench 测试端到端任务，例如从源码构建 Linux kernel。
-- **Conversational agents**：成功是多维的，例如 ticket resolved（状态检查）、对话少于 10 轮（transcript constraint）、语气合适（LLM rubric）。常需要第二个 LLM 模拟用户（tau-Bench、tau2-Bench）。
-- **Research agents**：groundedness check（论断有来源支持）、coverage check（包含关键事实）、source-quality check（权威来源，而非首个检索结果）。需要频繁与人类专家校准。
-- **Computer-use agents**：真实或 sandbox 环境，URL/page-state check，后端状态验证（订单是否真的创建，而不仅是出现确认页面）。WebArena 和 OSWorld 是典型例子。
+- **Coding agents**：很适合使用确定性 grader，例如检查代码能否运行、测试能否通过。SWE-bench Verified 会运行与固定 GitHub issue 对应的测试套件；Terminal-Bench 则评估端到端任务，例如从源代码构建 Linux kernel。
+- **Conversational agents**：成功标准通常包含多个维度，例如工单是否解决（状态检查）、对话是否少于 10 轮（transcript constraint）、语气是否恰当（LLM rubric）。这类 eval 往往还会使用第二个 LLM 模拟用户，例如 τ-Bench 和 τ²-Bench。
+- **Research agents**：需要检查论断是否有来源支持（groundedness）、关键事实是否完整（coverage），以及来源是否权威，而不只是最先检索到的结果（source quality）。相应的 grader 需要经常与人类专家的判断进行校准。
+- **Computer-use agents**：需要真实环境或 sandbox，并检查 URL、页面状态和后端状态。例如，要验证订单是否真的创建，而不能只看 agent 是否到达了确认页面。WebArena 和 OSWorld 是这类 eval 的典型例子。
 
-### 10.9 面向修复的验证反馈
+### 10.9 面向 Coding Agent 的验证反馈
 
-对 coding agent 来说，最有用的 grader 往往同时也是修复信号。只说 “test failed” 的检查能确认 outcome 不好，但给 agent 的抓手很少。更好的失败消息会说明违反的是哪条路径、期望状态是什么、实际状态是什么、下一步该检查哪里。OpenAI 的 Codex harness 指南强调，应把反复出现的 review 意见和架构规则转成 repo-local 检查，让 agent 在还能修复时收到具体反馈 ([OpenAI - Harness Engineering](https://openai.com/index/harness-engineering/))。
+对 coding agent 来说，最有用的 grader 往往也能直接提供修复线索。只返回 “test failed” 的检查虽然确认结果有问题，却很难帮助 agent 纠正错误。有效的失败信息应指出受影响的路径、期望状态与实际状态，以及下一步应该检查的位置。OpenAI 的 Codex harness 指南建议，把反复出现的 review 意见和架构规则转化为 repo-local 检查。这样，agent 就能在仍有机会修复问题时得到具体反馈 ([OpenAI - Harness Engineering](https://openai.com/index/harness-engineering/))。
 
-端到端验证也应作为完成门槛，而不是象征性的最后一步。Anthropic 的长运行应用 harness 要求 coding agent 启动应用，并通过浏览器驱动路径验证 feature，因为 agent 否则容易在本地测试或视觉检查通过后宣称完成，但真实用户流程仍然坏着 ([Anthropic - Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents))。第 10.2 节的通用规则在这里直接适用：评估环境状态，而不是评估 agent 的自信。
+端到端验证应当成为完成任务的门槛，而不是象征性的最后一步。在 Anthropic 的长时间运行应用 harness 中，coding agent 必须启动应用，并通过浏览器驱动的工作流验证功能。如果没有这项要求，agent 往往会在本地测试通过或完成视觉检查后就宣称任务结束，即使真实的用户流程仍然存在故障 ([Anthropic - Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents))。第 10.2 节的通用原则在这里同样适用：评估环境状态，而不是 agent 的自信。
 
 ### 10.10 阅读 Transcript 是核心技能
 
-反复出现的主题是：在有人阅读 transcripts 前，不要直接相信 eval 分数。Anthropic 提到 Opus 4.5 在 CORE-Bench 上初始得分 42%，但调查发现严格 grader 会惩罚把期望答案 `96.124991...` 写成 `96.12`，任务 spec 模糊，还有无法精确复现的随机任务。修复 grader bug 并使用限制更少的 scaffold 后，分数跳到 95% ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。类似地，METR 发现 time-horizon benchmark 中有任务要求 agent 优化到某个阈值，但评分要求超过阈值，于是惩罚遵循指令的模型，奖励忽略指令的模型 ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。
+Eval 工作中有一条反复出现的经验：在有人读过 transcript 之前，不要照单全收分数。Anthropic 曾介绍一个案例：Opus 4.5 在 CORE-Bench 上的初始得分只有 42%。调查发现，grader 会因为模型把期望答案 `96.124991...` 写成 `96.12` 而判错；此外，任务说明存在歧义，一些随机任务也无法精确复现。修复这些评分问题，并使用限制更少的 scaffold 后，得分升至 95% ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。METR 在 time-horizon benchmark 中也发现了类似问题：有些任务要求 agent 把结果优化到指定阈值，grader 却要求必须超过该阈值。结果是，遵循指令的模型受到惩罚，忽略指令的模型反而得到奖励 ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。
 
-通用规则是：失败应显得公平。当分数平台期时，要问 eval 是否仍在测它应该测的东西。
+通用原则是：人工检查失败案例时，判定应当显得公平。当分数进入平台期，需要判断究竟是 agent 已经停止进步，还是 eval 已经偏离了原本要衡量的能力。
 
 ### 10.11 Evals 只是多层体系中的一层
 
-自动 eval 不是完整图景。Anthropic 将其类比安全工程中的 Swiss-cheese model：没有一层能抓住所有问题 ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。完整栈包括：
+自动 eval 只能提供部分信息。Anthropic 借用安全工程中的瑞士奶酪模型来说明这一点：每一层都有缺口，因此没有任何一层能够捕获所有问题 ([Anthropic - Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))。完整的评估体系包括：
 
-- **自动 evals**：快速迭代、回归检测、模型升级。
-- **生产监控**：获得真实世界失败和 ground truth。
-- **A/B testing**：在流量足够后验证重大改动。
-- **用户反馈**：发现没人预料的问题。
-- **人工 transcript review**：建立对失败模式的直觉。
-- **系统性人类研究**：校准 LLM grader 或主观输出评分。
+- **自动 eval**：支持快速迭代、回归检测和模型升级。
+- **生产监控**：提供真实依据（ground truth），并发现未曾预料的现实故障。
+- **A/B testing**：在流量足够时验证重要改动。
+- **用户反馈**：暴露设计者没有预想到的问题。
+- **人工 transcript review**：帮助团队建立对失败模式的直觉。
+- **系统性人类研究**：用于校准 LLM grader，以及评估主观性较强的输出。
 
 ### 10.12 Readiness Validation 与失败归因
 
-OpenReview 综述把 **Verification** 单独列为一层，是因为 harness 需要的不只是打分。Verification 问的是：某个 model + harness 组合，在特定任务分布、特定环境、预算和治理规则下，是否已经可以投入使用 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
+OpenReview 综述将 **Verification** 与一般意义上的 evaluation 分开，是因为 harness 需要的不只是分数。Verification 要回答的是：某个特定的 model + harness 组合，在明确的任务分布、环境、预算和治理制度下，是否已经适合部署 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。
 
-这个框架给普通 eval suite 增加了两个实践要求：
+这个视角为普通 eval suite 增加了两项实践要求：
 
-- **Readiness validation**：发布门槛应把任务、环境重置规则、工具可用性、上下文策略、预算限制和治理检查绑定在一起。换了 execution substrate 或 tool menu 后，原来的分数不自动可迁移。
-- **失败归因**：失败应标注最可能出问题的层：execution、tool interface、context、lifecycle、observability、verification 或 governance。否则团队很容易反复调 prompt，但真正缺陷可能是沙箱不稳定、工具面过大、缺 checkpoint，或 policy hook 太弱。
+- **Readiness validation**：发布门槛应当同时绑定任务、环境重置规则、可用工具、上下文策略、预算限制和治理检查。在不同 execution substrate 上得到的分数，或使用不同 tool menu 得到的分数，并不能直接沿用。
+- **失败归因**：应把每次失败归到最可能出问题的层，例如 execution、tool interface、context、lifecycle、observability、verification 或 governance。如果缺少这一步，团队可能会不断调整 prompt，而真正的缺陷其实是不稳定的 sandbox、过大的工具面、缺失的 checkpoint，或者薄弱的 policy hook。
 
-这也解释了为什么 benchmark 数字很脆弱。基础设施变化、成本优化、工具边界改变，都可能改变同一模型测出来的能力。好的 eval report 因此应和模型名一起记录 harness 配置：环境镜像、资源限制、工具目录、上下文组装策略、retry、grader 和 human-approval 规则。
+这种配置依赖性也解释了为什么 benchmark 数字十分脆弱。基础设施变化、成本优化和工具边界调整，都可能改变同一个模型测得的能力。因此，一份有用的 eval report 除了模型名称，还应记录产生结果时的 harness 配置，包括环境镜像、资源限制、工具目录、上下文组装策略、retry 规则、grader 和 human-approval 要求。
 
 ---
 
@@ -154,16 +154,16 @@ flowchart TD
 
 ## 要点
 
-- **Evals 是复利型基础设施**：即使 agent 未成熟，也从 20-50 个真实失败任务开始。
-- **Eval 比单元测试更宽**：它在环境中检查 model + harness 系统是否达成任务 outcome。
-- **Outcome 不等于 response**：测环境状态（数据库行、URL、文件），而不是只测 agent 说了什么。
-- **面向修复的反馈能提高自我修正**：检查应说明哪里失败、为什么失败，以及什么证据才算修好。
-- **三类 grader 形成金字塔**：code-based 负责速度，model-based 负责细微判断，human 负责校准。
-- **Verifier 是被测系统的一部分**：对 judge 隐藏无关后果，保留证据，用 meta-eval 校准，允许 abstain，并保留可复现的 audit artifact。
-- **pass@k 与 pass^k 服务不同产品**：多候选生成可用 pass@k，重复面向客户执行需要 pass^k 式可靠性。
-- **阅读 transcript 是核心技能**：分数平台期可能是 agent 回归，也可能是 eval 不公平；只有 transcript 能区分。
-- **Readiness 绑定配置**：eval 结果应带着产生它的 harness 配置一起解释。
-- **Evals 是多层之一**：自动 eval + 生产监控 + A/B testing + 用户反馈 + 人工 review。
+- **Eval 是具有复利效应的基础设施**：即使 agent 尚未成熟，也可以先从真实失败中整理出 20–50 个任务。
+- **Evaluation 的范围比单元测试更广**：它会在具体环境中检验 model + harness 系统是否真正实现了任务 outcome。
+- **Outcome 不等于 response**：应测量环境状态，例如数据库记录、URL 或文件，而不能只看 agent 声称做了什么。
+- **面向修复的反馈有助于 agent 自我纠正**：检查应说明哪里失败、发生了什么，以及什么证据能够证明问题已修复。
+- **三类 grader 构成一座金字塔**：code-based grader 提供速度，model-based grader 处理细微判断，人工评估负责校准。
+- **Verifier 也是被测系统的一部分**：应向 judge 隐藏无关后果、保留证据、用 meta-eval 做校准、允许 abstain，并保留可复现的 audit artifact。
+- **pass@k 与 pass^k 适用于不同产品**：能生成多个候选的系统可以关注 pass@k；需要反复面向客户执行的 agent 更应关注 pass^k 式可靠性。
+- **阅读 transcript 是核心能力**：分数停止提升，可能是 agent 出现回归，也可能是 eval 不公平；只有 transcript 能帮助团队区分两者。
+- **Readiness 与配置绑定**：解释 eval 结果时，必须同时考虑产生该结果的 harness 配置。
+- **Eval 只是多层体系中的一层**：还需要结合生产监控、A/B testing、用户反馈和人工评审。
 
 ## 延伸阅读
 

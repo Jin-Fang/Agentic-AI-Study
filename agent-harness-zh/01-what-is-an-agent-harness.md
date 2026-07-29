@@ -2,17 +2,19 @@
 
 ### 1.1 Model + Harness 公式
 
-原始语言模型接收文本并输出文本——它的原生能力与边界正是配套前置卷的主题（见《LLM Foundations》第 1 章）。要把它变成 agent，也就是一个能浏览代码库、运行测试、写入数据库、与用户对话、从错误中恢复，并在数小时任务中持续推进的系统，额外能力都必须围绕模型构建出来。LangChain 将 harness 枚举为：系统提示、工具及其描述、内置基础设施（文件系统、沙箱、浏览器）、子代理派生和模型路由等编排逻辑，以及压缩、续跑、lint 检查等确定性执行的 hooks 或中间件 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
+原始语言模型只能接收文本、输出文本；配套的前置卷介绍了它的原生能力与局限（见《LLM Foundations》第 1 章）。要把模型变成 agent，让它能够浏览代码库、运行测试、写入数据库、与用户对话、从错误中恢复，乃至在长达数小时的任务中持续推进，就必须围绕模型构建所有这些额外能力。LangChain 将由此形成的 harness 分为几类：系统提示；工具及其描述；文件系统、沙箱和浏览器等内置基础设施；子代理派生、模型路由等编排逻辑；以及负责压缩、续跑、lint 检查等确定性操作的 hooks 或中间件 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
 
-这个框架之所以重要，是因为它把设计问题摆到了明处。模型开箱即用时，无法跨交互维护持久状态、执行代码、访问实时知识，也不能为了完成任务自行配置环境和安装包；这些都是 harness 层能力 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。即使是最基本的聊天，也就是模型看起来“记得”刚才说过什么，本质上也是一个 harness 模式：一个 while-loop 记录历史消息，并把新消息追加进上下文。
+这一框架把系统设计问题清楚地摆在了台面上。模型本身无法跨多次交互保存持久状态、执行代码、获取实时知识，也不能自行配置环境和安装软件包。这些都属于 harness 层的能力 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。即便是最基本的聊天也依赖一种 harness 模式：while-loop 保存历史消息，再把新消息加入上下文，于是模型看起来像是“记得”刚才的对话。
 
-HumanLayer 从配置 coding agent 的视角给出的工作定义基本相同：“coding agent = AI model(s) + harness”。这里的 harness 是 agent 的运行时，或者说是模型用来与环境交互的外围设备 ([HumanLayer - Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents))。
+HumanLayer 从配置 coding agent 的角度给出了几乎相同的公式：“coding agent = AI model(s) + harness”。它把 harness 称为 agent 的运行时或“外围设备”，也就是模型与环境交互所依赖的各个组件 ([HumanLayer - Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents))。
 
 ### 1.2 Agent 循环
 
-agent 循环——以及“工具调用是 harness 执行的结构化输出，而非模型真的直接行动”这一原则——已在配套的前置卷中确立（见《LLM Foundations》第 1 章与第 12 章）。这里快速回顾：一次原始模型调用是一次性的（文本进，文本出）；*agent* 把它包进一个循环，循环组装上下文，让模型发出最终答案或一个 *工具调用*（通常是 JSON 的结构化输出，指明工具名和参数），由确定性的 harness 代码执行该调用，追加观察结果，再带着更长的上下文重复。HumanLayer 把同一点表述为 “tools are just structured outputs” ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))：文件编辑、shell 命令、浏览器点击、数据库写入，都只有在 harness 接受模型请求并执行之后才会变成真实效果。这个循环中心的模型，就是 Anthropic 所说的 *augmented LLM*、研究文献所称的 *ReAct*（reason + act）（机制见《LLM Foundations》第 12 章）。
+配套的前置卷已经介绍了 agent 循环，以及它背后的一项关键原则：工具调用只是交给 harness 执行的结构化输出，并不是模型亲自采取的行动（见《LLM Foundations》第 1 章与第 12 章）。简要回顾一下：原始模型调用是一次性的，也就是文本输入、文本输出；*agent* 则把这次调用放进一个循环。Harness 先组装上下文，模型再输出最终答案或一个 *工具调用*。工具调用通常是 JSON 格式的结构化输出，其中包含工具名称和参数。随后，确定性的 harness 代码执行该调用，把观察结果加入上下文，并以扩展后的上下文开始下一轮。
 
-这个循环的两个后果贯穿全书。第一，**上下文单调增长**：每一轮都追加一个工具调用及其观察结果，因此 N 步任务会累积 N 轮历史。这就是为什么第 2 章把上下文当作有限资源，也是压缩、子代理和记忆之所以存在的原因。第二，**模型本身从不执行任何东西**——它只发出请求，由确定性的 harness 代码决定满足哪些请求。请求与执行之间的这个间隙，正是后续章节中每一道护栏、沙箱、hook 和审批关卡的插入点：harness 就处在循环里，夹在模型所要求的与实际发生的之间。
+HumanLayer 用一句话概括了同一个意思：“tools are just structured outputs” ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))。无论是编辑文件、执行 shell 命令、点击浏览器，还是写入数据库，都只有在 harness 接受并执行模型请求之后，才会在现实中产生效果。位于这个循环中心的模型，就是 Anthropic 所说的 *augmented LLM*，也是研究文献中的 *ReAct*（reason + act）（具体机制见《LLM Foundations》第 12 章）。
+
+这个循环会带来两个贯穿全书的后果。第一，**上下文单调增长**：每一轮都会追加一次工具调用及其观察结果，因此一个包含 N 个步骤的任务会积累 N 轮历史。正因如此，第 2 章把上下文视为有限资源，而压缩、子代理和记忆都是管理这种资源的手段。第二，**模型本身从不执行任何操作**。模型只会发出请求，确定性的 harness 代码则负责决定是否执行、如何执行。请求与执行之间的这段距离，为后续章节中的护栏、沙箱、hook 和审批关卡提供了介入点。Harness 就位于循环之中，连接模型提出的请求与最终发生的现实效果。
 
 ```mermaid
 flowchart LR
@@ -28,49 +30,51 @@ flowchart LR
 
 ### 1.3 Harness 的边界：内层与外层
 
-“Harness”这个词的用法并不总是严格。Thoughtworks 的作者指出，不同人说 harness 时可能指不同层。Birgitta Böckeler 建议把它理解成三层同心圆：核心是模型，中间是 coding agent 的 *builder harness*（Anthropic、OpenAI 等提供的系统提示和工具），外层是 *user harness*（团队为了适配自己代码库而添加的 AGENTS.md、hooks、skills、review agents）([Thoughtworks / Martin Fowler - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。多数工程师的日常工作主要发生在外层。
+“Harness”这个词并没有完全统一的边界。Thoughtworks 的作者指出，不同人所说的 harness 可能覆盖不同层次。Birgitta Böckeler 建议将其理解为三层同心圆：核心是模型；中间层是 coding agent 的 *builder harness*，包括 Anthropic、OpenAI 等厂商提供的系统提示和工具；外层是 *user harness*，包括团队为适配自己的代码库而添加的 AGENTS.md、hooks、skills 和 review agents ([Thoughtworks / Martin Fowler - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。多数工程师的日常工作主要集中在最外层。
 
-OpenReview 综述论文 *Agent Harness Engineering: A Survey* 给了同一边界一个更正式的定义：harness 是一套软件与接口基底，负责管理 foundation model 如何感知上下文、调用工具、跨时间行动，并在部署环境中保持可审计 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。它的 binding-constraint thesis 比“harness 有用”更强：对长周期 agent 来说，可靠性常常既取决于模型本身的质量，也同等地取决于包裹模型的运行基底。
+OpenReview 论文 *Agent Harness Engineering: A Survey* 对这条边界给出了更正式的定义：harness 是一套软件和接口基础层，用来管理 foundation model 如何获取上下文、调用工具、持续执行任务，并在部署环境中保持可审计性 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。论文进一步将 harness 视为一种潜在的 *binding constraint*：对于长周期 agent，可靠性往往既取决于模型本身的质量，也同样取决于模型周围的运行基础。
 
 ### 1.4 ETCLOVG：七层系统地图
 
-这篇综述用 **ETCLOVG** 组织 harness 设计空间：Execution environment、Tool interface、Context、Lifecycle、Observability、Verification、Governance ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。这个分类的价值在于，它防止 “harness” 被缩减成只有 prompt 或只有 tool。
+这篇综述用 **ETCLOVG** 组织 harness 的设计空间：Execution environment、Tool interface、Context、Lifecycle、Observability、Verification 和 Governance ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。这张地图提醒我们，harness 不能被简化为只有 prompt 或 tool。
 
-- **Execution environment**：动作变成真实效果的沙箱、浏览器、操作系统、代码执行器或托管云环境。
-- **Tool interface**：协议、schema、registry、function calling、MCP/A2A 式边界，以及工具选择策略。
-- **Context**：prompt 组装、检索、记忆、压缩、状态摘要，以及模型被允许看到什么。
-- **Lifecycle**：任务启动、计划、checkpoint/resume、失败恢复、handoff、session 终止和长周期状态。
-- **Observability**：trace、telemetry、成本归因、延迟、token 记账和失败取证。
+- **Execution environment**：让操作产生实际效果的沙箱、浏览器、操作系统、代码执行器或托管云环境。
+- **Tool interface**：协议、schema、registry、function calling、MCP/A2A 式边界和工具选择策略。
+- **Context**：prompt 组装、检索、记忆、压缩、状态压缩，以及允许模型看到哪些信息。
+- **Lifecycle**：任务启动、规划、checkpoint/resume、失败恢复、handoff、session 终止和长时间运行所需的状态。
+- **Observability**：trace、telemetry、成本归因、延迟、token 用量核算和失败取证。
 - **Verification**：eval harness、grader、任务集、outcome check 和 readiness gate。
-- **Governance**：权限、策略语言、审计轨迹、人类审批、constitutional/rule-based 控制和跨层安全。
+- **Governance**：权限、策略语言、审计记录、人类审批、constitutional/rule-based 控制和跨层安全。
 
-本书多数章节都可以看作对这七层的展开。第 2-3 章主要讨论 context 和 memory；第 4-5 章覆盖 tools 和 execution；第 7-9 章进入 lifecycle；第 10-12 章展开 verification、observability 和 governance，并在展望中再次回到。
+接下来的大部分章节，都可以看作对这七个层次的逐一展开。第 2—3 章主要讨论 context 和 memory；第 4—5 章讨论 tools 和 execution；第 7—9 章转向 lifecycle；第 10—12 章则展开 verification、observability 和 governance，并在展望部分再次回到这些主题。
 
 ### 1.5 Harness 为什么存在：从模型缺陷倒推
 
-LangChain 给出了一种有用推导：先列出你希望 agent 具备的行为，再列出模型原生做不到什么，harness 组件就会自然浮现出来 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。文件系统之所以存在，是因为模型只能操作上下文窗口中的内容，而文件系统提供持久存储、卸载工作内容的空间，以及多 agent 和人类协作的界面。Bash 和代码执行之所以存在，是因为预先定义 agent 可能需要的所有工具并不现实；给模型一个通用执行通道，可以让它按需现场设计工具。沙箱之所以存在，是因为执行必须发生在安全边界内。记忆和搜索之所以存在，是因为模型除了权重和当前上下文之外没有新知识，任何新信息都必须注入。压缩、工具结果卸载和 skills 之所以存在，是因为上下文窗口有限，并且会随着填充而退化。
+LangChain 提供了一种倒推 harness 组件的方法：先列出你希望 agent 表现出的行为，再找出模型原生无法做到的部分。所需的 harness 组件便可以从这些能力缺口中推导出来 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
 
-每个组件都是对某个具体限制的回应。Harness 整体就是这些回应的总和。
+例如，模型只能处理上下文窗口中的信息，因此文件系统需要承担持久存储、信息卸载，以及 agent 与人类共享工作空间的作用。Bash 和代码执行解决的是另一项局限：我们不可能预先定义 agent 可能用到的每一种工具，因此需要提供通用执行通道，让模型按需创建工具。执行过程又必须置于安全边界之内，所以需要沙箱。模型无法凭空获知权重和当前上下文之外的信息，所以需要借助记忆与搜索把新信息注入上下文。上下文窗口本身容量有限，而且内容越多，性能越可能下降，因此还需要压缩、工具结果卸载和 skills。
+
+每个组件都在弥补一项具体局限，而 harness 就是这些组件共同构成的系统。
 
 ### 1.6 历史脉络：从 Prompt Engineering 到 Harness Engineering
 
-Anthropic 将最近的转变描述为自然演进。早期 LLM 应用的主导工作是 *prompt engineering*：为一次性任务编写和组织指令。随着应用发展成多轮、长时间运行的 agent，相关工作转向 *context engineering*：在 LLM 推理时策划和维护最优 token 集合，包括提示词之外进入上下文的一切信息 ([Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents))。
+Anthropic 将这几次转变描述为一种自然演进。早期 LLM 应用主要关注 *prompt engineering*，也就是为一次性任务编写和组织指令。随着应用发展成能够多轮交互、长时间运行的 agent，关注范围扩展到了 *context engineering*：在 LLM 推理期间整理并持续维护最有用的一组 token，其中也包括提示词之外进入上下文的所有信息 ([Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents))。
 
-Harness engineering 位于 context engineering 之上。Mitchell Hashimoto 的说法是，每当 agent 犯错，就花时间把系统工程化到它以后不再犯同一个错 ([HumanLayer - Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) quoting Hashimoto)。Prompt engineering 调的是一个提示；harness engineering 迭代的是承载这个提示运行的整个系统。
+Harness engineering 又比 context engineering 高一个层次。按照 Mitchell Hashimoto 的说法，每当 agent 出错，都应投入时间设计系统性解决方案，避免它以后重犯同样的错误 ([HumanLayer - Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) quoting Hashimoto)。Prompt engineering 调整的是单个提示；harness engineering 改进的则是提示运行于其中的整套系统。
 
-2026 年又出现了一次重构，名字叫 *loop engineering（循环工程）*。随着 agent 开始在长周期上无人值守地运行，工作的核心单元再次转移——从 prompt，到 context，到那个决定“prompt 什么、何时 prompt、结果是否够好”的 *loop* ([Addy Osmani - Loop Engineering](https://addyosmani.com/blog/loop-engineering/))。与其说它是 harness engineering 的对手，不如说它是后者面向运维的外层控制循环视角——环绕 agent 的 trigger、verifier 和 stop rule——第 8 章会完整展开它。
+2026 年，这一演进又出现了名为 *loop engineering（循环工程）* 的新视角。随着 agent 开始在更长周期内无人值守地运行，工作的关注点再次转移：先是 prompt，再到 context，如今则是决定“给模型什么提示、何时调用模型、结果是否合格”的 *loop* ([Addy Osmani - Loop Engineering](https://addyosmani.com/blog/loop-engineering/))。Loop engineering 与其说是 harness engineering 的替代方案，不如说是从运行管理角度观察其外层控制循环，重点关注围绕 agent 的 trigger、verifier 和 stop rule。第 8 章将完整展开这一概念。
 
 ### 1.7 Framework、Runtime 与 Harness
 
-这三个词有时会被混用。LangChain 的 Harrison Chase 给出了如下区分 ([LangChain - Agent Frameworks, Runtimes, and Harnesses, Oh My!](https://blog.langchain.com/agent-frameworks-runtimes-and-harnesses-oh-my/))：
+这三个词有时会被混用。LangChain 的 Harrison Chase 对它们作了如下区分 ([LangChain - Agent Frameworks, Runtimes, and Harnesses, Oh My!](https://blog.langchain.com/agent-frameworks-runtimes-and-harnesses-oh-my/))：
 
-*Framework*，例如 LangChain、Vercel AI SDK、CrewAI、OpenAI Agents SDK、Google ADK，提供抽象，帮助快速开始并标准化应用构建方式。*Runtime*，例如 LangGraph、Temporal、Inngest，负责基础设施层问题：持久执行、流式输出、human-in-the-loop、线程级和跨线程持久化。*Harness*，例如 LangChain 的 DeepAgents 或 Anthropic 的 Claude Agent SDK，则位于更高一层：它带有默认提示、带立场的工具处理、规划工具、文件系统访问，以及其他“开箱即用”的能力。边界会模糊（LangGraph 可以合理地既被叫 runtime 也被叫 framework），但这个区分有助于判断应该采用什么。
+*Framework*（如 LangChain、Vercel AI SDK、CrewAI、OpenAI Agents SDK 或 Google ADK）提供开发抽象，帮助开发者快速入门，并统一应用的构建方式。*Runtime*（如 LangGraph、Temporal 或 Inngest）处理基础设施问题，包括持久执行、流式输出、human-in-the-loop，以及线程内和跨线程的状态持久化。*Harness*（如 LangChain 的 DeepAgents 或 Anthropic 的 Claude Agent SDK）则又高一层，通常内置默认提示、对工具处理方式的明确取舍、规划工具、文件系统访问，以及其他“开箱即用”的能力。三者的边界并非绝对，例如 LangGraph 既可以被视为 runtime，也可以被视为 framework；即便如此，这一区分仍有助于团队判断应该采用什么。
 
-### 1.8 怀疑论观点
+### 1.8 更好的模型会让 Harness 过时吗？
 
-Harness engineering 这个视角并非没有反对意见。HumanLayer 在 “Skill Issue” 中的论点是，很多团队把问题归因于模型：“GPT-6 会解决”“我们只需要更好的指令遵循”，但真正的问题往往是 harness 配置 ([HumanLayer - Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents))。随着模型进步，现有失败模式会消失，但更聪明的模型会被交给更难的问题，并继续以意想不到的方式失败，因为意外失败是非确定性系统的基本属性。结论是：harness engineering 是长期工作，不是模型足够好后就能丢掉的脚手架。
+一个始终伴随 harness engineering 的问题是：模型变得更好之后，周边系统会不会就不再重要？HumanLayer 在 “Skill Issue” 中指出，团队常常把问题归咎于模型——“GPT-6 会解决”“我们只需要模型更听指令”——但真正的症结往往在于 harness 配置 ([HumanLayer - Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents))。更好的模型会消除一些现有的失败模式，但也会被交付更困难的任务，并继续以意想不到的方式失败。这样的意外失败，是非确定性系统的基本属性。因此，harness engineering 是一项需要持续投入的工作，而不是等模型足够强大后就能丢弃的临时脚手架。
 
-LangChain 得出类似结论：随着模型更强大，今天 harness 中的一些能力会被吸收到模型中，但 harness engineering 仍然有用，既用于弥补缺陷，也用于围绕模型智能构建更有效的系统 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
+LangChain 也得出了类似结论。随着模型能力提升，今天位于 harness 中的一部分功能可能会被模型吸收。即便如此，harness engineering 仍有价值：既可以弥补模型的不足，也可以围绕模型智能构建系统，让这种智能得到更有效的发挥 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
 
 ---
 
@@ -106,14 +110,14 @@ flowchart TB
 
 ## 要点
 
-- **Agent = Model + Harness**：任何超出原始文本输入输出的能力，都必须由周边系统工程化出来。
-- **Agent 循环是基础**：组装上下文、模型发出工具调用、harness 执行、结果被追加——循环往复，每一轮都让上下文增长。
-- **工具调用是结构化请求**：模型用文本提出动作，harness 决定哪些请求会变成真实效果。
+- **Agent = Model + Harness**：任何超出原始文本输入输出的能力，都必须通过周边系统构建出来。
+- **Agent 循环是基础**：组装上下文、由模型发出工具调用、由 harness 执行，再把结果追加到上下文——循环每运行一轮，上下文都会继续增长。
+- **工具调用是结构化请求**：模型以文本形式提出操作请求，harness 决定哪些请求会产生实际效果。
 - **三层同心圆**：LLM 核心、AI 实验室提供的 builder harness、团队自行构建的 user harness。
 - **ETCLOVG 提供系统地图**：execution、tools、context、lifecycle、observability、verification、governance 都是 harness 层。
-- **Harness 组件来自模型缺陷**：文件系统、沙箱、记忆、压缩分别回应具体限制。
-- **Harness engineering 是长期工作**：模型越强，任务越难，新的失败模式也会出现。
-- **Framework 不等于 Runtime，不等于 Harness**：理解区别有助于做采用决策。
+- **Harness 组件来自模型局限**：文件系统、沙箱、记忆和压缩分别弥补不同的能力缺口。
+- **Harness engineering 需要持续投入**：模型越强，承担的任务也越难，新的失败模式仍会出现。
+- **Framework 不等于 Runtime，也不等于 Harness**：理解这些区别有助于团队做出技术选型。
 
 ## 延伸阅读
 

@@ -1,91 +1,86 @@
 # Chapter 3: Next-Token Prediction
 
-The pretraining objective for an autoregressive language model is deceptively simple: given previous tokens, predict the next token. During training, the model sees many windows of text and learns to assign higher probability to the actual continuation. Karpathy explains this by taking windows of tokens from a large dataset and training the model to predict what comes next ([Deep Dive, around 00:15:36](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=936s)).
+The pretraining objective for an autoregressive language model is deceptively simple: given previous tokens, predict the next token. At each position, the model assigns a probability to every token in its vocabulary, and training rewards it for assigning a higher probability to the token that actually follows. Karpathy illustrates this process by taking windows of tokens from a large dataset and repeatedly predicting what comes next ([Deep Dive, around 00:15:36](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=936s)).
 
-This objective is simple enough to scale and broad enough to absorb structure from language, code, facts, dialogue, reasoning traces, documentation, and many other text forms.
+This objective supplies the learning signal for pretraining. It does not, by itself, give the model an authoritative store of facts, an intention, or an assistant persona.
 
-## Prediction Is Not Memorization
+## The Next-Token Objective
 
-The model is not storing every document verbatim. It is learning statistical structure that helps it compress and predict text. Some memorization can occur, especially for repeated or unique strings, but the useful capability comes from generalization: syntax, facts, styles, procedures, APIs, analogies, and patterns of reasoning.
-
-The GPT-3 paper demonstrated that a sufficiently large autoregressive model can perform many tasks from prompts alone, without task-specific fine-tuning, by conditioning on instructions or examples in the context ([Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165)). That is the phenomenon harness engineers use every day when they give a model a task description, examples, tool results, and a desired output format.
-
-## Why the Objective Produces General Capability
-
-To predict the next token well across web text, books, code, papers, and conversations, a model must learn many latent regularities. It must learn grammar to predict sentences. It must learn facts to continue encyclopedia-like passages. It must learn code structure to predict programs. It must learn dialogue patterns to continue conversations. It must learn some arithmetic and reasoning patterns because those patterns appear in text.
-
-This does not mean the model has human-like understanding in every sense. It means the predictive task pressures the model to build internal representations that are useful for many downstream behaviors.
-
-For harness engineering, the important point is operational: the model is excellent at continuing patterns. If the harness supplies a clean pattern of task, evidence, constraints, and output shape, the model can often continue that pattern productively. If the harness supplies a confused mixture of stale context, irrelevant retrieval, contradictory instructions, and noisy logs, the model will continue that too.
-
-## The Dataset Becomes One Long Token Stream
-
-In the deep dive, the cleaned web dataset is first converted by the tokenizer into a very long sequence of tokens ([Deep Dive, around 00:14:34](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=874s)). Training does not operate on "documents" in the human sense. It samples windows from this token stream.
-
-The model receives a prefix window and is asked to predict the next token at many positions. If the window is:
+Suppose a training sequence begins:
 
 ```text
-The capital of France is
+The capital of France is Paris.
 ```
 
-then the training target at the next position may be the token for ` Paris`. But the same mechanism applies to code, dialogue, mathematical derivations, tables, and Markdown headings. There is no separate symbolic rule engine. The training signal is always expressed through token prediction.
+It provides a series of prediction targets:
 
-This explains why representation quality matters so much. If a dataset contains messy boilerplate, duplicated pages, spam, or broken extraction artifacts, the model spends capacity learning those patterns too.
+```text
+The                         -> capital
+The capital                 -> of
+The capital of              -> France
+The capital of France       -> is
+The capital of France is    -> Paris
+```
+
+The actual units are tokens rather than words, so the boundaries may differ from this simplified display. The same objective applies to prose, code, dialogue, mathematical derivations, tables, and Markdown. Whatever the text form, the training target is expressed as a continuation token rather than as a separately programmed symbolic rule.
+
+## Training Text Becomes Token Sequences
+
+Before training, source text is filtered, transformed, and encoded by a tokenizer. The resulting token IDs are arranged into sequences of a length the model can process. Each sequence supplies many prefix-and-target relationships for training.
+
+In Karpathy's small demonstration, the cleaned dataset is represented as one long array of tokens from which training windows are sampled ([Deep Dive, around 00:14:34](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=874s)). That is a useful teaching device, not a universal description of production training. A production pipeline may preserve document boundaries, insert boundary tokens, split long documents, or pack pieces from multiple documents into fixed-length sequences. The exact construction determines which transitions the model encounters.
+
+The important invariant is that training operates on token sequences with next-token targets. It does not require the entire corpus to become one semantically borderless stream.
 
 ## Loss and Gradient Updates
 
-Training uses a loss function: a number that is lower when the model assigns higher probability to the correct next tokens. Concretely it is the average negative log-probability of the correct next token, known as cross-entropy or negative log-likelihood. Its exponential is perplexity, a more intuitive scale: a perplexity of 10 means the model is on average as uncertain as if choosing uniformly among 10 tokens. The same per-token log-probabilities are the logprobs engineers see in model APIs, so the training loss and inference-time logprobs are the same quantity viewed from two sides. Karpathy explicitly frames loss as the single number the training process tries to reduce ([Deep Dive, around 00:35:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2158s)). The optimizer updates model parameters so future predictions become more consistent with the data.
+For a target token, the loss is its negative log-probability under the model. Assigning a high probability to the correct token produces a low loss; assigning a low probability produces a high loss. Averaging this quantity across predicted positions gives the cross-entropy loss, also called negative log-likelihood in this setting.
 
-The loop is:
+Perplexity is the exponential of the average cross-entropy when natural logarithms are used. It puts the loss on an effective-choice scale: a perplexity of 10 corresponds to the same average uncertainty as a uniform choice among 10 possibilities. Karpathy describes loss as the single number the training process tries to reduce ([Deep Dive, around 00:35:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2158s)).
 
-1. Sample a batch of token windows.
-2. Run the model to predict token distributions.
-3. Compare predictions with the actual next tokens.
-4. Compute loss.
-5. Backpropagate gradients.
-6. Update parameters.
-7. Repeat at huge scale.
+The training loop is:
 
-The "intelligence" is not hand-coded. It emerges from many small parameter updates that make the model better at compressing and predicting the training distribution.
+1. Build a batch of token sequences and their next-token targets.
+2. Run the model to produce a probability distribution at each predicted position.
+3. Compute the average loss for the target tokens.
+4. Backpropagate gradients through the model.
+5. Use an optimizer to update the parameters.
+6. Repeat across many batches.
 
-## Compression as a Mental Model
+No one writes a separate rule for every grammar pattern, fact, or coding convention. Gradient updates change many parameters so that continuations resembling the training distribution become more probable.
 
-Karpathy uses compression as an intuition: a model that predicts text well has captured structure in the data. It is not lossless compression like a zip file; it is a lossy compression of statistical regularities ([Deep Dive, around 00:50:22](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=3022s)). That lossy nature is important.
+## Memorization and Generalization
 
-The model may preserve the broad pattern of an API, the style of documentation, or a famous fact. It may not preserve a rare exact string, the latest version of a policy, or a private repo convention. Harnesses should therefore distinguish "the model has probably seen patterns like this" from "the model has authoritative access to this fact."
+The objective does not force a clean choice between memorization and generalization. A model can memorize some exact or near-exact sequences, especially when they are repeated or distinctive. It can also learn regularities shared across many examples and apply them to sequences it did not see during training. That second behavior is generalization.
 
-## Capability From Prediction, Not Intention
+Karpathy uses compression as an intuition: a model that predicts text well has captured structure in the data ([Deep Dive, around 00:50:22](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=3022s)). The analogy is lossy rather than zip-like. Parameters can encode broad patterns, associations, and some exact strings without preserving every source as a recoverable record.
 
-Because the objective is prediction, the model learns behavior before it has explicit goals. A base model can imitate a helpful answer because helpful answers appear in text. It can imitate unsafe text because unsafe text appears too. It can write code because code appears. It can reason through examples because reasoning traces appear.
+This is also why parameterized knowledge is not an authoritative or automatically current source. It reflects the training distribution and its time coverage, can combine conflicting patterns, and does not inherently retain provenance for a generated claim. A plausible continuation is not the same thing as a verified fact.
 
-Post-training later changes which continuations are preferred, but the base capability comes from predictive training. This is why prompt design is powerful: a prompt places the model into a pattern. It is also why prompt design is fragile: the model may continue an unintended pattern if the context suggests one.
+## Why Prediction Produces Broad Capability
 
-## Pretraining Creates Base Models
+Improving next-token prediction across web pages, books, code, papers, and conversations rewards representations of many latent regularities. Grammar helps predict sentences. Factual associations help predict encyclopedia-like passages. Program structure helps predict code. Dialogue conventions help predict conversations. Arithmetic and reasoning patterns can help predict worked examples.
 
-The result of next-token pretraining is a base model. A base model can complete text, imitate formats, answer some questions, and follow patterns. It is not necessarily a safe or helpful assistant. It may continue a harmful instruction, produce arbitrary completions, or switch styles unexpectedly because it was trained to predict text, not to satisfy a user's intent.
+The GPT-3 paper showed that a sufficiently large autoregressive model can adapt to many tasks from instructions or examples in its context, without a task-specific parameter update ([Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165)). This is in-context learning, discussed further in [Chapter 8](./08-prompting-and-in-context-learning.md).
 
-This distinction matters. Many behaviors people associate with "ChatGPT" are not produced by pretraining alone. They come from [post-training](./07-post-training.md), which changes the model's behavior toward instruction following, conversational helpfulness, refusal policies, and preference alignment.
+These results do not establish human-like understanding in every sense, nor do they imply that every capability appears equally or reliably. They show that one predictive objective can produce internal representations that support many downstream behaviors.
 
-## Harness Implications
+## Capability Without Intention
 
-Because the model continues context, the harness should make the desired continuation obvious:
+Pretraining changes parameters to reduce prediction loss. It does not give the model an intrinsic commitment to being helpful, truthful, or safe. A base model learns statistical patterns of helpful answers, harmful passages, correct explanations, mistakes, and many other kinds of text. Which pattern it continues depends on its learned distribution and the prefix it receives, not on an independently formed intention.
 
-- Put the current task near the point where the model must act.
-- Separate instructions from data.
-- Remove stale or contradictory context.
-- Provide examples when output format matters.
-- Avoid mixing untrusted text with high-priority instructions.
-- Treat retrieved text as evidence, not as authority over system behavior.
+Changing a prefix can therefore change the distribution of likely continuations. That fact is the basis of prompting and in-context learning, but conditioning on a prefix does not install a new training objective or a durable intent.
 
-The model's pretraining gives it broad competence. The harness turns that competence into controlled work.
+## Base Models and Assistant Models
 
-## Models Compute With Tokens
+The direct result of next-token pretraining is a base model. It can complete text, imitate formats, answer some questions, and reproduce many learned patterns. It has not necessarily been optimized to respond consistently as a helpful conversational assistant.
 
-Each forward pass does a bounded amount of compute per position, so the model cannot do arbitrarily long computation inside a single token. Asking it to multiply two large numbers "in its head" forces all the work into one step and it often fails. The reliable fixes are to give the model more tokens to spread the work across, or to move the exact computation outside the model. Chain-of-thought and reasoning models do the former: intermediate tokens become scratch space, so a hard problem is solved over many forward passes instead of one. Tool use does the latter: a calculator or code interpreter performs the exact computation and the model reads back the result. This is the shared reason behind all three techniques, covered later in [prompting](./08-prompting-and-in-context-learning.md) and [reasoning, tools, and agents](./12-reasoning-tools-and-agents.md).
+[Post-training](./07-post-training.md) further changes the model's output distribution, increasing the probability of behaviors such as instruction following, conversational helpfulness, and learned refusals. Those assistant behaviors are learned response tendencies, not proof of an inner intention and not guarantees of truth or safety.
 
 ## Key Takeaways
 
-- Autoregressive LLMs are trained to predict the next token from previous tokens.
-- The objective is simple, scalable, and surprisingly general.
-- Base models are not the same as assistant models.
-- Harnesses work by shaping the context that the model continues.
+- Autoregressive language models are pretrained to predict each next token from preceding tokens.
+- Training uses bounded token sequences; representing the entire dataset as one long stream is an illustrative implementation, not a universal requirement.
+- Cross-entropy loss and gradient updates produce both memorization and generalization.
+- Broad predictive capability does not create intrinsic intent or authoritative knowledge.
+- Base models come from pretraining; assistant behavior is shaped further by post-training.

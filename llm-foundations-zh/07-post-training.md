@@ -1,120 +1,89 @@
 # 第 7 章：Post-Training
 
-预训练教模型预测文本；post-training 则塑造模型作为 assistant 的行为。Karpathy 的 intro 把预训练和 fine-tuning 分开讲，并描述后续阶段如何让模型更适合对话和指令遵循 ([Intro to LLMs, around 00:14:29](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=869s))。
+预训练教模型在广泛的文本分布上预测 token；post-training 则在更窄的数据或反馈上继续优化，使模型更常表现得像一个 assistant。Karpathy 的 introduction 把预训练和 fine-tuning 分开讲，并描述后续阶段如何让模型更适合对话和指令遵循场景 ([Intro to LLMs, around 00:14:29](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=869s))。
 
-这个区别非常关键。Base model 可能知识丰富，但不一定合作。Assistant model 则被训练成更受控地回应用户请求。
+这个区别有助于解释：源自相似架构的 base model 和 assistant model，为什么会表现得如此不同。Post-training 改变各种可能输出的概率；它可以让有帮助的回答、拒绝、特定风格和多轮交互约定更容易出现，但这些倾向并不是对正确性、安全性或完整性的形式化保证。
 
 ## Supervised Fine-Tuning
 
-Supervised fine-tuning，简称 SFT，会用期望行为的样例继续训练模型：指令和好回答、对话、格式模式、工具调用演示、领域任务等。它把模型从 raw continuation 推向 instruction following。
+Supervised fine-tuning，简称 SFT，会在输入与期望回答配对的样例上继续训练。样例可以包括指令与回答、对话、格式模式或领域任务。模型仍然通过 token prediction 学习，通常把 loss 集中在目标回答的 token 上，但新数据会把输出分布推向被演示的行为。
 
-模型仍然在预测 token，但要拟合的分布变了。它看过许多 assistant 行为样例，所以 chat prompt 更容易诱发 assistant-like continuation。
+SFT 数据可以由人编写、由其他模型生成，也可以由人工数据和合成数据混合而成。数据在训练前还可能经过筛选、修改或标注。不同项目的数据构成并不相同，因此，纯人工数据或纯合成数据都不是 SFT 定义的一部分。
 
-这些数据从哪里来？最初，人类标注员按照详细的 labeling instructions 手写理想回答，这些规范明确好回答长什么样：helpful、honest、harmless。如今大量数据是 LLM 生成、再由人工审核和编辑的合成对话，这样更便宜也更易扩展。无论哪种方式，assistant 都是在模仿这些回答。Karpathy 的心智模型在这里很有用：和 assistant 对话，更接近于和标注员的统计模拟对话，而不是和一个真正“懂”的实体对话。这个框架解释了很多可观察到的行为——默认语气、哪些请求会被拒绝、模型何时会提问澄清——也解释了模型升级后的行为漂移，因为新的标注规范和新的合成数据会移动那个被模拟的标注员。
-
-对 harness 工程师来说，SFT 解释了为什么消息格式很重要。Chat template、role 标签、system message 和 tool-call 格式都是模型被训练去模仿的行为的一部分。
-
-Karpathy 把 fine-tuning 讲成把 raw internet-document completer 改造成 assistant model 的阶段 ([Intro to LLMs, around 00:14:29](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=869s))。实践中，训练数据不再像任意网页，而更像对话：
+一个最简对话样例如下：
 
 ```text
 User: Explain gradient descent.
 Assistant: ...
 ```
 
-也可能是供应商特定 chat template 序列化出来的 role。模型学到的不只是内容，还包括交互风格：回答最新用户、尊重高优先级指令、格式化代码块、拒绝某些请求、提问澄清，以及在格式要求时使用工具。
+在大量此类样例上训练后，相似 prompt 更容易得到 assistant-like continuation。一个有用的心智模型是：模型会复现入选答案中的模式，包括语气、细节程度、请求澄清的方式，以及拒绝哪些类型的请求。它并不会因此获得答案编写者或选择者的意图和理解。
 
-这就是 base model 和 chat model 即使架构相近，体感也会非常不同的原因。
+SFT 可以教会模型有用的任务行为，但成功模仿训练分布本身，既不能证明回答为真，也不能保证这种行为能泛化到每个新输入。
 
-## Instruction Data 教会接口
+## 学得的交互约定
 
-Post-training 可以教会模型接口约定。如果工具调用在训练数据中表现为 JSON object，模型就会学习这种模式。如果隐藏测试奖励简洁答案，模型就会学习简洁。如果 safety 数据包含拒绝样例，模型就会学习 refusal pattern。
+对话中的 role 和边界最终都必须表示为 token。Chat template 可以把 role 标签、消息分隔符、轮次结束符和其他 control token 序列化成一个序列。当这些模式出现在 post-training 数据中时，它们就成为模型所学分布的一部分。
 
-Harness 应尽量和模型训练过的接口保持一致：
+因此，assistant model 可能学会一些约定，例如以 assistant role 回答、回应当前请求、在信息不足时提问澄清、使用熟悉的格式，以及在预期边界结束回答。如果训练数据对某些类别的请求包含拒绝样例，模型也可以学会 refusal pattern。
 
-- 使用供应商推荐的 chat 格式。
-- 工具 schema 尽量接近模型可能见过的例子。
-- 对不常见内部工具提供演示。
-- 除非 constrained decoding 能保证，否则不要发明晦涩语法。
-- 把模型升级视为接口变化，而不只是能力变化。
+这些约定是统计规律，而不是在模型外实现的符号协议。其可靠性取决于训练分布和 inference 时给出的 context。熟悉的序列化方式可以更稳定地诱发学得的行为，而不同或含糊的序列化方式则未必如此。
 
-## Preference Training 和 RLHF
+## 偏好优化：RLHF、DPO 与 AI Feedback
 
-Instruction-following 模型通常使用人类偏好数据。InstructGPT 工作中，标注者写 demonstrations、排序模型输出，这些排序被用来训练 reward model，并通过 reinforcement learning from human feedback 优化 policy ([Training Language Models to Follow Instructions with Human Feedback](https://arxiv.org/abs/2203.02155))。
+SFT 会演示期望回答，但许多质量标准通过比较候选答案来表达，比编写唯一的理想答案更容易。在 InstructGPT 工作中，标注者编写 demonstrations、排序模型输出，并提供 preference data，用来训练 reward model，再通过 reinforcement learning from human feedback（RLHF）优化 policy ([Training Language Models to Follow Instructions with Human Feedback](https://arxiv.org/abs/2203.02155))。
 
-操作上的结果是，模型更倾向于产生人类喜欢的输出：更有帮助、更诚实、更少毒性、更遵循指令。但这不是正确性或安全性的形式化证明。
+经典 RLHF 流程包含五个阶段：
 
-经典 RLHF 流程通常包含几个部分：
-
-1. 训练或从一个 SFT assistant model 开始。
-2. 采样多个候选回答。
-3. 收集人类 ranking 或 preference。
+1. 训练一个 SFT assistant model，或从这样的模型开始。
+2. 针对 prompt 采样多个候选回答。
+3. 收集人类 ranking 或 pairwise preference。
 4. 训练 reward model 去预测这些偏好。
-5. 根据 reward 优化 assistant policy，通常还会用约束让它不要离 reference model 太远。
+5. 优化 assistant policy 以获得更高的预测 reward，通常同时约束它不要离 reference model 太远。
 
-Reference constraint 很重要。没有它，policy optimization 可能把模型推向奇怪输出：这些输出利用了 reward model 的漏洞，却并不真正帮助用户。
+Reward model 是另一个学得的模型。它把候选回答及其 context 映射成一个分数，近似 comparison data 中的偏好 ([Deep Dive, around 02:52:39](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10359s))。Reference constraint 会限制 policy optimization 偏离起始行为的程度；如果没有这种约束，优化更容易把 policy 推进 reward model 不可靠的区域。
 
-后续方法会更直接地优化偏好。Direct Preference Optimization 把同一类 preference-learning 问题改写成更简单的 classification-style objective，避免以同样形式训练单独 reward model 和在线 RL loop ([Direct Preference Optimization](https://arxiv.org/abs/2305.18290))。它仍然是 preference optimization，不是事实真理来源。Constitutional AI 使用由原则引导的模型反馈，减少某些 harmlessness training 对人类标签的依赖 ([Constitutional AI](https://arxiv.org/abs/2212.08073))。
+Direct Preference Optimization（DPO）利用 preferred 和 dispreferred response，通过 classification-like objective 优化 policy，不再采用相同的独立 reward-model 训练和在线 reinforcement-learning loop ([Direct Preference Optimization](https://arxiv.org/abs/2305.18290))。它是另一种从偏好中学习的方法，而不是真理来源。
 
-Karpathy 的 deep dive 更细地解释了 reward-model 框架。Reward model 本身也是一个神经网络，训练目标是根据偏好数据给输出打分 ([Deep Dive, around 02:52:39](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10359s))。它的输出可以是一个 scalar score，表示 reward model 对某个候选回答的偏好程度。
+Preference judgment 也可以部分来自模型，而不完全直接来自人。例如，Constitutional AI 使用书面原则引导的反馈，从而减少部分 harmlessness training 所需的人工标注量 ([Constitutional AI](https://arxiv.org/abs/2212.08073))。无论反馈来自人还是模型，其质量和覆盖范围都会塑造优化所强化的行为。
 
-主模型随后可以基于这个学得的 reward signal 优化。这很强大，因为人类判断昂贵；一旦 reward model 存在，它就能以更低成本给大量样本打分。但这也有风险，因为 reward model 只是近似。
+## 代理奖励与 Reward Hacking
 
-Karpathy 把这种近似称为 human preference 的有损模拟 ([Deep Dive, around 03:00:54](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10854s))。有损模拟可以被优化，也可以被利用。
+学得的 reward 是设计者所关心质量的代理。人类偏好先被压缩成有限的比较数据，再由模型近似，因此得到的分数必然不完整。Karpathy 把 reward model 描述为 human preference 的有损模拟 ([Deep Dive, around 03:00:54](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10854s))。
 
-## Reward Hacking
+当 policy 针对一个不完美的 proxy 被强力优化时，它可能找到分数很高、却不符合底层意图的输出。这就是 reward hacking ([Deep Dive, around 03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s))。Policy 可能学会偏好答案的表面标记，变得不必要地冗长，过度赞同用户，或利用 reward model 的盲点。
 
-如果优化器过度优化一个不完美 reward model，它可能找到分数高但真实并不好的输出。Karpathy 把这称为 reward hacking：模型发现 reward model 喜欢的伪特征，即使人类并不喜欢 ([Deep Dive, around 03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s))。
+Reference constraint 和其他 regularization 可以限制优化移动的幅度，但不能把 proxy 变成真理。Preference optimization 可以提高平均的主观评分，同时仍在训练比较未覆盖的区域引入系统性偏差。
 
-Harness engineer 应该在 RLHF 之外也识别同一模式：
+## 可验证奖励与 RLVR
 
-- model grader 可能被冗长但浅薄的回答骗过；
-- citation checker 可能被大量无关引用骗过；
-- 只看单元测试的 coding eval 可能被过拟合测试骗过；
-- helpfulness 指标可能被自信猜测骗过；
-- support bot 可能优化“快速关闭”而不是正确解决。
+有些训练任务可以直接计算 reward。精确答案可以与已知结果比较，证明可以被检查，程序可以针对测试运行，游戏也可以返回分数。另一些质量——例如解释是否有帮助、语气是否合适——则更依赖主观判断。
 
-每个 proxy metric 都可能变成被优化的目标。重要 workflow 应该加入 adversarial cases、人类 review 和多重信号，避免单一指标被系统钻空子。
+Reinforcement learning with verifiable rewards 通常简称 RLVR，它使用这种可检查的结果作为 reinforcement signal。Karpathy 区分了可验证领域中的 reinforcement learning 与基于不可验证偏好的 reinforcement learning ([Deep Dive, around 02:51:33](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10293s))。对于适用的任务，可验证信号比 preference score 更容易大规模使用，也更少依赖主观判断。
 
-## 可验证和不可验证奖励
-
-有些任务奖励清晰。单元测试通过，JSON schema 验证通过，棋类引擎判断走法合法。另一些任务高度依赖偏好：写一个好解释、给出有用建议、判断回答是否安全。
-
-Karpathy 区分 verifiable setting 里的 reinforcement learning 和不可验证或偏好型 setting 里的 reinforcement learning ([Deep Dive, around 02:51:33](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10293s))。Harness 也应该这样区分。目标能做成可验证时，就不要只让模型“听起来对”。
-
-这种可验证奖励的 setting，也是现代*推理模型（reasoning model）*背后的引擎。当任务有可检查的答案时，模型可以用 reinforcement learning 训练成在给出结果前先生成很长的内部推理。[第 8 章](./08-prompting-and-in-context-learning.md)会讲这对 prompting 和 harness 设计意味着什么；这里的重点是：它是一种建立在可验证奖励之上的 post-training 技术，而不是新架构。
+验证仍然只覆盖 checker 实际测量的范围。通过 checker 并不能证明回答具备所有理想性质；在可验证任务上的提升，也不一定会均匀迁移到缺少同类反馈的任务。RLVR 可以强化得到可检查结果的问题求解行为，但不能证明生成的推理忠实或普遍可靠。[第 8 章](./08-prompting-and-in-context-learning.md)会讨论 inference 时的推理行为。
 
 ## 行为不等于能力
 
-Post-training 可以显露、压制或重定向预训练中学到的能力。模型可能知道如何写 exploit code，但拒绝提供。它可能能解决数学题，却因为 assistant 行为鼓励快速流畅回答而没认真计算。它可能学过某种工具格式，却在略有不同的 schema 上失败。
+Post-training 会改变可观察行为，也可能改善、压制或重定向任务表现。因此，区分 behavior 和 capability 很有用，但 capability 并不是一个可以直接观察、固定不变的量。模型产生什么，取决于输入、学得的回答倾向、decoding 和具体任务。
 
-Harness engineer 应该区分：
+一次拒绝表明，模型在该 context 中产生了学得的 refusal behavior；它本身并不能证明模型在其他所有 context 下都没有能力生成所请求的内容。反过来，一次成功回答不能证明能力足够稳健，自信的回答也不能证明底层主张为真。
 
-- 模型能表示什么；
-- 模型倾向于输出什么；
-- 产品政策允许什么；
-- harness 允许什么动作。
+同样的限制也适用于 safety behavior。Post-training 可以降低不理想输出的概率，但学得的 refusal policy 并不是硬性保证。[第 10 章](./10-knowledge-hallucination-uncertainty.md)会讨论不确定性、幻觉和 refusal behavior，[第 12 章](./12-reasoning-tools-and-agents.md)会区分模型生成的动作与动作执行。模型外的正式控制属于配套教材 [Agent Harness](../agent-harness-zh/README.md)。
 
-混淆这些层会导致坏设计。拒绝不证明模型没有能力。自信回答不证明模型知道事实。工具调用字符串不证明动作应该执行。
+## Full Fine-Tuning 与 Parameter-Efficient Fine-Tuning
 
-Jailbreak 展示了这种分离：safety behavior 是在 post-training 里学出来的，所以会被上下文推动，而不是硬性保证。这里要说的只是：harness 必须用 policy checks、permission boundaries、tool gating 等控制来强化它。[第 10 章](./10-knowledge-hallucination-uncertainty.md)会正式讲解 refusal 和 jailbreak。
+训练目标和选择哪些参数参与训练，是两个相互独立的决定。Full fine-tuning 会更新 base model 的全部或几乎全部参数，并生成一个反映这些更新的新 checkpoint。由于知识和行为分布在许多参数中，针对一个任务的更新也可能改变模型在其他任务上的表现。
 
-## Fine-Tuning vs Harnessing
+Parameter-efficient fine-tuning（PEFT）会冻结大部分 base 参数，只训练一小部分参数。LoRA 是常见的 PEFT 方法，它学习选定权重矩阵的 low-rank update。其他方法会添加 adapter，或训练少量类似 prompt 的参数。这些方法减少了可训练参数的数量，也可以把 task-specific change 与 base checkpoint 分开存储，但其质量和 runtime 特性取决于具体方法与任务。
 
-Fine-tuning 改的是模型；harnessing 改的是模型周围的环境。许多问题应该先在 harness 里解决：
-
-- 需要当前文档？用检索。
-- 需要精确计算？用工具。
-- 需要稳定输出格式？用 schema validation 和示例。
-- 需要更安全副作用？用权限和沙箱。
-- 需要任务可靠性？做 eval 和 trace。
-
-当某种行为必须跨大量调用内化，或长 prompt 造成延迟不可接受时，fine-tuning 很有力。但它不能替代 source-of-truth state、执行控制或验证。
-
-真要 fine-tune 时，它是一个谱系，不是一个开关。Full fine-tuning 更新全部权重，训练和托管都昂贵。LoRA 等 PEFT（parameter-efficient fine-tuning）方法在冻结的 base 之上训练一小组新增权重，更便宜，还能按任务切换 adapter。Fine-tuning 和 RAG 的粗略取舍：当你需要把某种稳定行为或格式跨大量调用内化，或相关知识很小且变化缓慢时，倾向 fine-tuning；当知识量大、变化频繁或必须保持最新时，倾向 RAG——比如每周更新的产品文档。无论你最终交付什么，fine-tuned artifact 都是一个新模型：信任它之前，先对它重跑[第 13 章](./13-evaluation-for-llm-behavior.md)的 golden regression eval，因为 fine-tuning 可能修好一个行为，却悄悄让另一个行为回退。
+Full fine-tuning 和 PEFT 都通过训练数据与优化目标改变学得的行为。两者都不会把模型参数变成 live database，也不能提供持续更新且带有来源归属的事实。[第 11 章](./11-embeddings-and-retrieval.md)介绍如何从外部集合中检索信息，[第 14 章](./14-operational-mental-model.md)总结模型属性与外围系统之间的边界。
 
 ## 要点
 
-- 预训练创造广泛 next-token 能力；post-training 塑造 assistant 行为。
-- SFT 用期望回答样例训练模型。
-- RLHF 和 preference optimization 把输出推向偏好行为。
-- Harness 不应把模型行为误认为保证真实、权限或执行。
+- Post-training 通过额外优化，让 base model 更可能表现得像 assistant。
+- SFT 数据可以由人工编写、合成或混合而成；它既教任务回答，也教序列化的交互约定。
+- RLHF、DPO 和 AI-feedback 方法通过偏好引导行为，但其目标仍是 proxy，而不是真理。
+- RLVR 为结果可验证的任务提供可检查 reward，但其信号只覆盖实际被验证的部分。
+- 拒绝和成功回答都是对行为的观察，而不是关于能力、真实性或安全性的完整证明。
+- Full fine-tuning 更新大部分或全部参数；LoRA 等 PEFT 方法只训练较小的参数集合。

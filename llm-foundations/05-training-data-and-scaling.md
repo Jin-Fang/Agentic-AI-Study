@@ -1,115 +1,91 @@
-# Chapter 5: Data and Scaling
+# Chapter 5: Training Data and Scaling
 
-Pretraining quality depends on data, model size, and compute. Karpathy's deep dive begins with data collection and filtering, using web-scale datasets as the practical substrate for modern LLMs ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s)). For harness engineers, data matters because it explains both capability and blind spots.
+Pretraining quality depends on the distribution of training data, the number and architecture of model parameters, and the compute used to optimize them. These factors interact: more parameters are useful only when the training run supplies enough suitable data and compute, while more tokens are useful only to the extent that they add learnable signal. Karpathy's deep dive begins with data collection and filtering because the training distribution is one of the main determinants of a model's capabilities and blind spots ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s)).
 
-## Web Data Is Not Neutral
+## Training Data Is a Constructed Distribution
 
-Large pretraining corpora contain web pages, books, code, papers, discussions, documentation, and many other text sources. They also contain duplication, spam, low-quality text, outdated facts, toxic material, personal data, and distributional bias. Data pipelines filter, deduplicate, classify, and rebalance these sources, but no pipeline produces a perfect representation of truth.
+A large pretraining corpus may include web pages, books, code, papers, discussions, and documentation. It may also contain duplicated templates, spam, broken text extraction, outdated claims, toxic material, personal data, and strong biases toward some languages and domains. A corpus is therefore not simply "the web." It is the output of a pipeline that turns collected sources into a distribution of token sequences.
 
-Karpathy emphasizes that dataset construction is a major part of the work, not a side detail. This is why model behavior can differ across domains. A model may be strong at Python because it saw a large amount of code, weaker at a niche internal DSL because it did not, and unreliable on a private company's current process because that process was never in pretraining data.
+FineWeb is a public example of this process. The deep dive uses it to show how Common Crawl-derived pages are transformed into a web-scale text dataset, with about 15 trillion tokens in the version discussed ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s)). Raw pages contain navigation menus, cookie banners, boilerplate, repeated mirrors, and extraction errors as well as useful text.
 
-The deep dive uses FineWeb as a concrete public example of a web-scale text dataset and discusses how raw Common Crawl-like data must be transformed before training ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s)). FineWeb is on the order of tens of terabytes of text, roughly 15 trillion tokens after filtering, which gives a sense of the scale involved. The raw web is not a clean book. It contains menus, cookie banners, duplicated templates, spam, broken extraction, boilerplate, and pages in many languages.
+Dataset construction commonly includes:
 
-Dataset construction therefore includes:
+- collecting snapshots and other source corpora;
+- extracting and normalizing text;
+- identifying language and content type;
+- filtering low-quality, unwanted, or sensitive material;
+- removing exact and near duplicates;
+- assigning sampling weights to different sources;
+- and tokenizing and packing the selected text for training.
 
-- extracting text from raw web pages,
-- filtering low-quality or irrelevant content,
-- classifying language,
-- deduplicating repeated text,
-- removing or reducing spam and boilerplate,
-- mixing sources in chosen proportions,
-- and converting the final corpus into tokens.
+The resulting distribution is deliberately constructed. It is neither a uniform sample of human knowledge nor a direct representation of truth.
 
-Each of these steps is a modeling decision. They shape what the model later treats as normal.
+## Filtering, Mixing, and Policy
 
-## Filtering Is Policy Embedded in Data
+Filters can be hard rules, statistical classifiers, or model-based quality scores. Every threshold creates tradeoffs. A strict quality filter may remove spam but also discard unusual dialects or specialist material; a loose filter may preserve breadth while admitting more noise. Karpathy uses language filtering as a concrete example: an English-focused dataset reduces non-English material by design ([Deep Dive, around 00:04:54](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=294s)).
 
-Karpathy calls out language filtering as one example: if a dataset is focused on English, then non-English content is reduced by design ([Deep Dive, around 00:04:54](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=294s)). Similar decisions happen for adult content, code, mathematical text, copyrighted material, forums, social media, and documentation.
+After filtering, sources are mixed in chosen proportions. The mixture need not match the amount of raw data available. Code, mathematics, books, or a low-resource language can be upweighted; a very large but noisy web source can be downweighted. Upweighting a limited source may also cause its examples to be repeated more often during training.
 
-This matters because a model's competence and behavior reflect the mixture it was trained on. A harness engineer should expect domain variation:
+These choices embed policy in the data. They influence which languages, domains, styles, viewpoints, and behavior patterns contribute most often to the gradient. As a result, competence is uneven: strong performance in one domain does not imply equally strong performance in another.
 
-- Legal, medical, or finance behavior depends on what high-quality domain text was present and how post-training shaped it.
-- Code ability depends on the quality, language distribution, and freshness of code data.
-- Multilingual behavior depends on language coverage and tokenizer efficiency.
-- Safety behavior depends on both pretraining distribution and post-training refusal/preference data.
+## Deduplication, Frequency, and Memorization
 
-When a workflow matters, do not infer reliability from generic model reputation. Test it on the workflow.
+Repeated sequences receive repeated training weight. Exact copies, near-duplicate pages, quoted passages, and syndicated content can therefore make some text much more frequent than its apparent semantic importance would suggest.
 
-## Deduplication and Memorization
+Deduplication can operate at document, passage, or shorter-span level. It improves data efficiency and can reduce both verbatim memorization and overlap between training and evaluation data. It is not perfect: paraphrases and partially copied documents are difficult to identify, and some repeated structures are legitimate.
 
-Duplication affects training. Repeated text can receive disproportionate weight, making the model more likely to memorize or imitate it. Deduplication reduces this risk and improves data efficiency, but it is imperfect. Some repeated templates are useful; others are noise.
+Memorization is correspondingly uneven rather than all-or-nothing. A model may reproduce a distinctive sequence that occurred many times while failing to recall a fact that appeared only rarely. Frequency is not the only factor—model size, context, optimization, and properties of the sequence also matter—and models can generalize patterns without storing exact copies. Deduplication changes the odds of memorization; it does not eliminate it.
 
-For harnesses, the practical lesson is that model memory is uneven. A model may know a popular library's old API because many copies existed online, while failing on a newer API that appears in fewer places. Retrieval and local inspection are the right controls for this.
+## Coverage, Freshness, and Competence
+
+Coverage has several dimensions: topic, language, time period, genre, code ecosystem, cultural setting, and level of difficulty. A model can sometimes generalize beyond examples seen in training, but sparse or poor-quality coverage usually provides less evidence from which to learn. Non-public information may have no representation in the corpus at all.
+
+Collection dates are bounded and uneven. A nominal training cutoff is useful shorthand, but it should not be imagined as one clean timestamp: different sources may have been collected at different times, and pretraining and post-training datasets may have different date ranges. Once a checkpoint is trained, its parameters do not automatically change as the world changes.
+
+Data freshness is therefore distinct from reasoning ability. Additional reasoning cannot reveal an event absent from the available information. Post-training can further shape which knowledge is expressed and how the model responds, but it cannot make coverage uniform.
 
 ## Scaling Laws
 
-The broad empirical lesson of the last several years is that larger models trained on more data with more compute often improve predictably. Kaplan et al. found power-law relationships between loss and model size, dataset size, and compute over large ranges ([Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361)). The power-law intuition is that loss falls smoothly as a function of each input: every additional order of magnitude of compute buys a roughly fixed decrement in loss, so gains keep coming but with diminishing returns per dollar.
+Across broad experimental ranges, language-model loss has followed approximate power-law relationships with parameter count, dataset size, and training compute. On log-log plots, the reducible part of loss often declines roughly along a straight line as one of these resources increases ([Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361)). This implies predictable but diminishing gains: multiplying a resource by a fixed factor tends to multiply excess loss by a roughly fixed factor, rather than producing unlimited improvement.
 
-Later work showed that compute-optimal training requires balancing parameters and tokens. The Chinchilla paper argued that many earlier large models were undertrained relative to their size, and that using more data for a smaller model can outperform a much larger undertrained model at the same compute budget ([Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556)). The rough rule of thumb it gave is about 20 tokens per parameter for compute-optimal training.
+Scaling variables are coupled. A larger model can be undertrained if it sees too few tokens or receives too little optimization compute. A very large dataset cannot be fully exploited by a model or training run without sufficient capacity and compute. Data quality and mixture also affect the loss reached at a given scale.
 
-But compute-optimal training minimizes the cost of training once, not the cost of running the model forever. Since 2023 the norm has been to deliberately train past the Chinchilla-optimal point: a smaller model trained on many more tokens (for example, a few-billion-parameter model on many trillions of tokens) costs more to train but is cheaper to serve on every request. This is the missing link to "Compute Is an Operational Constraint" below: compute-optimal is not the same as deployment-optimal, and for a high-traffic workflow the deployment-optimal choice is usually a smaller, over-trained model.
+## Compute-Optimal Training
 
-Scaling laws are strongest as statements about aggregate loss and average trends. They are not a guarantee that every benchmark, workflow, or capability improves smoothly. Some apparent "emergent" jumps can be partly caused by metric choice or thresholded scoring rather than a sharp new internal mechanism ([Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004)).
+For a dense Transformer, a useful first approximation is that training compute grows with the product of parameter count and the number of training tokens. Under a fixed compute budget, model size and token count must therefore be balanced.
 
-This matters for model selection. A larger model may reduce pretraining loss while still being worse for a workflow because of post-training behavior, latency, context handling, tool calling, safety policy, or data freshness. Scaling is a powerful trend, not a substitute for task-specific evaluation.
+The Chinchilla study found that many earlier large models were undertrained relative to their parameter count. Within its experimental setting, training a smaller model on more tokens could achieve lower loss at the same compute budget ([Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556)). Its often-cited estimate of roughly 20 training tokens per parameter is a result tied to particular models, data, and assumptions—not a universal constant. Architecture, data quality, repeated data, optimization, and the intended objective can all shift the best allocation.
 
-The harness-level consequence is straightforward: model selection is not just "bigger is better." A smaller, well-trained, well-post-trained model may be better for a specific workflow than a larger model with poor tool-use behavior, weak instruction following, or worse latency.
+"Compute-optimal" must therefore name the objective being optimized. The Chinchilla-style question asks how to minimize pretraining loss for a fixed training-compute budget. It does not by itself minimize latency, memory use, or the total compute consumed after deployment.
 
-## Compute Is an Operational Constraint
+## Training Cost and Inference Cost
 
-Training produces parameters, but inference spends compute every time the model is used. Karpathy shows concrete GPU-oriented examples in the deep dive to make the cost visible ([Deep Dive, around 00:40:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2411s)). The numbers also fall fast: GPT-2 cost on the order of $40,000 to train in 2019, but Karpathy's later reproduction ran for roughly $600 on rented GPUs as hardware and software improved. For harness work, this means cost is not only a provider billing concern. It changes architecture.
+Training spends a large amount of compute to produce a checkpoint. Inference spends additional compute each time that checkpoint processes input and generates output. A simplified lifetime accounting is:
 
-Expensive inference encourages:
+```text
+C_total = C_train + Q * C_inference_per_request
+```
 
-- shorter prompts,
-- smaller models for easy subtasks,
-- caching stable prefixes or tool results,
-- retrieval before generation instead of dumping all documents,
-- early exits when validation is already sufficient,
-- and routing between models based on task difficulty.
+where \(Q\) is the number of requests. The actual terms depend on parameter count, architecture, input and output lengths, hardware, numerical precision, and batching.
 
-The best harness is often not "call the largest model for everything." It is a system that spends model capacity where it changes the outcome.
+This distinction can change the preferred parameter-and-token allocation. When a checkpoint will be used many times, extra training of a smaller model can sometimes trade higher one-time cost for lower repeated inference cost. With few requests, or when the larger model's quality is required, the tradeoff can be different. Training-optimal and lifetime-compute-optimal are separate objectives.
 
-## Quantization and Numerical Precision
+## What Scaling Claims Do and Do Not Say
 
-[Chapter 1](./01-llm-as-token-machine.md) estimated model size by multiplying parameter count by bytes per parameter. Quantization changes that second factor. Instead of storing and computing weights at 16-bit precision, a model can be served at 8-bit, 4-bit, or lower, trading some numerical fidelity for a smaller memory footprint and faster inference. Methods such as LLM.int8() and GPTQ showed that large models can be quantized with limited quality loss ([LLM.int8()](https://arxiv.org/abs/2208.07339), [GPTQ](https://arxiv.org/abs/2210.17323)).
+Scaling laws describe aggregate trends such as held-out cross-entropy loss. They do not guarantee that every task, benchmark, language, or capability improves smoothly. A thresholded metric can turn a gradual change in underlying performance into an apparently sudden "emergent" jump ([Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004)).
 
-For harness engineers, quantization is an operational lever, not a model-internal detail:
+Observed behavior also depends on data mixture, architecture, tokenizer, optimization, and post-training—not parameter count alone. A larger model does not acquire information collected after its training data, and lower average loss does not imply uniformly better behavior. Empirical scaling relationships are strongest within the regimes in which they were measured; extrapolating far beyond them requires caution.
 
-- The same model at lower precision is cheaper and faster but may behave slightly differently, especially on edge cases, long outputs, or precise formatting.
-- A provider may quantize silently. A model can change behavior without changing its name if its serving precision changes.
-- Local deployment often depends on quantization to fit a model into available memory.
+## Contamination
 
-The rule is the same as for any model change: treat a precision change as a behavior change and re-run evals (see [Chapter 13](./13-evaluation-for-llm-behavior.md)). A quantized model that passes your golden tasks is fine; assuming it matches the full-precision model without checking is not.
+Benchmark contamination occurs when evaluation examples, close variants, answer keys, or detailed solution discussions appear in training data. Overlap can enter through pretraining or post-training, especially when public benchmarks and their solutions are widely copied online.
 
-## Data Freshness and Training Cutoffs
-
-Training is episodic. A model is trained on a corpus collected before some point in time, then deployed. Post-training and retrieval can add behavior and information, but the parameters themselves do not automatically update with the world.
-
-This is why a model can know a 2020 paper but not a policy updated yesterday. It is also why local repo inspection beats model memory for current code. Any harness that handles changing facts should have a freshness path: retrieval, browser, database, file read, or user-provided evidence.
-
-## Data Distribution Shapes Competence
-
-Models are strongest where training data and post-training data contain similar patterns. They are weaker where the task requires:
-
-- Fresh information after the training cutoff.
-- Private or local state.
-- Exact recall of obscure facts.
-- Long chains of precise computation.
-- Actions in an external environment.
-- Domain policies that are not public.
-
-These are harness opportunities. Retrieval supplies fresh and private data. Tools perform exact computation. Sandboxes execute code. Evals measure whether a given model-harness combination handles the domain.
-
-## Contamination and Evaluation
-
-Web-scale data creates benchmark contamination risk. If a model saw test examples during training, benchmark results may overstate generalization. Harness engineers should be careful when using public benchmarks to choose models for internal workflows. Private, task-specific evals are often more informative.
-
-This also affects agent design. A model may know the public shape of a framework but not the current repo's local conventions. The harness should inspect the actual repo, run the actual tests, and provide the actual files rather than relying on parametric knowledge.
+Contamination can make a score reflect recall of evaluation material as well as generalization to unseen cases. Ordinary deduplication does not fully solve the problem: removing repeated training documents is different from comparing training data against a benchmark and its variants. Contamination does not automatically invalidate every result, but it limits what a benchmark score alone can establish about generalization.
 
 ## Key Takeaways
 
-- Training data is a major determinant of model behavior.
-- Scaling improves models, but compute, data, parameters, and post-training all interact.
-- Public model knowledge should not be treated as current local truth.
-- Harnesses compensate for data limits with retrieval, tools, verification, and domain-specific evals.
+- Training data is a constructed distribution shaped by collection, filtering, mixing, and policy choices.
+- Deduplication changes effective frequency and memorization risk but cannot remove all overlap or memorization.
+- Coverage varies across domains, languages, and time, and checkpoint parameters do not update automatically.
+- Scaling laws describe useful aggregate trends, while compute-optimal training balances model size and training tokens for a stated objective.
+- Training cost, repeated inference cost, and benchmark contamination set important boundaries on scaling claims.

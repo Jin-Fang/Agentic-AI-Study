@@ -17,9 +17,9 @@
 | [00:22:11](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1331s) | Reinforcement learning from human feedback | 第 7 章 |
 | [00:28:20](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1700s) | 工具使用，包括浏览器类工具 | 第 12 章 |
 | [00:32:42](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1962s) | Context window 是有限工作上下文 | 第 9 章 |
-| [00:33:41](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2021s) | 能看图、生成图的多模态系统 | 第 2、14 章 |
+| [00:33:41](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2021s) | 能看图、生成图的多模态系统 | 第 2、12、14 章 |
 | [00:41:33](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2493s) | RAG 和工具增强 | 第 11、12 章 |
-| [00:46:16](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2776s) | Jailbreak attacks 与 safety/refusal 行为 | 第 7、10、12 章 |
+| [00:46:16](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2776s) | Jailbreak attacks 与 safety/refusal 行为 | 第 7、10 章 |
 
 ## Deep Dive into LLMs like ChatGPT
 
@@ -46,6 +46,4 @@
 | [03:00:54](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10854s) | Reward model 是人类偏好的有损模拟 | 第 7、13 章 |
 | [03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s) | Reward hacking 与过度优化 proxy 的限制 | 第 7、13 章 |
 | [03:09:24](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11364s) | 把模型当工具使用，不要完全信任 | 第 10、14 章 |
-| [03:09:57](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11397s) | 音频和图片上的多模态模型 | 第 2、14 章 |
-| [03:11:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11518s) | 长运行 agent 和人类监督 | 第 12、14 章 |
-
+| [03:09:57](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11397s) | 音频和图片上的多模态模型 | 第 2、12、14 章 |

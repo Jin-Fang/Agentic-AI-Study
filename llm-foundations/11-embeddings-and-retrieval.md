@@ -1,138 +1,123 @@
 # Chapter 11: Embeddings and Retrieval
 
-Retrieval augments a model with external information at runtime. Karpathy introduces retrieval-augmented generation as a way to bring relevant documents into context instead of relying only on model parameters ([Intro to LLMs, around 00:41:33](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2493s)). The foundational RAG paper combines a parametric seq2seq model with a non-parametric memory accessed through retrieval ([Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401)).
+Retrieval augments a model with external information at inference time. Karpathy introduces retrieval-augmented generation (RAG) as a way to bring relevant documents into context instead of relying only on model parameters ([Intro to LLMs, around 00:41:33](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2493s)). The foundational RAG paper combines a parametric sequence model with information accessed through retrieval ([Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401)).
 
-For harness engineers, RAG is not a model feature. It is a harness pattern.
+RAG changes the model's input, not its weights. Its usefulness therefore depends on two separate questions: did retrieval find the needed evidence, and did the model use that evidence correctly?
 
-## Embeddings
+## Why Retrieval
 
-An embedding model maps text into a vector space where semantically related texts tend to be near each other. A retrieval system embeds documents or chunks, embeds the query, and finds nearby vectors. This is useful when keyword search misses paraphrases or conceptual matches.
+Information learned during training is compressed into model parameters. This parametric knowledge is broad and immediately available during generation, but it reflects the training data and does not update simply because a source document changes.
 
-"Nearby" is a numeric score, usually cosine similarity or dot product between the query vector and each chunk vector. Computing this exactly against every chunk does not scale, so production vector databases use approximate nearest neighbor (ANN) indexes such as HNSW or IVF. These trade recall for latency: they return the true nearest chunks most of the time, not every time. That makes the index itself an implicit source of Recall@k loss, so index parameters (and not just the embedding model) should be part of retrieval evaluation.
+Retrieval takes a different path. At inference time, a system searches an external collection, selects relevant passages, and includes them in the model's finite context:
 
-Embeddings are not magic. They can miss exact constraints, confuse near neighbors, or retrieve text that is topically similar but not actually relevant. Hybrid search, metadata filters, reranking, and domain-specific chunking often matter.
+- **Parametric knowledge** is represented indirectly in the model's weights.
+- **Retrieved information** remains outside the weights and is supplied as input for a particular call.
 
-Hybrid search combines lexical retrieval (exact-match tools like BM25 or grep) with vector retrieval, then merges the two result lists. Lexical retrieval is good at exact tokens that embeddings blur over; vector retrieval is good at paraphrases and concepts. This matters most for code readers who need an exact symbol name, error code, or version number, where a near-miss neighbor is useless.
+The external collection can be updated without training a new checkpoint, and retrieved passages can retain source labels for citation. Retrieval does not guarantee that the selected text is relevant or true, however, and placing a passage in context does not guarantee that the model will use it faithfully.
 
-Karpathy's intro presents retrieval-augmented generation as an alternative to expecting all knowledge to live inside the model parameters ([Intro to LLMs, around 00:41:33](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2493s)). That distinction is central:
+## Retrieval Embeddings
 
-- **Parametric memory**: information compressed into weights during training.
-- **Retrieved memory**: information fetched at runtime and placed into context.
+The word *embedding* is used for related but distinct representations:
 
-Parametric memory is fast and broad but stale and hard to audit. Retrieved memory is slower and depends on infrastructure, but it can be current, private, permissioned, and citeable.
+- A **token embedding** maps one token ID to the vector that enters a Transformer. Subsequent layers turn these initial vectors into contextual, position-dependent hidden states.
+- A **retrieval embedding** maps a variable-length query or passage to a fixed-length vector intended for similarity search.
 
-## The Basic RAG Pipeline
+These are not interchangeable. A retrieval model is trained so that relevant query-passage pairs tend to receive similar vectors. Some systems use the same encoder for both sides; others use distinct query and document modes. The model's required mode and preprocessing must therefore be used consistently at indexing and query time.
 
-A practical RAG system usually has two phases.
+Dense retrieval compares the query vector with stored passage vectors, commonly using cosine similarity or dot product. If vectors are normalized, cosine similarity and dot product produce the same ranking. A high score means closeness according to that embedding model; it is not a calibrated probability that the passage answers the query.
 
-Indexing:
+Comparing a query exactly with every stored vector costs work proportional to the collection size. Approximate nearest-neighbor (ANN) indexes such as HNSW and IVF reduce search latency by avoiding an exhaustive scan. Their approximation can omit vectors that an exact vector search would have returned. That index-level loss is distinct from a retrieval model ranking semantically irrelevant passages highly.
 
-1. Collect documents.
-2. Split them into chunks.
-3. Attach metadata such as source, owner, timestamp, permissions, and section title.
-4. Compute embeddings.
-5. Store chunks in a vector database or search index.
+## Dense, Lexical, and Hybrid Retrieval
 
-Query time:
+Three common retrieval approaches emphasize different signals:
 
-1. Rewrite or classify the user query if needed.
-2. Retrieve candidate chunks.
-3. Filter by permissions and freshness.
-4. Rerank candidates.
-5. Insert selected evidence into the model context.
-6. Ask the model to answer with citations.
-7. Validate citations and optionally verify support.
+- **Dense retrieval** ranks passages by similarity between learned retrieval embeddings. It can match paraphrases and conceptual relationships even when query and passage share few words.
+- **Lexical or sparse retrieval** ranks passages from term-based representations. BM25, for example, uses term frequency, inverse document frequency, and document-length normalization. It rewards matching terms, but it is a relevance-ranking function rather than an exact string matcher like `grep`.
+- **Hybrid retrieval** combines dense and lexical results, often by normalizing and weighting scores or by fusing ranks.
 
-Each step can fail. RAG quality is not only model quality.
+Lexical retrieval is often strong for rare names, identifiers, error codes, and exact phrases. Dense retrieval is often strong when the same idea is expressed with different wording. Hybrid retrieval can preserve both signals, but its fusion rule still needs evaluation: raw scores from different retrievers are not automatically comparable.
 
-## Retrieval Evaluation
+A second-stage reranker can score a small candidate set more carefully, perhaps with a cross-encoder that reads the query and passage together. Reranking can improve ordering and precision among the candidates it receives. It cannot recover a relevant passage that the first-stage retrieval never included.
 
-A RAG system should evaluate retrieval separately from generation. Otherwise, every failure becomes "the model hallucinated," even when the real problem was that the evidence never reached the model.
+## A Minimal RAG Pipeline
 
-Useful retrieval metrics include:
+A minimal RAG pipeline has an indexing phase and a query phase.
 
-- **Recall@k**: whether the needed chunk appears in the top k results.
-- **Precision@k**: how many retrieved chunks are actually useful.
-- **MRR or NDCG**: whether better evidence is ranked earlier.
+At index time:
 
-Generation / end-to-end metrics measure what happens after retrieval:
+1. Collect the documents that form the retrieval corpus.
+2. Split each document into retrievable chunks.
+3. Retain provenance such as source, title, and section.
+4. Compute a retrieval embedding for each chunk.
+5. Store the chunk text, vector, and provenance in a search index.
 
-- **Citation support rate**: whether final cited chunks actually support the answer.
-- **Answer faithfulness**: whether generated claims stay inside retrieved evidence.
+At query time:
 
-Metrics should be paired with trace review. A high similarity score is not enough if the retriever misses exact policy clauses, version constraints, permissions, or negations.
+1. Encode the query with the retrieval model's query encoder or query mode.
+2. Search for the top candidate chunks, using dense, lexical, or hybrid retrieval.
+3. Optionally rerank the candidates with a more expensive relevance model.
+4. Select passages that fit within the model's context and serialize them alongside the question or instruction.
+5. Generate an answer conditioned on that augmented input.
+
+The explicit query-embedding step matters: searching document vectors with an incompatible representation can degrade retrieval even when the index itself is functioning correctly. The final prompt may preserve source labels so the answer can refer back to the passages, but citation support and factual faithfulness are separate evaluation questions, discussed in [Chapter 10](./10-knowledge-hallucination-uncertainty.md) and [Chapter 13](./13-evaluation-for-llm-behavior.md).
 
 ## Chunking
 
-Documents are too large to retrieve whole. They are split into chunks. Chunking determines what evidence the model sees.
+Whole documents are often too large and too topically broad to serve as useful retrieval units. Chunking decides which span of text receives one retrieval representation and which evidence can be selected independently.
 
-Bad chunks create bad answers:
+Chunk size creates several tradeoffs:
 
-- Chunks that are too small lose context.
-- Chunks that are too large waste tokens.
-- Chunks that cross unrelated sections introduce noise.
-- Chunks without metadata are hard to cite.
-- Chunks without stable IDs are hard to audit.
+- Chunks that are too small may separate a claim from its explanation or caveat.
+- Chunks that are too large may mix topics, weaken the embedding signal, and consume unnecessary context tokens.
+- Boundaries that ignore document structure may split a paragraph, API entry, or code function at an unhelpful point.
+- Missing source and section information makes a retrieved span harder to interpret or cite.
 
-Good chunks preserve semantic units: sections, paragraphs, API entries, tickets, code symbols, or policy clauses.
+Structure-aware chunking tries to preserve semantic units such as sections, paragraphs, API entries, or code symbols. Fixed-size windows are simple and can still be useful, especially when document structure is unreliable.
 
-For code and harness engineering material, chunking should respect structure:
+Overlap between adjacent chunks can preserve information that crosses a boundary. More overlap also increases index size and can return several nearly identical passages, consuming result slots and context. Overlap is therefore a tunable tradeoff, not an automatic improvement. When overlapping or duplicate chunks are retrieved together, deduplication can reduce repeated evidence.
 
-- one function or class with its docstring,
-- one README section,
-- one policy clause,
-- one issue thread segment,
-- one tool definition,
-- one trace step,
-- or one design decision record.
+## Measuring Retrieval
 
-Splitting by fixed character count is easy but often wrong. It can separate a claim from its caveat, a function from its type definition, or an error message from the command that produced it.
+Retrieval evaluation starts with a set of queries and relevance judgments identifying which passages are useful for each query. Different metrics answer different questions:
 
-## Retrieval Is a Precision-Recall Tradeoff
+- **Recall@k** is the fraction of all relevant passages that appear in the top \(k\) results: \(|R_k \cap G| / |G|\), where \(G\) is the relevant set. When each query has one required passage, this is often reported as a top-\(k\) hit rate across queries.
+- **Precision@k** is the fraction of the top \(k\) results that are relevant: \(|R_k \cap G| / k\).
+- **Mean Reciprocal Rank (MRR)** averages the reciprocal rank of the first relevant result. It emphasizes finding one relevant result early.
+- **Normalized Discounted Cumulative Gain (NDCG)** rewards placing highly relevant results near the top and supports graded, rather than only binary, relevance judgments.
 
-High recall retrieves more possibly relevant material. High precision retrieves less but cleaner material. LLM contexts make this tradeoff painful because extra text is not free. Irrelevant retrieved text can distract the model or introduce false alternatives.
+These task metrics should not be confused with **ANN recall**, which compares an approximate index's neighbors with those returned by exact vector search. An ANN index can have high ANN recall while both exact and approximate searches return passages irrelevant to the user's task. Conversely, lowering ANN recall can reduce task Recall@k if the omitted exact neighbor was useful.
 
-Reranking helps. A first-stage retriever can collect candidates, and a reranker can score them more carefully against the query. The harness can also ask the model to inspect candidates, but that costs tokens and should be evaluated.
+No metric is meaningful without a clear retrieval unit and relevance definition. If a fact is duplicated across many chunks, chunk-level recall and precision may tell a different story from whether the system found enough evidence to answer the query.
 
-Good RAG harnesses often expose search as a tool rather than forcing one retrieval pass before generation. The model can ask a targeted follow-up query after seeing that the first evidence is insufficient. This is more agentic, but it requires guardrails: query limits, permission checks, and trace logging.
+## Precision, Recall, Latency, and Context Pollution
 
-## RAG Is Not Just "Put More Text In"
+Precision and recall are formal relevance measures, not simply synonyms for “retrieve less” and “retrieve more.” Increasing \(k\) often raises or preserves recall because more candidates are considered, while precision may fall as weaker candidates enter the result set. The exact behavior depends on the query set and ranking.
 
-Karpathy also discusses memory and computational tools near the RAG section of the intro ([Intro to LLMs, around 00:42:46](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2566s)). Retrieval is one kind of augmentation, but not every missing capability should be solved by retrieving documents.
+Retrieval also has a latency budget. Query encoding, index search, hybrid fusion, and reranking all add time before generation begins. ANN search can reduce index latency at the cost of some ANN recall. A larger candidate set gives a reranker more opportunities to find relevant evidence, but increases reranking work. These tradeoffs should be measured together rather than optimizing one metric in isolation.
 
-Use:
+The selected passages also consume context. Irrelevant, outdated, duplicated, or mutually conflicting passages can distract the model or introduce unsupported alternatives. This is **context pollution**: retrieval may improve Recall@k while making the final input harder to use. Smaller, cleaner result sets can therefore outperform larger ones even when they contain fewer relevant chunks.
 
-- retrieval for knowledge,
-- database queries for structured state,
-- calculators or code for exact computation,
-- browsers for live web pages,
-- file tools for local repositories,
-- and user confirmation for ambiguous intent.
-
-Dumping every possible source into the context is usually worse than giving the model the right tool.
-
-## Context Pollution
-
-RAG can reduce hallucination, but it can also cause hallucination if irrelevant or untrusted text enters context. A retrieved document may be outdated, adversarial, duplicated, or inconsistent with policy. The model may treat it as evidence because it is present.
-
-Harness controls:
-
-- Attach source metadata and freshness dates.
-- Filter by permissions before retrieval.
-- Keep untrusted content clearly delimited.
-- Require answers to cite supporting chunks.
-- Prefer "not enough evidence" over forced answers.
-- Evaluate retrieval and generation separately.
+Retrieved text can also contain instructions or adversarial content. That model-level prompt-injection problem is covered in [Chapter 8](./08-prompting-and-in-context-learning.md); similarity to a query does not establish that a passage should be treated as an instruction.
 
 ## RAG vs Fine-Tuning
 
-Use retrieval when information is large, changing, private, or needs citation. Use [fine-tuning](./07-post-training.md) when behavior or style must be internalized across many calls. Here fine-tuning means customer-side training on top of an already post-trained model, not the vendor post-training that shaped the assistant in the first place. Many systems need both: fine-tuned behavior plus retrieved knowledge.
+Retrieval and fine-tuning change different things:
 
-The harness should own the retrieval path because it owns permissions, indexing, freshness, and auditability.
+- Use retrieval when the task depends on a substantial information collection that changes independently of the model or when answers need to refer to source passages.
+- Use [fine-tuning](./07-post-training.md) when the goal is to change recurring behavior, style, or task conventions across calls.
+
+Fine-tuning is not a dependable way to keep a changing document collection current, and retrieval does not by itself teach a model a new stable behavior. A system can use both: fine-tuning shapes how the model responds, while retrieval supplies information for the current query.
+
+## Companion Boundary
+
+This chapter covers the model-facing mechanics of retrieval. Production index maintenance and the integration of retrieval into broader agent workflows belong to the companion [*Agent Harness*](../agent-harness/README.md).
 
 ## Key Takeaways
 
-- Embeddings turn text into vectors for semantic retrieval.
-- RAG supplies external evidence at runtime, but retrieval quality controls answer quality.
-- Chunking, metadata, reranking, and permissions are harness responsibilities.
-- Retrieval reduces some hallucination modes while introducing context pollution risks.
+- Token embeddings are internal token representations; retrieval embeddings represent whole queries or passages for similarity search.
+- Dense retrieval captures learned semantic similarity, lexical retrieval captures term evidence, and hybrid retrieval combines them.
+- Minimal RAG embeds both chunks and the query, retrieves candidates, optionally reranks them, and adds selected passages to the model input.
+- Chunking and overlap determine what can be retrieved and how much duplicate context appears.
+- Recall@k, Precision@k, MRR, NDCG, ANN recall, latency, and context pollution measure different parts of retrieval behavior.
+- RAG supplies query-time information; fine-tuning changes recurring model behavior.

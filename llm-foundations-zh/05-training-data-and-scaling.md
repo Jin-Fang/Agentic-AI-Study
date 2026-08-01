@@ -1,115 +1,91 @@
-# 第 5 章：数据与 Scaling
+# 第 5 章：训练数据与 Scaling
 
-预训练质量取决于数据、模型规模和算力。Karpathy 的 deep dive 从数据收集和过滤讲起，把 web-scale dataset 作为现代 LLM 的实际底座 ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s))。对 harness engineer 来说，数据重要，是因为它既解释模型能力，也解释模型盲点。
+预训练质量取决于训练数据的分布、模型参数的数量与架构，以及用于优化这些参数的算力。这些因素会相互作用：只有训练过程提供足够且合适的数据与算力，更多参数才有用；更多 token 也只有在增加可学习信号时才有用。Karpathy 的 deep dive 从数据收集与过滤讲起，因为训练分布是决定模型能力和盲点的主要因素之一 ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s))。
 
-## Web 数据并不中立
+## 训练数据是构造出来的分布
 
-大型预训练语料包含网页、书籍、代码、论文、讨论、文档和许多其他文本来源。它们也包含重复内容、spam、低质量文本、过期事实、有毒内容、个人数据和分布偏差。数据 pipeline 会过滤、去重、分类和重新配比这些来源，但没有任何 pipeline 能产生完美的真理表示。
+大型预训练语料可能包含网页、书籍、代码、论文、讨论和文档，也可能包含重复模板、spam、抽取错误、过期论断、有毒材料、个人数据，以及对某些语言和领域的强烈偏置。因此，语料并不只是“整个 Web”，而是数据 pipeline 将收集到的来源转化为 token 序列分布之后的产物。
 
-Karpathy 强调，dataset construction 是核心工作，不是附带细节。这也是模型行为因领域而异的原因：模型可能因为见过大量代码而擅长 Python，对小众的内部 DSL 较弱，对从未进入预训练数据的私有公司流程则不可靠。
-
-FineWeb 是一个公开的 web-scale 文本数据集例子，用来说明类似 Common Crawl 的原始网页数据在训练前必须经过大量处理 ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s))。FineWeb 的规模在几十 TB 文本量级，过滤后大约 15 万亿（15T）token，可以由此感受其涉及的规模。原始网页不是干净的书，它包含菜单、cookie banner、重复模板、spam、抽取错误、样板噪声和多语言页面。
+FineWeb 是这一过程的公开例子。Deep dive 用它说明如何把源自 Common Crawl 的网页转换成 web-scale 文本数据集；视频讨论的版本约有 15 万亿个 token ([Deep Dive, around 00:01:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=88s))。原始网页除了有用文本，还包含导航菜单、cookie banner、boilerplate、重复镜像和抽取错误。
 
 Dataset construction 通常包括：
 
-- 从原始网页抽取文本；
-- 过滤低质量或无关内容；
-- 做语言分类；
-- 去重重复文本；
-- 去除或降低 spam 和 boilerplate；
-- 按选择的比例混合不同来源；
-- 把最终 corpus 转成 token。
+- 收集网页快照和其他来源语料；
+- 抽取并规范化文本；
+- 识别语言和内容类型；
+- 过滤低质量、不需要或敏感的材料；
+- 删除完全重复和近似重复的内容；
+- 为不同来源设置采样权重；
+- 将选出的文本 token 化并打包用于训练。
 
-每一步都是建模决策，都会影响模型后来把什么当成“正常”。
+由此得到的分布是有意构造出来的。它既不是人类知识的均匀样本，也不是真理的直接表示。
 
-## 过滤就是嵌入数据的政策
+## 过滤、混合与政策
 
-Karpathy 以语言过滤为例：如果数据集主要面向英文，那么非英文内容就会被有意减少 ([Deep Dive, around 00:04:54](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=294s))。类似决策也会发生在成人内容、代码、数学文本、版权材料、论坛、社交媒体和技术文档上。
+过滤器可以是硬规则、统计分类器，也可以是模型给出的质量分数。每个阈值都带来取舍。严格的质量过滤可能去掉 spam，却也可能丢弃罕见方言或专业材料；宽松的过滤可以保留广度，却会引入更多噪声。Karpathy 以语言过滤为具体例子：面向英文的数据集会有意减少非英文材料 ([Deep Dive, around 00:04:54](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=294s))。
 
-这意味着模型能力和行为会反映训练数据的 mixture：
+过滤后，不同来源会按选定比例混合。这个 mixture 不必与原始数据量一致：代码、数学、书籍或低资源语言可以被提高权重；规模很大但噪声较多的网页来源可以被降低权重。提高有限来源的权重，也可能让其中的样例在训练期间出现更多次。
 
-- 法律、医疗、金融能力取决于高质量领域文本和 post-training 方式。
-- 代码能力取决于代码数据的质量、语言分布和新鲜度。
-- 多语言能力取决于语言覆盖和 tokenizer 效率。
-- 安全行为取决于预训练分布，也取决于 refusal/preference 数据。
+这些选择把政策嵌入了数据。它们会影响哪些语言、领域、风格、观点和行为模式更频繁地贡献梯度。因此，模型能力并不均匀：在一个领域表现强，不代表它在另一个领域也同样强。
 
-如果某个 workflow 很重要，不要根据模型名声推断可靠性。应该在这个 workflow 上测试。
+## 去重、频次与记忆
 
-## 去重和记忆
+重复序列会获得重复的训练权重。完全相同的副本、近似重复的网页、引用段落和转载内容，因而可能让某些文本的出现频率远高于其表面上的语义重要性。
 
-重复会影响训练。重复文本会获得不成比例的权重，使模型更可能记住或模仿它。去重能降低这种风险并提升数据效率，但去重并不完美。有些重复模板有用，有些只是噪声。
+去重可以在文档、段落或更短片段层面进行。它能提高数据效率，并降低逐字记忆以及训练数据与评估数据重叠的风险。但去重并不完美：转述和部分复制的文档很难识别，而且有些重复结构是合理的。
 
-对 harness 来说，实际结论是：模型记忆并不均匀。模型可能知道某个流行库的旧 API，因为网上有许多副本；却不知道新 API，因为它出现得少或在训练 cutoff 之后。检索和本地检查才是正确控制手段。
+因此，记忆并不是非有即无，而是不均匀的。模型可能复现一个出现过很多次的独特序列，却无法回忆只偶尔出现的事实。频次也不是唯一因素——模型规模、上下文、优化过程和序列本身的性质都会产生影响；模型还可以在不存储精确副本的情况下泛化模式。去重改变的是记忆发生的概率，并不能消除记忆。
+
+## 覆盖范围、新鲜度与能力
+
+覆盖范围有多个维度：主题、语言、时间段、体裁、代码生态、文化背景和难度层级。模型有时能泛化到训练样例之外，但稀少或低质量的覆盖通常只提供较少的可学习证据。非公开信息甚至可能完全没有进入语料。
+
+数据收集日期有边界，而且并不均匀。名义上的训练 cutoff 是一种有用的简写，却不应被想象成一个整齐划一的时间点：不同来源可能在不同时间收集，预训练与 post-training 数据集也可能覆盖不同日期范围。Checkpoint 一旦完成训练，其参数就不会随着现实世界的变化自动更新。
+
+因此，数据新鲜度与推理能力并不是一回事。增加推理过程不能揭示可用信息中根本不存在的事件。Post-training 还会进一步塑造模型表达哪些知识以及如何回应，但它无法让覆盖范围变得均匀。
 
 ## Scaling Laws
 
-过去几年的经验事实是：更大的模型、更多数据和更多算力，通常会以可预测的方式改进模型。Kaplan 等人发现，loss 与模型大小、数据集大小和 compute 之间在很大范围内呈现 power-law 关系 ([Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361))。power-law 的直觉是：loss 会随每个输入平滑下降——compute 每增加一个数量级，loss 大致下降一个固定的量，因此收益持续存在，但每一块钱带来的回报递减。
+在广泛的实验范围内，语言模型的 loss 与参数量、数据集规模和训练 compute 呈现近似的 power-law 关系。在 log-log 图上，当其中一种资源增加时，loss 中可降低的部分常常近似沿直线下降 ([Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361))。这意味着收益可预测但会递减：把某种资源乘以固定倍数，通常会让额外 loss 也乘以一个大致固定的比例，而不会带来没有上限的改进。
 
-后续工作进一步说明，compute-optimal training 需要平衡参数量和 token 数。Chinchilla 论文指出，许多早期大模型相对于其规模训练不足；在同等 compute 下，用更多数据训练较小模型，可能胜过更大的 undertrained model ([Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556))。它给出的经验配比大约是每个参数 20 个 token。
+Scaling 变量彼此耦合。如果见到的 token 太少或优化算力不足，更大的模型也可能训练不足。没有足够的模型容量和算力，再大的数据集也无法被训练过程充分利用。数据质量和 mixture 同样会影响给定规模下最终达到的 loss。
 
-但 compute-optimal training 最小化的是一次训练的成本，而不是模型部署后长期运行的成本。2023 年以后的常态是刻意训练到超过 Chinchilla 最优点：用更多 token 训练较小模型（例如用许多万亿 token 训练一个几十亿参数的模型），训练更贵，但每次请求的服务成本更低。这正是下文“Compute 是操作性约束”所缺的那一环：compute-optimal 不等于 deployment-optimal，对高流量 workflow 来说，deployment-optimal 的选择通常是较小、过训练的模型。
+## Compute-Optimal Training
 
-更稳妥地说，scaling law 描述的是 aggregate loss 和平均趋势。它不保证每个 benchmark、workflow 或能力都会平滑提升。有些看起来像 “emergent ability” 的跳变，可能部分来自 metric choice 或 thresholded scoring，而不是内部机制突然出现 ([Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004))。
+对于 dense Transformer，一个实用的一阶近似是：训练 compute 随参数量与训练 token 数的乘积增长。因此，在固定 compute 预算下，必须平衡模型规模和 token 数。
 
-这会直接影响模型选择。更大模型可能降低 pretraining loss，却仍然因为 post-training 行为、延迟、context 处理、工具调用、安全策略或数据新鲜度，在某个 workflow 上表现更差。Scaling 是强趋势，但不能替代任务特定 eval。
+Chinchilla 研究发现，许多早期大模型相对于其参数量训练不足。在该研究的实验条件下，用更多 token 训练较小模型，可以在相同 compute 预算下取得更低的 loss ([Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556))。常被引用的“每个参数大约对应 20 个训练 token”，是与特定模型、数据和假设相关的实验结果，并不是普适常数。架构、数据质量、数据重复、优化方法和目标本身，都可能改变最佳配比。
 
-Harness 层面的结论很直接：模型选择不是简单的“越大越好”。一个较小但训练充分、post-training 好的模型，可能在某个 workflow 上胜过更大但工具行为差、指令遵循弱或延迟更高的模型。
+因此，“compute-optimal”必须说明所优化的目标。Chinchilla 式问题研究的是：如何在固定训练 compute 预算下最小化预训练 loss。它本身并不最小化延迟、内存占用，或部署后消耗的总 compute。
 
-## Compute 是操作性约束
+## 训练成本与 Inference 成本
 
-训练产生参数，但每次使用模型时，inference 都会消耗 compute。Karpathy 在 deep dive 中用 GPU 例子让成本变得具体 ([Deep Dive, around 00:40:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=2411s))。这些数字也在快速下降：GPT-2 在 2019 年训练成本约 4 万美元，但随着硬件和软件改进，Karpathy 后来的复现只用了约 600 美元的租用 GPU。对 harness 来说，成本不只是供应商账单问题，它会影响架构。
+训练会花费大量 compute 来产生一个 checkpoint。此后，每当 checkpoint 处理输入并生成输出，inference 都会继续消耗 compute。一个简化的全生命周期核算式是：
 
-昂贵 inference 会鼓励：
+```text
+C_total = C_train + Q * C_inference_per_request
+```
 
-- 更短 prompt；
-- 简单子任务使用更小模型；
-- 缓存稳定前缀或工具结果；
-- 先检索再生成，而不是把所有文档倒进 prompt；
-- 当验证已经足够时提前退出；
-- 按任务难度在模型之间路由。
+其中 \(Q\) 是请求数量。实际各项成本取决于参数量、架构、输入与输出长度、硬件、数值精度和 batching。
 
-最好的 harness 往往不是“所有事情都调用最大模型”，而是把模型能力花在真正改变结果的地方。
+这一区别可能改变参数量与训练 token 数的理想配比。如果 checkpoint 会被使用很多次，对较小模型进行更多训练，有时能以更高的一次性成本换取更低的重复 inference 成本。请求很少时，或者必须使用较大模型才能达到所需质量时，取舍可能不同。Training-optimal 与全生命周期 compute 最优是两个不同目标。
 
-## 量化与数值精度
+## Scaling 论断能说明什么、不能说明什么
 
-[第 1 章](./01-llm-as-token-machine.md)用参数量乘以每参数字节数来估算模型大小。量化改变的就是第二个因子。模型可以不在 16 位精度下存储和计算权重，而是用 8 位、4 位甚至更低来提供服务，用一些数值精度换取更小的内存占用和更快的 inference。LLM.int8() 和 GPTQ 等方法表明，大模型可以在质量损失有限的情况下被量化 ([LLM.int8()](https://arxiv.org/abs/2208.07339), [GPTQ](https://arxiv.org/abs/2210.17323))。
+Scaling law 描述的是 held-out cross-entropy loss 等总体趋势。它不保证每项任务、benchmark、语言或能力都会平滑改进。阈值化的 metric 可能把底层表现的渐进变化，变成看似突然出现的“emergent”跳变 ([Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004))。
 
-对 harness engineer 来说，量化是一个运维杠杆，不是模型内部细节：
+观察到的行为还取决于 data mixture、架构、tokenizer、优化过程和 post-training，而不只是参数量。更大的模型不会因此获得训练数据收集之后的信息，更低的平均 loss 也不代表所有行为都会改善。经验 scaling 关系在其实际测量的范围内最可靠；远距离外推需要谨慎。
 
-- 同一个模型在更低精度下更便宜、更快，但行为可能略有不同，尤其在边缘情况、长输出或精确格式上。
-- 供应商可能悄悄量化。如果服务精度变了，一个模型可以在名字不变的情况下改变行为。
-- 本地部署常常依赖量化，才能把模型塞进可用内存。
+## 污染
 
-规则和任何模型变更一样：把精度变化当成行为变化，重新跑 eval（见[第 13 章](./13-evaluation-for-llm-behavior.md)）。量化模型通过你的 golden task 就没问题；不验证就假设它和全精度模型一致则不行。
+如果评估样例、近似变体、答案或详细解题讨论出现在训练数据里，就会产生 benchmark contamination。公开 benchmark 及其答案在网上被大量复制时，重叠可能通过预训练或 post-training 数据进入模型。
 
-## 数据新鲜度和训练 Cutoff
-
-训练是阶段性的。模型先在某个时间点之前收集的 corpus 上训练，然后部署。Post-training 和 retrieval 可以补充行为和信息，但参数本身不会自动随世界更新。
-
-这就是为什么模型可能知道 2020 年的论文，却不知道昨天更新的政策。也是为什么当前代码应该由本地 repo inspection 提供，而不是依赖模型记忆。任何处理变化事实的 harness 都需要新鲜度路径：检索、浏览器、数据库、文件读取或用户提供的证据。
-
-## 数据分布塑造能力
-
-模型最强的地方，是训练数据和 post-training 数据中出现过类似模式的地方。它在以下场景更弱：
-
-- 需要训练 cutoff 之后的新信息；
-- 需要私有或本地状态；
-- 需要精确回忆冷门事实；
-- 需要长链条精确计算；
-- 需要在外部环境中行动；
-- 需要公开数据里没有的领域政策。
-
-这些都是 harness 的机会。检索提供新鲜和私有数据。工具执行精确计算。沙箱运行代码。Eval 衡量某个 model-harness 组合是否真的能处理目标领域。
-
-## 污染和评估
-
-Web-scale 数据会带来 benchmark contamination 风险。如果模型训练时见过测试样例，benchmark 结果会高估泛化。Harness engineer 在用公开 benchmark 选模型时要小心。私有的、任务特定的 eval 通常更有信息量。
-
-这也影响 agent 设计。模型也许知道某个框架的公开形状，但不知道当前 repo 的本地惯例。Harness 应该检查真实 repo、运行真实测试、提供真实文件，而不是依赖参数化知识。
+污染会让分数既反映对评估材料的回忆，也反映对未见样例的泛化。普通去重无法完全解决这个问题：删除训练数据内部的重复文档，不等于将训练数据与 benchmark 及其变体进行比对。污染并不会自动让每项结果失效，但它会限制仅凭 benchmark 分数能够得出的泛化结论。
 
 ## 要点
 
-- 训练数据是模型行为的主要决定因素之一。
-- Scaling 会改进模型，但 compute、数据、参数和 post-training 相互影响。
-- 公开模型知识不应被当成当前本地真理。
-- Harness 用检索、工具、验证和领域 eval 弥补数据限制。
+- 训练数据是由收集、过滤、混合和政策选择共同塑造的分布。
+- 去重会改变有效频次和记忆风险，但无法消除所有重叠或记忆。
+- 数据覆盖会随领域、语言和时间而变化，checkpoint 参数也不会自动更新。
+- Scaling law 描述有用的总体趋势，而 compute-optimal training 会针对明确目标平衡模型规模与训练 token 数。
+- 训练成本、重复 inference 成本和 benchmark contamination 共同限定了 scaling 论断的适用边界。

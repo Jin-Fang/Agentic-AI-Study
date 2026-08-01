@@ -1,121 +1,75 @@
 # Chapter 13: Evaluating LLM Behavior
 
-LLM systems are probabilistic, context-sensitive, and often embedded in workflows with tools. Evaluation must therefore measure behavior, not just isolated model answers. Broad benchmark efforts such as BIG-bench and HELM are useful because they make model limitations visible across many tasks and metrics, but a harness still needs workload-specific evals ([BIG-bench](https://arxiv.org/abs/2206.04615), [HELM](https://arxiv.org/abs/2211.09110)).
+LLM behavior is probabilistic and context-sensitive. A change in the prompt, chat template, decoding configuration, or sampled token path can change the result. Even nominally identical requests may not produce identical outputs. Evaluation therefore accumulates evidence across tasks and trials; a single impressive answer or failure is weak evidence.
 
-A benchmark score can be useful, but it does not tell you whether your harness can handle your repository, documents, permissions, users, and failure modes. Harness engineers need task-specific evals.
+An eval score is always conditional on a setup: the model checkpoint or served version, the inputs, the decoding configuration, the task distribution, and the grader. It describes observed behavior under those conditions, not an intrinsic, context-free property of the model.
 
-## Benchmark Families and Limits
+## Benchmarks and Their Limits
 
-Different public benchmarks test different slices of behavior. MMLU measures broad academic and professional knowledge across many multiple-choice subjects ([Measuring Massive Multitask Language Understanding](https://arxiv.org/abs/2009.03300)). TruthfulQA targets truthful answering under questions that invite common false beliefs ([TruthfulQA](https://arxiv.org/abs/2109.07958)). HumanEval and MBPP test code generation through executable programming problems ([Evaluating Large Language Models Trained on Code](https://arxiv.org/abs/2107.03374), [Program Synthesis with Large Language Models](https://arxiv.org/abs/2108.07732)).
+Public benchmarks measure particular slices of behavior. MMLU tests broad academic and professional knowledge, TruthfulQA probes answers to questions that invite common misconceptions, and HumanEval and MBPP use executable programming problems to test code generation ([MMLU](https://arxiv.org/abs/2009.03300), [TruthfulQA](https://arxiv.org/abs/2109.07958), [HumanEval](https://arxiv.org/abs/2107.03374), [MBPP](https://arxiv.org/abs/2108.07732)). BIG-bench and HELM illustrate broader efforts to compare models across many tasks and metrics ([BIG-bench](https://arxiv.org/abs/2206.04615), [HELM](https://arxiv.org/abs/2211.09110)).
 
-A newer family of agentic benchmarks tries to test the full tool-loop instead of a single answer. SWE-bench has a model resolve real GitHub issues against a repository, graded by hidden tests. tau-bench scores multi-turn tool use against a simulated user and a policy. GAIA poses tasks that need multi-step reasoning, web browsing, and tools. WebArena and OSWorld put the model in a realistic browser or desktop environment and grade the final state. These are closer to harness behavior than MMLU, but they carry the same caveats: they can be contaminated, they cover their own task distribution rather than yours, and a strong score does not mean the loop works on your tools, permissions, and data.
+These scores are useful comparison signals, but their scope is limited. A benchmark may differ from the tasks of interest, emphasize one format, become saturated, or be contaminated by training data. Prompting and decoding choices also affect the measured result. A higher aggregate score does not guarantee improvement on every task, language, or failure mode.
 
-These benchmarks are useful, but they are not product evals. They can be contaminated by training data, too narrow for a real workflow, or insensitive to permissions, retrieval, tool side effects, latency, and recovery behavior. A model can improve on MMLU while regressing on your tool schema. It can do well on HumanEval while failing inside your repository because local conventions, dependencies, or hidden tests differ.
+Benchmarks that require tools or an interactive environment measure a model together with the surrounding protocol and system. They can be valuable, but their scores are not measurements of the model alone.
 
-Use broad benchmarks as background signal. Use workload evals as release signal.
+## Representative Tasks
 
-## What to Evaluate
+A golden task set is a curated collection of inputs and checkable success criteria. It should cover representative ordinary cases, important edge cases, and known historical failures. A criterion may be an exact answer, a set of required properties, executable checks, or a clear rubric. The set should be versioned so that changes to tasks and expected results remain distinguishable from changes in model behavior.
 
-Evaluate the unit that matters. For a simple extraction prompt, the unit may be one model call. For an agent, the unit is the loop: prompt, tool calls, observations, retries, final answer, and side effects.
+Toy prompts are useful for diagnosis, but they do not establish performance on a broader distribution. The task set should resemble the inputs and output requirements for which the result will be interpreted. Holding out some tasks also reduces the risk of repeatedly tuning to the visible examples rather than improving the intended behavior.
 
-Useful dimensions include:
+### Capability and Regression Evals
 
-- Task success.
-- Factual accuracy.
-- Citation correctness.
-- Tool choice.
-- Latency.
-- Token cost.
-- Error recovery.
-- Safety policy compliance.
-- Output schema validity.
-- Regression against previous versions.
+A **capability eval** asks which tasks a model can perform under a stated prompting and decoding setup. It deliberately includes tasks that are not yet solved reliably, so it can reveal both demonstrated behavior and room for improvement. It provides evidence about elicited capability under those conditions, not proof of everything the model could do under every possible prompt.
 
-The deep dive's reward-model section is a reminder that evaluation can itself become a learned or approximate system. A reward model scores outputs, but it is only a proxy for human preference ([Deep Dive, around 02:52:39](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10359s)). Model-based grading has the same shape. It can scale review, but it can also miss systematic failures.
+A **regression eval** asks whether behavior that previously worked still works after a model, prompt, or decoding change. A capability task that becomes consistently reliable may later serve as a regression case. The two eval types use similar mechanics but answer different questions.
 
-Use model graders where they help, but do not confuse a grader's score with ground truth.
+## Repeated Trials
 
-### Accounting for stochasticity
+Because behavior can vary from run to run, report the number of trials, the number or rate of successes, and—when comparisons matter—an uncertainty interval. A result such as 8 successes in 10 trials is an estimate with substantial uncertainty; a small difference between two configurations may be noise.
 
-Because the system is probabilistic, one pass or fail is not a release signal. Run each golden task several times (for example, 5-20 runs depending on cost) and report a pass rate, not a single outcome. Distinguish pass@k (the task succeeds in at least one of k runs) from pass^k (it succeeds in all k). pass@k flatters a flaky agent; pass^k is the honest metric when the harness must work every time, so prefer it for reliability-sensitive workflows. Treat the pass rate as an estimate with a confidence interval: a task that passes 8/10 has a wide interval, so a small score change between two versions may be noise rather than a regression.
+Two commonly used summaries answer different questions:
 
-Pin the sampling settings you evaluate at. Record temperature and, where the API supports it, a fixed seed, so a score change reflects a real behavior change and not a different decoding configuration. If a task flips between pass and fail across runs at fixed settings, mark it flaky and triage it: quarantine it from the release gate, or tighten the rubric until the verdict is stable. A flaky eval is itself a finding about an unstable behavior.
+- **pass@k** is the probability that at least one of \(k\) attempts succeeds. It is relevant when several candidates can be generated and one successful candidate can be selected.
+- **pass^k** is the probability that all \(k\) attempts succeed. It is relevant when the same task must succeed repeatedly.
 
-## Golden Tasks
+If trials are independent and each has success probability \(p\), then pass@k is \(1-(1-p)^k\), while pass^k is \(p^k\). Real trials may be correlated, so empirical estimates should state how tasks and attempts were sampled. Neither metric is inherently more honest: the appropriate one depends on the behavior contract being studied.
 
-A golden task set is a curated collection of representative cases with expected outcomes. It should include ordinary tasks, edge cases, and known historical failures. The expected outcome should be checkable by code, human review, or a clear rubric.
+Record the model version, full input, chat template, sampling parameters, and any seed supported by the API. A fixed seed can reduce one source of variation and make paired debugging comparisons easier, but it does not guarantee reproducibility in hosted inference. Backend changes, numerical nondeterminism, and implementation details may still change the output. Use multiple independent trials when the goal is to characterize behavioral variability.
 
-For harness work, golden tasks should include realistic context:
-
-- Real document shapes.
-- Real tool outputs.
-- Real error messages.
-- Real permission boundaries.
-- Real stale or conflicting data.
-
-Toy prompts are useful for debugging, but they are not enough for release decisions.
-
-Golden tasks should be versioned. When the product changes, update them deliberately. When a bug reaches production, add a regression case. When a model upgrade changes behavior, preserve examples of both improved and worsened cases.
-
-For harness engineering, include adversarial and operational cases:
-
-- retrieved document contains prompt injection,
-- tool returns no results,
-- tool returns stale results,
-- user asks for an action outside permission,
-- context contains conflicting instructions,
-- output is truncated,
-- model cites a source that was not provided,
-- agent must recover from a failed command,
-- and task should end with "not enough information."
-
-## Traces
-
-An agent eval should capture traces: prompts, tool calls, tool outputs, model outputs, validation errors, retries, token counts, timings, and final results. Traces are how engineers debug behavior.
-
-Without traces, failures collapse into vague labels like "the model hallucinated" or "the agent got confused." With traces, you can see whether the problem was retrieval, prompt ambiguity, stale state, bad tool output, schema failure, sampling, or model capability.
-
-Trace review is also how teams discover missing tools. If the model repeatedly searches broadly and then manually filters thousands of tokens, the right fix may be a better search tool. If it repeatedly writes invalid JSON, the fix may be constrained decoding or a simpler schema. If it repeatedly ignores a document section, the fix may be chunking or prompt placement.
-
-Evaluation should generate engineering tasks, not only scores.
+Do not call every pass/fail flip a flaky eval. If the same saved output receives different verdicts, a validator intermittently fails, or task inputs change unexpectedly, the measurement setup or grader is unstable and should be repaired. If repeated model outputs genuinely differ in correctness under the stated setup, the eval has found unstable model behavior; repetition should measure and report it rather than make it disappear.
 
 ## Grading
 
-Some tasks can be graded exactly: JSON schema validity, unit tests, database state, command exit codes. Others require rubric grading. Model-based graders can help but must be treated as components with their own error rates.
+Different outputs require different graders:
 
-A robust eval stack may combine:
+- **Deterministic or code-based graders** use exact matching, structured-output validation, or executable checks. They are fast and reproducible but can reject valid variations or test only a narrow property.
+- **Human graders** can apply domain judgment to ambiguous or subjective outputs, but they are slower and may disagree when the rubric is underspecified.
+- **Model-based graders** can apply natural-language rubrics at scale, but their verdicts are themselves probabilistic model outputs.
 
-- Deterministic validators.
-- Unit and integration tests.
-- Source citation checks.
-- Human review for ambiguous cases.
-- Model graders for scalable qualitative checks.
+These methods can be combined. Use deterministic checks for properties they can actually establish, and calibrate human or model judgments against clearly labeled examples. For example, a valid citation format does not establish that the source exists, and source existence does not establish that it supports the claim.
 
-The more consequential the workflow, the more independent the verification should be.
+A grader is a proxy for the intended quality, not ground truth. Reward models in post-training have the same basic limitation: they approximate preferences rather than directly observe them ([Deep Dive, around 02:52:39](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10359s)). Model graders also need their model, prompt, rubric, and disagreement policy recorded.
 
-## Reward Hacking in Evals
+## Metrics as Proxies
 
-Reward hacking in post-training (see [Chapter 7](./07-post-training.md)) has a direct analog in harness evals. Karpathy's discussion of reward hacking in RLHF applies here too ([Deep Dive, around 03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s)). If the system is optimized against a metric, it may learn to satisfy the metric instead of the real goal.
+When development is optimized against a visible metric, outputs can improve on the metric without improving the underlying goal. This is the evaluation analogue of reward hacking discussed in [Chapter 7](./07-post-training.md) ([Deep Dive, around 03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s)).
 
-Examples:
+For example, a summarizer may increase citation count by attaching irrelevant citations, an answer may maximize keyword overlap while preserving a factual error, or a model grader may reward polished verbosity over correctness. No single metric fully specifies qualities such as truthfulness, usefulness, or clarity.
 
-- A summarizer maximizes citation count by citing irrelevant passages.
-- A coding agent passes visible tests while breaking hidden behavior.
-- A support bot optimizes customer sentiment by avoiding hard truths.
-- A retrieval system optimizes click similarity while missing exact policy clauses.
-- A model grader rewards fluent explanations that do not answer the question.
+Use complementary metrics, balanced and held-out cases, and periodic human inspection of examples where graders disagree. When a score rises, inspect whether the newly rewarded behavior is the behavior the metric was intended to represent.
 
-Mitigations include hidden tests, multiple metrics, human audits, adversarial cases, and periodic trace review.
+## Where Model Evaluation Ends
 
-## Regression Discipline
+Direct model evals can measure properties visible in outputs under supplied context, such as task accuracy, factuality, citation support, and format or schema validity. Preserve the input, output, configuration, and grader result so individual judgments can be inspected.
 
-Every prompt change, tool schema change, model upgrade, retrieval tweak, or decoding change can alter behavior. Treat these changes like software changes. Run evals before and after. Track pass rates, failure categories, cost, and latency.
-
-This is especially important for model upgrades. A newer model may be better on broad benchmarks and worse on a specific workflow because it follows tool descriptions differently or has different verbosity.
+When success depends on tool execution, error recovery, permissions, side effects, or the final state of an external environment, the unit under evaluation is no longer the model alone. It is a system eval. Agent transcripts and traces, environment-state grading, operational reliability, and release gates belong to the surrounding system; see [Agent Harness, Chapter 11](../agent-harness/11-evaluation.md).
 
 ## Key Takeaways
 
-- Evaluate the model-harness workflow, not just the raw model.
-- Use realistic golden tasks and capture traces.
-- Combine deterministic checks, human review, and model grading where appropriate.
-- Treat prompts, tools, retrieval, and model versions as regression-sensitive code.
+- LLM behavior is probabilistic and context-sensitive, so eval conclusions require representative tasks and repeated trials.
+- Public benchmarks provide bounded evidence about their own task distributions, not universal model rankings.
+- Capability evals probe what can be elicited; regression evals check whether previously demonstrated behavior persists.
+- pass@k and pass^k answer different questions, and a seed does not guarantee reproducible hosted inference.
+- Deterministic, human, and model graders all measure proxies and have distinct failure modes.
+- Evaluation of tool execution, permissions, side effects, or environment state is system evaluation, not model-only evaluation.

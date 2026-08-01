@@ -1,102 +1,109 @@
 # 第 4 章：Transformer 与 Attention
 
-现代大多数 LLM 都基于 Transformer 架构。Transformer 最初由 *Attention Is All You Need* 提出 ([Vaswani et al., 2017](https://arxiv.org/abs/1706.03762))。Karpathy 在 intro 里也明确指出，这类模型背后的神经网络架构就是 Transformer ([Intro to LLMs, around 00:11:40](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=700s))。对 harness engineer 来说，架构之所以重要，是因为它解释了 context 为什么强大、昂贵，而且并不完美。
+现代大多数 LLM 都基于 *Attention Is All You Need* 提出的 Transformer 架构（[Vaswani et al., 2017](https://arxiv.org/abs/1706.03762)）。Karpathy 在入门讲解中也指出，这类模型背后的神经网络架构是 Transformer（[Intro to LLMs, around 00:11:40](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=700s)）。这一架构解释了 token 序列如何变成依赖上下文的预测。
 
-## 原始 Transformer vs Decoder-Only LLM
+## 输入与输出
 
-原始 Transformer 是用于机器翻译等 sequence-to-sequence 任务的 encoder-decoder 架构。许多现代 autoregressive LLM 使用 decoder-only 变体：它们处理一个前缀，并在 causal mask 约束下预测下一个 token。
+语言模型从 token ID 开始。Embedding table 把每个 ID 映射为一个向量，于是输入序列就变成了向量序列。模型还必须表示顺序：没有位置信息时，同一组 token 以不同顺序出现会很难区分。
 
-这个区别很重要，因为 “Transformer” 是一族计算模式，不是单一产品形态。Causal language model 在训练和生成时不能 attend 到未来 token。它的 attention 被约束为每个位置只能使用更早的位置，这与 next-token objective 对齐。
+不同 Transformer 家族用不同方法编码位置，例如 learned absolute position embedding、sinusoidal encoding、relative position bias，以及在 attention 内应用的 rotary position embedding。因此，位置是模型序列表示的一部分，但不一定总是以直接加到 token embedding 上的形式存在。
 
-现代 LLM 还包含一些高层解释容易跳过的细节：
+这些向量会经过一组堆叠的 Transformer block。每个 block 都为各个位置产生新的表示。最后一个 block 之后，学得的 projection 把每个位置的表示映射为词表 logits。进行 next-token training 时，这些 logits 会与每个可预测位置的后续 token 比较；生成时，最后一个位置的 logits 定义用于选择下一个 token 的分布。
 
-- **Multi-head attention** 让不同 head 并行关注不同关系。
-- **位置信息** 告诉模型 token 出现在哪里。现代系统可能使用 learned positions、sinusoidal positions、rotary position embeddings 或其他变体。
-- **Causal masking** 防止模型在学习预测时看到答案 token。
+Karpathy 将这一流程描述为：token 经过重复的 Transformer block，直到网络产生 next-token prediction（[Deep Dive, around 00:23:24](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=1404s)）。模型并不是把序列解析成一组显式变量，而是在反复转换向量表示。
 
-对 harness 来说，重点不是背诵架构变体，而是记住：context 之所以可用，来自一套具体的 sequence-processing computation；不同模型家族在位置、长度和 attention 表示上可能不同。
+## 原始 Transformer 与 Decoder-Only LLM
 
-## 从 Token 到向量
+原始 Transformer 是面向机器翻译等 sequence-to-sequence 任务的 encoder-decoder 架构。Encoder 为输入序列构建表示；decoder 既对输出前缀使用 causal self-attention，也通过 cross-attention 使用 encoder 的表示。
 
-模型首先把 token ID 映射成向量，也就是 embedding。一个 token，例如 `hello`、换行符或代码片段，会变成高维空间中的一个点。位置信息会被加入表示中，使模型能够区分同一个 token 出现在不同位置。
+许多 autoregressive LLM 改用 decoder-only 架构。它们没有单独的 encoder 或 cross-attention 阶段，而是让同一组堆叠层在 causal constraint 下处理前缀，并预测紧随其后的 token。训练时，每个位置的正确前缀已经存在，所以可以并行计算许多 next-token prediction；生成时，则逐个追加 token。
 
-然后这些向量会经过许多重复层。每一层都会通过混合其他 token 的信息和应用学得的变换，更新每个 token 的表示。
+因此，“Transformer” 指的是一族架构，而不是一种固定布局。不同模型家族还会采用不同的 normalization placement、position method、attention variant、activation function 等细节。它们共享的核心思想是：用一组学得的 block，把 token 序列转换成上下文化表示。
 
-Karpathy 在 deep dive 中把 Transformer 讲成这类场景使用的具体神经网络：token 经过一连串 block，最后网络产生下一个 token 的预测 ([Deep Dive, around 00:23:24](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=1404s))。对 harness 来说，重点是：模型不是把文档读进显式变量，而是在转换一串向量状态。
+## Self-Attention
 
-每个 token 位置都携带一个逐层精炼的表示。早期层可能表示局部语法或 token 身份，后面层可能表示对预测更有用的抽象关系。内部特征未必完全可解释，但过程仍然是机械的：基于上下文做向量变换。
+Self-attention 让一个位置能够混合同一序列中其他位置的信息，从而使 token 表示依赖其上下文。例如，问题中的词可以与前面的 source text 发生交互，一行代码也可以与更早的变量定义发生交互。
 
-## Attention：在上下文中回看
+Attention computation 是学得的、柔性的操作。它不会按固定规则检索一条符号记录或复制某个事实，而是生成 value vector 的加权混合；这些结果还会与其他信号结合，再由网络的其余部分继续转换。
 
-Self-attention 让每个 token 表示都能从上下文中的其他 token 收集信息。在 causal language model 里，某个位置可以 attend 到更早的位置，但不能看到未来位置。这就是模型能根据 prompt、历史对话、检索段落、工具结果和示例来预测下一个 token 的原因。
+### Query、Key 与 Value
 
-基本直觉是：
+在单个 attention head 内，学得的 projection 会把每个输入表示转换成三种向量：
 
-- query 表示当前位置需要什么信息；
-- key 表示每个早期位置能提供什么；
-- value 携带实际要混入的信息；
-- attention weight 决定各位置影响有多强。
+- **Query** 表示当前位置在寻找什么。
+- **Key** 表示一个可用位置可以怎样被匹配。
+- **Value** 表示这个可用位置可以贡献什么信息。
 
-举个具体的画面：设想模型正在生成代码，走到 `return ` 后面那个位置。为了预测下一个 token，这个位置的 query 与前文某行 `user_count = ...` 的 key 强烈匹配，于是携带那个变量名的 value 被混入，模型输出 `user_count`。散文里也一样：回答问题时，生成位置会 attend 回检索段落中真正给出答案的那句话，把信息拉到当前位置。不需要任何数学，只是一个靠后的位置回看前文、并按相关性给更早的位置加权。
+对于输入矩阵 \(X\)，一个 head 会计算 projection \(Q=XW_Q\)、\(K=XW_K\) 和 \(V=XW_V\)。其输出形式为
 
-这不是数据库查询，而是一种学得的、柔性的、分布式操作。相关文本能影响生成，无关或误导文本也能影响生成。长上下文同时增加机会和风险。
+```text
+Attention(Q, K, V) =
+  softmax((Q K^T) / sqrt(d_k) + M) V
+```
 
-Karpathy 指向 attention block 来解释 Transformer 内部位置如何交流 ([Deep Dive, around 00:24:29](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=1469s))。从 harness 角度看，attention 是把证据放进 prompt 后可能有效的原因；也是证据位置、分隔符和噪声控制重要的原因。
+其中 \(M\) 是 attention mask。点积产生匹配分数，softmax 把允许使用的分数转换成权重，加权求和则混合各个 value vector。
 
-一个直接回答问题的检索段落，会给 attention 提供有用目标。一个只是主题相关的段落，则会和答案竞争注意力。一个包含几千行成功测试输出的工具日志，可能让模型注意到无关模式。Attention 很强，但不足以支撑随意堆上下文。
+假设一段代码中包含 `user_count = ...`，随后执行到 `return `。某些 head 可能会给前面的定义相对较高的权重，并把与 `user_count` 有关的信息贡献给后面位置的表示。这只是对一次中间计算的直觉说明：通常并不是某一个 head 直接决定下一个 token 就是 `user_count`。在词表 logits 产生之前，多个 head、residual path、MLP 和许多层的输出都会共同参与。
 
-## MLP 和层结构
+对散文也需要保持同样的谨慎。用于回答问题的位置可能会给前面陈述相关事实的句子较高权重，但最终答案并不是由某一条 attention link 机械决定的。Attention 可能混合有用、无关或误导信息；仅凭较高的 attention weight，也不能证明某个位置具有因果重要性。
 
-Attention 在位置之间移动信息。Feed-forward 或 MLP block 在每个位置内部转换信息。Residual connection 让表示跨层传递。Layer normalization 稳定训练。
+### Causal Mask
 
-对 harness 工作来说，细节不如整体形状重要：模型会反复混合上下文并转换表示。它不会把 prompt 解析成一张清晰的事实表，而是构建一个受整段 token 序列影响的分布式激活状态。
+在 decoder-only language model 中，mask \(M\) 会阻止当前位置 attend 到更靠后的位置。不允许使用的分数会在 softmax 前被实际设为负无穷，因此对应权重变为零。位置 \(i\) 的表示可以使用位置不晚于 \(i\) 的 token，却不能使用它之后的 token。
 
-这解释了为什么指令位置重要。靠近回答点的清晰指令可能占优势。顶部的高优先级指令也可能被几千个噪声 token 稀释。检索段落相关且紧凑时能帮助模型；包含干扰替代说法时也会伤害模型。
+Causal mask 让架构与 next-token prediction 对齐。训练时，模型可以处理完整序列，同时仍然阻止每个位置看到自己应该预测的 token；生成时，同一约束意味着新生成的 token 只能依赖已有前缀。
 
-## Dense 模型与 Mixture-of-Experts 模型
+### Multi-Head Attention
 
-上面的 MLP block 承载了模型大部分参数和计算，也是不同模型家族差异最大的地方。*Dense* 模型对每个 token 都跑全部参数。*Mixture-of-Experts*（MoE）模型则把部分 MLP block 换成许多并行的 expert 子网络，外加一个 router，每个 token 只激活其中几个 expert。Switch Transformer 表明，这种稀疏路由能让总参数量增长，而每 token 计算量不必同比上升 ([Switch Transformers](https://arxiv.org/abs/2101.03961))。
+Multi-head attention 使用不同的 learned projection 并行运行多次 attention computation。各个 head 的输出会被拼接，再 projection 回模型的 residual stream。多个 head 使一层能够以多种方式并行组合不同位置的信息。
 
-对 harness engineer 来说，MoE 打破了一个方便的假设：模型对外宣称的大小能预测它的成本和延迟。一个 MoE 模型的*总*参数量可能很大，但每 token 的*激活*参数量却小得多。由此有两个后果：
+有些 head 会呈现可识别的模式，例如关注局部位置或追踪重复 token，但并不能保证所有 head 都具有清晰、可用人类语言描述的分工。它们的贡献可能互相重叠、随上下文变化，并与后续层发生交互。更合适的理解是：head 是分布式计算的一个组成部分，而不是独立的决策者。
 
-- 仅凭模型大小不再能预测 inference 成本。推断延迟和价格时，要问激活参数，而不只是总参数。
-- 路由本身也是行为的一部分。不同输入激活不同 expert，这会让性能在不同领域之间不均匀，并以 dense 模型没有的方式与 batching 和吞吐量相互作用。
+Karpathy 在解释 Transformer 内各个位置如何通信时，重点指出了 attention block（[Deep Dive, around 00:24:29](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=1469s)）。它为前文影响后续表示提供了路径，但不保证模型一定能正确找出并使用最相关的信息。
 
-这不改变 harness 的职责，但改变模型选型。一个“更小”的 dense 模型和一个“更大”的 MoE 模型，成本可能接近，而在你的工作负载上表现不同。一如既往，要在真实任务上评测（见[第 13 章](./13-evaluation-for-llm-behavior.md)），而不是凭参数量推断可靠性。
+## Transformer Block
 
-## 参数分布在整个网络中
+Attention 只是 Transformer block 的一部分。典型的 decoder-only block 包含：
 
-模型知识和行为不在一个显眼位置。Karpathy 强调，数十亿参数分散在网络各处，以我们尚未完全理解的方式协同工作 ([Intro to LLMs, around 00:11:57](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=717s))。所以“这个事实存在模型哪里？”通常没有简单答案。
+1. 一次 normalization。
+2. Causal multi-head self-attention。
+3. 一条 residual connection，把 attention 输出加回持续传递的表示。
+4. 另一次 normalization。
+5. 一个对各位置独立应用的 feed-forward network，通常称为 MLP。
+6. 另一条 residual connection。
 
-对 harness 来说，这有三个后果：
+具体顺序因模型家族而异；例如，normalization 可能位于 sublayer 之前或之后。比确切变体更重要的是功能差异：attention 在 token 位置之间混合信息，MLP 则在每个位置内应用学得的非线性变换。Residual connection 让信号经过许多 block 时得以保留和累积，normalization 则有助于保持计算稳定。
 
-- 你不能通过编辑模型内部一行数据库来修正事实错误。
-- 你不能可靠地检查模型内部来证明它为什么生成某个答案。
-- 相比推测内部电路，改变输入、工具、检索和验证通常更可控。
+重复这些 block 会产生以可用前缀为条件的表示。各层不一定对应“先语法、后语义”这样的整齐阶段。特征可以分散在多个层与组件中，同一组件也可能针对不同输入参与不同计算。
 
-Mechanistic interpretability 是重要研究方向，但生产 harness 需要现在就能工作的控制手段。
+## 分布式表示与可解释性
 
-## 训练和架构是两件事
+模型学到的知识和行为分布在许多参数与 activation 中。Karpathy 强调，数十亿参数以我们尚未从机制上完全理解的方式共同工作（[Intro to LLMs, around 00:11:57](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=717s)）。因此，“某个事实存在哪里”通常没有简单答案。
 
-Transformer 架构定义计算；训练设定参数。随机初始化的 Transformer 没有什么实用能力。训练后的 Transformer 吸收了数据结构。Post-trained Transformer 还被进一步塑造成 assistant 行为。
+特定预测也同样如此。Attention weight 揭示了内部计算的一部分，却不是完整解释：value vector、MLP、residual path 和后续层都会发挥作用。Mechanistic interpretability 研究这些计算，但现有方法通常还不能为每个生成 token 提供简单而完备的因果说明。
 
-这个区别能避免混乱。当模型没有遵循工具 schema，原因可能是架构限制，但更常见是数据、post-training、prompt 格式或 harness 设计问题。当模型处理长文档不好，原因可能是 context length，也可能是检索噪声或指令位置。
+分布式表示也意味着模型知识不是一张可直接编辑的事实表。改动一个参数可能影响许多输入，而一种行为也可能依赖大量参数。网络仍然执行确定的数值计算，但其内部概念通常不会与人类标签一一对应。
+
+## 架构与训练是两件事
+
+架构定义网络可以执行的运算，训练则确定这些运算使用的参数值。随机初始化的 Transformer 拥有架构，却没有实用的语言行为。Pretraining 让参数拟合训练序列上的 next-token prediction，post-training 则可以进一步改变其回答分布。
+
+这种区分可以避免把架构当成包罗一切的解释。Self-attention 为前文影响后续预测提供了路径，但训练决定模型学会识别哪些模式，以及使用这些模式的可靠程度。架构相近的两个模型，可能因为数据、目标、参数量和 post-training 不同而表现迥异。
 
 ## Attention 成本
 
-标准 attention 需要每个位置和其他每个位置相互比较，所以计算量大致随序列长度平方增长（O(n^2)）：上下文翻倍，attention 计算量约变为四倍。生成阶段每个新 token 也要付一份随前缀长度增长的代价。现代系统有很多优化，但 context length 仍然影响延迟、内存和成本。Harness 不应该把大 context window 当作“可以粘贴一切”的许可。
+对 \(n\) 个 token 进行标准 full-sequence attention 时，每个位置都要与其他允许使用的位置形成分数，因此每个 head 的 score matrix 包含 \(O(n^2)\) 个元素。在模型宽度和层数不变时，训练以及处理 prompt（也称为 **prefill**）期间，attention 中随序列长度变化的计算量是平方级的。Causal mask 去掉了对未来位置的交互，但不会改变这一渐近复杂度。
 
-好的 harness 会有意识地使用模型注意力：
+这个结论专门针对 block 中的 attention 部分。Linear projection 和 MLP 同样消耗大量计算，在许多实际序列长度下甚至可能主导总运行时间。传统 attention 实现还可能需要 \(O(n^2)\) 的临时内存来存放 attention score；memory-efficient kernel 可以避免显式生成完整矩阵，但并不会消除底层成对 attention 运算。
 
-- 当前指令保持紧凑且可见。
-- 检索小而相关的片段，而不是整个语料。
-- 摘要或外部化旧状态。
-- 用文件、数据库和缓存作为模型外部记忆。
-- 在添加更多上下文之前测量是否真的提高结果。
+使用 **KV cache** 时，autoregressive decoding 呈现不同的计算特征。各层会保存已有 token 的 key 与 value。对于一个新 token，模型只计算新的 query、key 和 value，再让这个 query attend 到缓存的前缀。在模型维度固定时，这一步的 attention 计算量随前缀长度按 \(O(n)\) 增长，而不必为整个前缀重新计算 \(O(n^2)\) attention。KV-cache memory 则随缓存 token 数量线性增长。
+
+生成多个 token 时，这些逐步线性的成本会累积：在长度为 \(p\) 的 prompt 之后生成 \(m\) 个 token，attention score work 大致与 \(mp + m^2\) 成正比，此外还要加上 prefill 与每个 block 中的其他计算。架构与 kernel 优化可以改变常数，或改用近似、稀疏模式，但更长的序列仍会带来真实的计算、内存和延迟成本。
 
 ## 要点
 
-- Transformer 把 token 序列转换成上下文化向量表示。
-- Attention 让 token 能依赖早期上下文，但它是柔性的、会犯错的。
-- 长上下文既强大又昂贵。
-- Harness 应该通过减少噪声、突出相关证据来帮助 attention。
+- Decoder-only Transformer 让 token 与位置信息经过重复 block，最终得到 next-token logits。
+- Causal self-attention 通过学得的 query、key 和 value projection，混合可用前缀的信息。
+- 多个 head 和多层会共同贡献分布式的中间信号；单个 attention head 并不直接选择输出 token。
+- Attention 能让相关前文产生影响，但不保证一定能正确选择或使用这些信息。
+- 标准 prefill attention 的计算量随序列长度平方增长，而使用 KV cache 的 decoding 对每个新 token 使用线性 attention 计算和线性 cache memory。

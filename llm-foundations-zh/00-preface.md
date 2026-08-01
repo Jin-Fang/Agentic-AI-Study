@@ -1,34 +1,40 @@
 # 前言
 
-大语言模型很容易上手，却很难可靠运行。聊天框背后藏着许多机制：tokenization、预训练、Transformer inference、采样、post-training、context window、检索和工具调用。模型只负责预测 token；harness 是围绕模型的那层系统——给模型提供工具、记忆、状态、权限、检索、评估，以及通往真实世界副作用的受控路径。对 harness engineer 来说，这些不是背景知识，而是会直接影响系统行为的工程接口。它决定了什么应该放进 prompt、什么应该做成工具、什么需要检索、什么必须验证，以及什么根本不该交给模型。
+## 为什么需要这本书
 
-这本书就是写给这个角色的。
+通过 API 调用大语言模型并不难，但聊天界面会隐藏那些塑造模型行为的机制。Tokenization 会改变模型实际接收到的内容；训练决定哪些模式被写入参数；有限的 context 会限制哪些信息能够影响回答；decoding 则把 next-token probability 转化为生成文本。如果缺少对这些机制的理解，人们很容易把流畅的输出误认为最新知识、可靠推理或已经核实的事实。
 
-本书的目标不是从数学上推导 Transformer，也不是教你训练 frontier model，而是建立一个能支持工程判断的心智模型。当 agent 忘记约束、编造引用、选错工具、被无关检索内容带偏，或者一次很小的 prompt 修改就得到不同的答案时，工程师应该能判断问题大致出在模型、上下文、检索、工具、采样、状态还是评估，并且知道有哪些具体的控制手段可以尝试。
+本书解释这些机制以及它们形成的边界。它的目的不是让模型的每一次回答都变得可预测，而是让模型行为不再那么神秘，并为读者提供一套精确的分析语言。
 
-本书主要整理自 Andrej Karpathy 的 [Intro to Large Language Models](https://www.youtube.com/watch?v=zjkBMFhNj_g) 和 [Deep Dive into LLMs like ChatGPT](https://www.youtube.com/watch?v=7xTGNNLPyMI)。第一期讲座用“两个文件”拆解 LLM：参数文件，以及运行这些参数的代码。第二期讲座进一步展开数据、tokenization、训练、inference、post-training 和实用的心智模型。本书把这些内容组织成一条面向 harness engineering 的学习路线，并在必要处补充基础论文引用。
+## 目标与读者
 
-## 读者需要什么背景
+本书面向使用大语言模型的软件工程师和技术读者，并沿着一条面向工程实践的 LLM 基础路线展开：token、next-token prediction、Transformer attention、训练数据与 scaling、inference 与 decoding、post-training、prompting、context、知识边界、检索、工具调用和评估。
 
-你需要熟悉软件工程概念，比如 API、状态、测试、日志、缓存和权限。你不需要先掌握深度学习数学。遇到数学概念时，本书优先解释它对工程设计的影响，而不是把公式本身当作重点。
+读完本书后，读者应该能够从 token、训练、context、decoding 和外部证据这些角度解释模型行为，也应该能够区分哪些性质属于模型本身，哪些性质属于围绕模型构建的应用。
 
-## 本书不做什么
+## 素材来源
 
-本书不教你训练前沿模型，不比较每一家模型供应商，也不完整综述所有 alignment 方法。这个领域变化太快，写成百科反而不实用。
+本书主要整理自 Andrej Karpathy 的 [Intro to Large Language Models](https://www.youtube.com/watch?v=zjkBMFhNj_g) 和 [Deep Dive into LLMs like ChatGPT](https://www.youtube.com/watch?v=7xTGNNLPyMI)。第一期讲座用两个组成部分来理解 LLM：参数，以及运行这些参数的代码。第二期讲座进一步展开数据、tokenization、训练、inference、post-training 和实用的心智模型。本书把这些讲座整理成一条书面学习路线，并在基础论文能够为具体概念提供依据时补充相应引用。
 
-本书关注的是对 harness 长期有用的稳定事实：
+## 先修要求与非目标
 
-- 语言模型读写的是 token。
-- Context window 有限、昂贵，而且不是长期记忆。
-- 模型知识压缩在参数里，不应被当成数据库。
-- Sampling 是行为的一部分，不是实现细节。
-- 检索和工具调用属于 harness 的责任。
-- 评估必须覆盖模型和 harness 组成的完整系统。
+读者应该熟悉 API、测试和日志等基本软件工程概念，不需要预先掌握深度学习数学。在数学有助于理解时，本书只引入理解相关机制及其后果所需的内容。
 
-## 和 Agent Harness 教材的关系
+本书不教读者如何训练 frontier model，不比较当前所有模型供应商，也不完整综述每一种 alignment 方法。这些目标要么变化很快，要么需要更深入的篇幅。本书关注的是一套稳定的基础，用来理解工程师和技术读者在实践中遇到的模型。
 
-配套教材 [Agent Harness：实践者教材](../agent-harness-zh/) 从模型外部开始：上下文管理、工具、沙箱、工作流模式和评估。本书从模型内部边界开始：harness 调用模型时，模型到底在做什么。
+## 稳定的模型性质
 
-这两本书应该配合阅读。只有 harness engineering 而没有 LLM 基础，容易变成经验主义的 prompt 调参；只有 LLM 基础而没有 harness engineering，则会停留在一个能说话、但不能安全做事的模型上。
+接下来的章节围绕几项模型侧的事实展开：
 
-完整的章节地图和推荐的阅读顺序，见 [README](./README.md)。
+- 语言模型接收和生成的是 token，而不是直接接收和生成词语或意义。
+- 模型的 context 有限，而且不是持久记忆。
+- 训练期间学到的知识分布在参数中；这些参数不是实时、权威的数据库。
+- Decoding 规则从 next-token probability 中选择 token，因此生成方式的配置也是最终行为的一部分。
+
+后续章节会进一步细化这些表述，说明这些简化说法的边界，并解释外部证据如何进入模型的 context，而不会因此变成存储在模型参数中的知识。
+
+## 配套教材
+
+配套教材 [Agent Harness：实践者教材](../agent-harness-zh/) 介绍围绕模型构建的系统，包括 context 管理、工具、沙箱、工作流模式和评估。本书则建立这些系统设计必须考虑的模型机制与行为边界。两本书都可以独立阅读；当主题跨越这条边界时，读者可以沿配套链接继续了解。
+
+本书的章节地图和推荐阅读顺序见 [README](./README.md)。

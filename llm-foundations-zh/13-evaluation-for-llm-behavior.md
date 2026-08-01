@@ -1,123 +1,75 @@
 # 第 13 章：评估 LLM 行为
 
-LLM 系统是概率性的、上下文敏感的，并且经常嵌入带工具的 workflow。因此，评估必须测行为，而不只是测孤立的模型回答。
+LLM 行为具有概率性，并且依赖上下文。Prompt、chat template、decoding 配置或采样到的 token 路径发生变化，都可能改变结果。即使名义上相同的请求，也未必产生相同输出。因此，评估需要跨任务、跨 trial 积累证据；单个出色答案或单次失败都只是很弱的证据。
 
-公开 benchmark 有价值，但它不能告诉你：你的 harness 是否能处理你的仓库、文档、权限、用户和失败模式。Harness engineer 需要任务特定的 eval。
+Eval 分数总是以一组设置为条件：model checkpoint 或服务版本、输入、decoding 配置、任务分布和 grader。它描述的是模型在这些条件下表现出的行为，而不是模型某种脱离上下文的内在属性。
 
-HELM 和 BIG-bench 这类大规模 benchmark 有价值，因为它们用许多任务和指标暴露模型限制；但 harness 仍然需要面向自身 workload 的 eval ([BIG-bench](https://arxiv.org/abs/2206.04615), [HELM](https://arxiv.org/abs/2211.09110))。
+## Benchmark 及其局限
 
-## Benchmark 类型和限制
+公开 benchmark 测量的是特定的行为切片。MMLU 测试广泛的学术和专业知识，TruthfulQA 考察模型如何回答容易诱发常见错误观念的问题，HumanEval 和 MBPP 则通过可执行的 programming problems 测试代码生成 ([MMLU](https://arxiv.org/abs/2009.03300), [TruthfulQA](https://arxiv.org/abs/2109.07958), [HumanEval](https://arxiv.org/abs/2107.03374), [MBPP](https://arxiv.org/abs/2108.07732))。BIG-bench 和 HELM 展示了另一类更广泛的工作：跨许多任务和指标比较模型 ([BIG-bench](https://arxiv.org/abs/2206.04615), [HELM](https://arxiv.org/abs/2211.09110))。
 
-不同公开 benchmark 测的是不同行为切片。MMLU 衡量大量 multiple-choice 学术和专业科目的广泛知识 ([Measuring Massive Multitask Language Understanding](https://arxiv.org/abs/2009.03300))。TruthfulQA 测试模型在面对容易诱发常见错误信念的问题时，是否仍能真实回答 ([TruthfulQA](https://arxiv.org/abs/2109.07958))。HumanEval 和 MBPP 则通过可执行 programming problems 测代码生成 ([Evaluating Large Language Models Trained on Code](https://arxiv.org/abs/2107.03374), [Program Synthesis with Large Language Models](https://arxiv.org/abs/2108.07732))。
+这些分数是有用的比较信号，但适用范围有限。Benchmark 可能不同于真正关心的任务，可能过度强调某种格式，可能逐渐饱和，也可能受到训练数据污染。Prompting 和 decoding 选择同样会影响测得的结果。聚合分数提高，并不保证每个任务、语言或失败模式都得到改善。
 
-还有一类较新的 agentic benchmark，试图测整个 tool-loop，而不是单次回答。SWE-bench 让模型在一个 repo 上解决真实的 GitHub issue，由 hidden tests 评分。tau-bench 在模拟用户和 policy 下给多轮工具调用打分。GAIA 出的任务需要多步推理、网页浏览和工具。WebArena 和 OSWorld 则把模型放进真实的浏览器或桌面环境，按最终状态评分。它们比 MMLU 更接近 harness 行为，但带着同样的告诫：可能被污染、覆盖的是它们自己的任务分布而不是你的、并且高分不代表这个 loop 能在你的工具、权限和数据上跑通。
+需要使用工具或交互环境的 benchmark，测量的是模型与外围协议、系统的组合。它们可能很有价值，但分数不是对模型本身的单独测量。
 
-这些 benchmark 有用，但不是产品 eval。它们可能被训练数据污染，可能对真实 workflow 来说太窄，也可能对权限、检索、工具副作用、延迟和恢复行为不敏感。一个模型可以在 MMLU 上变强，却在你的工具 schema 上回归；也可以在 HumanEval 上表现好，却因为本地惯例、依赖或 hidden tests 不同而在你的 repo 里失败。
+## 代表性任务
 
-公开 benchmark 适合作为背景信号；workload eval 才适合作为 release 信号。
+Golden task set 是一组经过整理的输入和可检查的成功标准。它应该覆盖有代表性的普通案例、重要边界情况和已知历史失败。成功标准可以是精确答案、一组必要属性、可执行检查或清晰 rubric。Task set 应进行版本管理，以便把任务及期望结果的变化与模型行为变化区分开来。
 
-## 评估什么
+玩具 prompt 对诊断有用，但不能证明模型在更广任务分布上的表现。Task set 应接近结果实际要被解释到的输入和输出要求。保留一部分 held-out tasks，也能降低反复迎合可见示例、却没有改善目标行为的风险。
 
-评估应该对准真正重要的单元。简单抽取 prompt 的单元可能是一次模型调用；agent 的单元则是整个 loop：prompt、工具调用、observation、重试、最终答案和副作用。
+### Capability Eval 与 Regression Eval
 
-有用维度包括：
+**Capability eval** 问的是：在明确的 prompting 和 decoding 设置下，模型能够完成哪些任务。它会有意包含尚不能稳定解决的任务，从而同时暴露已经展现的行为和继续改进的空间。它提供的是这些条件下能力被引出的证据，而不是模型在所有可能 prompt 下能做什么的完整证明。
 
-- 任务成功率；
-- 事实准确性；
-- 引用正确性；
-- 工具选择；
-- 延迟；
-- token 成本；
-- 错误恢复；
-- 安全策略遵守；
-- 输出 schema 合法性；
-- 相比旧版本是否回归。
+**Regression eval** 问的是：更换模型、prompt 或 decoding 设置后，过去有效的行为是否仍然有效。当某个 capability task 变得持续可靠后，它也可以成为 regression case。两类 eval 可以使用相似机制，但回答的问题不同。
 
-Deep dive 的 reward-model 部分提醒我们：评估本身也可能成为一个学得或近似的系统。Reward model 会给输出打分，但它只是人类偏好的 proxy ([Deep Dive, around 02:52:39](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10359s))。Model-based grading 也是同样形状。它能扩展 review，但也可能漏掉系统性失败。
+## 重复 Trial
 
-可以使用 model grader，但不要把 grader 分数误认为真实答案。
+由于行为会在不同运行之间变化，应报告 trial 数量、成功次数或成功率，并在需要比较时报告不确定性区间。10 次中成功 8 次仍是一个不确定性很大的估计；两种配置之间的小幅差异可能只是噪声。
 
-### 处理随机性
+两个常用汇总指标回答不同问题：
 
-因为系统是概率性的，单次的 pass 或 fail 不是 release 信号。每个 golden task 应该跑若干次（例如视成本跑 5-20 次），报告通过率而不是单次结果。要区分 pass@k（k 次里至少成功一次）和 pass^k（k 次每次都成功）。pass@k 会美化一个不稳定的 agent；当 harness 必须每次都成功时，pass^k 才是诚实的指标，所以对可靠性敏感的 workflow 更应该用它。把通过率当作带置信区间的估计：8/10 通过的任务置信区间很宽，所以两个版本之间的小幅分数变化可能只是噪声，而不是回归。
+- **pass@k** 是 \(k\) 次尝试中至少有一次成功的概率。它适用于可以生成多个候选、并从中选出一个成功候选的场景。
+- **pass^k** 是 \(k\) 次尝试全部成功的概率。它适用于同一任务必须反复成功的场景。
 
-固定你做 eval 时的采样设置。记录 temperature，以及在 API 支持时记录固定的 seed，这样分数变化反映的是真实行为变化，而不是不同的 decoding 配置。如果在固定设置下，某个任务在多次运行间在 pass 和 fail 之间翻转，就标记为 flaky 并 triage：把它从 release gate 里隔离出去，或者收紧 rubric 直到判定稳定。一个 flaky 的 eval 本身就是关于某个不稳定行为的发现。
+如果各次 trial 相互独立，并且每次成功概率都是 \(p\)，那么 pass@k 为 \(1-(1-p)^k\)，pass^k 为 \(p^k\)。现实中的 trial 可能相关，因此经验估计应说明任务和尝试是如何采样的。两个指标没有哪个天然“更诚实”；应该选择哪一个，取决于正在研究的行为契约。
 
-## Golden Tasks
+应记录模型版本、完整输入、chat template、采样参数，以及 API 支持的 seed。固定 seed 可以减少一种变化来源，也有助于做成对的调试比较，但它不能保证 hosted inference 可复现。后端变化、数值非确定性和实现细节仍可能改变输出。如果目标是刻画行为波动，就应运行多次相互独立的 trial。
 
-Golden task set 是一组有代表性的案例和期望结果。它应该包含普通任务、边界情况和历史失败。期望结果应该能通过代码、人类 review 或清晰 rubric 检查。
-
-Harness eval 应包含真实上下文：
-
-- 真实文档形状；
-- 真实工具输出；
-- 真实错误信息；
-- 真实权限边界；
-- 真实过期或冲突数据。
-
-玩具 prompt 对 debug 有用，但不足以决定 release。
-
-Golden tasks 应该版本化。产品变化时有意识更新。生产 bug 出现后，加入回归案例。模型升级导致行为变化时，保留变好和变坏的例子。
-
-对 harness engineering，还应该包含 adversarial 和 operational cases：
-
-- 检索文档含 prompt injection；
-- 工具返回 no results；
-- 工具返回过期结果；
-- 用户请求越权动作；
-- context 含冲突指令；
-- 输出被截断；
-- 模型引用未提供来源；
-- agent 必须从失败命令恢复；
-- 正确行为是 “not enough information”。
-
-## Traces
-
-Agent eval 应捕获 traces：prompt、工具调用、工具输出、模型输出、验证错误、重试、token count、timing 和最终结果。Trace 是工程师 debug 行为的主要材料。
-
-没有 trace，失败会塌缩成模糊标签，比如“模型幻觉了”或“agent confused”。有 trace，才能判断问题出在检索、prompt 歧义、过期状态、坏工具输出、schema failure、sampling 还是模型能力。
-
-Trace review 还会暴露缺失工具。如果模型反复做宽泛搜索，然后手动过滤几千 token，正确修复可能是更好的搜索工具。如果模型反复输出非法 JSON，修复可能是 constrained decoding 或更简单的 schema。如果它反复忽略某个文档 section，修复可能是 chunking 或 prompt placement。
-
-Eval 应产生工程任务，而不只是分数。
+不要把每一次 pass/fail 翻转都称为 flaky eval。如果同一份已保存输出得到不同 verdict、validator 间歇性失败，或任务输入意外变化，那么不稳定的是测量设施或 grader，应该修复它。如果在声明的设置下，模型的多次输出确实在正确性上不同，那么 eval 发现的是不稳定的模型行为；重复试验应测量并报告它，而不是让它消失。
 
 ## Grading
 
-有些任务可以精确评分：JSON schema、单元测试、数据库状态、命令 exit code。另一些任务需要 rubric。Model-based grader 可以帮忙，但必须被视为有自己错误率的组件。
+不同输出需要不同 grader：
 
-稳健 eval stack 可能组合：
+- **Deterministic 或 code-based grader** 使用精确匹配、结构化输出验证或可执行检查。它们速度快且可复现，但也可能拒绝合理变体，或只能检查很窄的属性。
+- **Human grader** 可以对模糊或主观输出应用领域判断，但速度更慢；rubric 不充分时，不同评审者也可能意见不一。
+- **Model-based grader** 可以大规模应用自然语言 rubric，但其 verdict 本身也是概率性的模型输出。
 
-- deterministic validators；
-- unit 和 integration tests；
-- source citation checks；
-- 模糊场景的人类 review；
-- 可规模化 qualitative check 的 model graders。
+这些方法可以组合使用。对 deterministic check 真正能够确定的属性使用它，并用清晰标注的示例校准人工或模型判断。例如，citation 格式合法不能证明来源存在，而来源存在也不能证明它支持对应论断。
 
-Workflow 越重要，验证越应该独立。
+Grader 是目标质量的 proxy，而不是 ground truth。Post-training 中的 reward model 也有相同的基本限制：它近似的是偏好，而不是直接观察偏好 ([Deep Dive, around 02:52:39](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10359s))。Model grader 的模型、prompt、rubric 和分歧处理规则也都应该被记录。
 
-## Eval 里的 Reward Hacking
+## 作为 Proxy 的指标
 
-Post-training 里的 reward hacking（见[第 7 章](./07-post-training.md)）在 harness eval 里有一个直接对应。Karpathy 关于 RLHF reward hacking 的讨论在这里同样适用 ([Deep Dive, around 03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s))。如果系统被优化到某个 metric，它可能学会满足 metric，而不是满足真实目标。
+当开发过程不断针对一个可见 metric 优化时，输出可能在 metric 上进步，却没有改善背后的真实目标。这就是[第 7 章](./07-post-training.md)讨论的 reward hacking 在 eval 中的对应现象 ([Deep Dive, around 03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s))。
 
-例子：
+例如，summarizer 可能通过添加无关引用来提高 citation count；答案可能在保留事实错误的同时最大化 keyword overlap；model grader 也可能奖励精致冗长的表达，而不是正确性。Truthfulness、usefulness 或 clarity 之类的质量，都无法由单一 metric 完整规定。
 
-- summarizer 通过引用很多无关段落最大化 citation count；
-- coding agent 通过 visible tests，却破坏 hidden behavior；
-- support bot 为了客户情绪避免说难听但必要的真话；
-- retrieval 系统优化基于点击的相似度信号，却漏掉精确 policy clause；
-- model grader 奖励流畅解释，但回答没命中问题。
+应组合互补指标，使用平衡案例和 held-out cases，并定期人工检查 grader 意见不一致的样本。分数上升时，要检查新获奖励的行为是否真是该指标原本要代表的行为。
 
-缓解手段包括 hidden tests、多指标、人类 audit、adversarial cases 和周期性 trace review。
+## Model Eval 的终点
 
-## 回归纪律
+Direct model eval 可以测量给定 context 下输出中可见的属性，例如 task accuracy、factuality、citation support，以及 format 或 schema validity。应保留输入、输出、配置和 grader 结果，使单项判断可以接受检查。
 
-每一次 prompt 修改、工具 schema 修改、模型升级、检索调整或 decoding 改动，都可能改变行为。应该像对待软件改动一样对待这些变化：改前改后运行 eval，追踪 pass rate、failure category、cost 和 latency。
-
-模型升级尤其需要纪律。新模型可能 broad benchmark 更强，却在具体 workflow 上变差，因为它遵循工具描述的方式不同，或 verbosity 不同。
+当成功依赖工具执行、错误恢复、权限、副作用或外部环境的最终状态时，评估单元就不再只是模型，而是 system eval。Agent transcript/trace、环境状态判分、运行可靠性和 release gate 属于外围系统；参见 [Agent Harness 第 11 章](../agent-harness-zh/11-evaluation.md)。
 
 ## 要点
 
-- 评估 model-harness workflow，而不是只评估 raw model。
-- 使用真实 golden tasks，并捕获 trace。
-- 结合 deterministic checks、人类 review 和 model grading。
-- Prompt、工具、检索和模型版本都应被视为会引发回归的代码。
+- LLM 行为具有概率性并依赖上下文，因此 eval 结论需要代表性任务和重复 trial。
+- 公开 benchmark 只能提供关于自身任务分布的有限证据，而不是普适模型排名。
+- Capability eval 探索能够引出什么行为；regression eval 检查已经展现的行为是否仍然存在。
+- pass@k 与 pass^k 回答不同问题，seed 不能保证 hosted inference 可复现。
+- Deterministic、human 和 model grader 测量的都是 proxy，并各有不同失败模式。
+- 对工具执行、权限、副作用或环境状态的评估属于 system evaluation，而不是 model-only evaluation。

@@ -1,317 +1,227 @@
 # 术语表
 
-本书所用术语的简明定义。括注的章节是该术语被深入讨论的位置;某条定义的来源,可顺着对应章节的行内引用和 [参考文献](./references.md) 查找。
+本书采用的规范词汇。章节链接会指向完整论证及其正文引用；关键协议与标准定义也在此处直接给出来源。
 
 ---
 
-## 核心概念
+## 系统边界
 
-**Agent(代理)** — 语言模型,加上让它能真正做事的那套系统:浏览代码库、运行代码、调用工具、从错误中恢复、支撑多步骤任务。由公式 *Agent = Model + Harness* 概括(第 1 章)。
+**模型（Model）** — 接收当前输入 representation、生成 token 或结构化输出的概率组件。它负责提出，不拥有持久状态、credential、外部执行或后果（[第 1 章](./01-what-is-an-agent-harness.md)）。
 
-**Agent harness** — 围绕模型工程化出来的一切:系统提示、工具及其描述、内置基础设施、子代理编排、控制流、hooks/中间件,以及评估基础设施(第 1 章)。
+**Agent** — 模型参与的一种目标导向循环；周边软件负责组装 context、使用工具、维护状态并检查 outcome。
 
-**Agent loop(agent 循环)** — 核心执行循环:组装上下文 → 模型发出工具调用或最终答案 → harness 执行调用 → 把结果追加进上下文 → 重复直到完成(第 1 章)。
+**Agent harness** — 紧邻模型、负责组装输入、解析模型输出并驱动一个或多个 agent loop 的系统。它的范围小于整个 product、runtime 或 fleet platform（[第 1 章](./01-what-is-an-agent-harness.md)）。
 
-**Augmented LLM(增强型 LLM)** — 配备了检索、工具和记忆的模型,能生成自己的查询、选择工具、决定保留什么。是 agent 的基本构件(第 1、6 章)。
+**运行时（Runtime）** — 提供 scheduling、queue、durable step、checkpoint、sandbox process、cancellation 与 retry semantics 的执行底座（[第 10 章](./10-state-event-history-production-factors.md)）。
 
-**ACI(agent-computer interface,代理-计算机接口)** — agent 与其工具之间的设计界面,类比 HCI:agent 如何使用工具,值得投入与"人类如何使用界面"同等的工程(第 4 章)。
+**产品 / 应用（Product / application）** — Agent 工作获得业务意义的用户 workflow、domain logic、review surface 与 business state。
 
-**Builder harness** — AI 实验室作为 coding agent 产品一部分而提供的系统提示和工具;harness 三层同心圆中的中间层(第 1 章)。
+**平台 / 控制平面（Platform / control plane）** — 为 registry、identity、policy administration/decision、lifecycle 与多租户治理提供的 fleet 共享基础设施。执行仍需要在每条受保护数据路径上或附近部署不可绕过的 PEP（[第 19 章](./19-agent-fleets-control-plane.md)）。
 
-**User harness** — 团队为适配自己代码库而在 coding agent 之上添加的 AGENTS.md、hooks、skills 和 review agents;最外层(第 1 章)。
+**评估 Harness（Evaluation harness）** — 创建任务环境、调用 agent harness 运行 trial、收集完整评分证据、执行 grader 并汇总结果的测试系统。它不同于被评估的生产 agent harness（[Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)）。
 
-**Harness engineering** — 迭代模型周边的整个系统(而不只是单个提示),让每个观察到的失败被永久工程化掉(第 1 章)。
+**Harness engineering** — 把 prompt、context policy、tool、runtime control、state、verification 与 operations 当作一个系统迭代，而不是孤立优化某个 prompt。
 
-**Binding-constraint thesis(约束瓶颈命题)** — 对长周期 agent 来说,可靠性常常受 harness 层限制,包括 execution、tools、context、lifecycle、observability、verification 和 governance,而不只是受模型能力限制(第 1、11 章)。
+**上下文工程（Context engineering）** — 选择、排序、转换模型调用所需 representation，并追踪其 provenance（[第 3 章](./03-context-as-finite-resource.md)）。
 
-**ETCLOVG** — Agent harness engineering 的七层分类:Execution environment、Tool interface、Context、Lifecycle、Observability、Verification、Governance(第 1 章)。
-
-**Context engineering(上下文工程)** — 在推理时策划上下文窗口中最小的一组高信号 token;比 harness engineering 低一层的实践(第 1、2 章)。
-
-**MCP(Model Context Protocol,模型上下文协议)** — 一个开放的客户端-服务器标准,用于把工具、资源和提示暴露给 agent,使任何兼容客户端都能发现并调用它们,无需定制集成(第 4 章)。
-
-**A2A(Agent-to-Agent protocol)** — 用于不透明 agentic applications 之间委托的协议边界;它与主要向单个 agent runtime 暴露工具和上下文的 MCP 互补(第 4 章)。
-
-**Protocol boundary(协议边界)** — 工具或 agent 标准跨越的集成线:model-to-function、agent-to-external-capability、agent-to-agent、agent-to-repo/environment(第 4 章)。
-
-**Tool call(工具调用)** — 模型发出的结构化输出(通常是 JSON),指明工具名和参数。由确定性的 harness 代码决定如何处理(见《LLM Foundations》第 12 章)(第 4、8 章)。
-
-**结构化输出(structured output)** — 被约束成机器可读形状的模型输出,通常是 JSON 或 XML,便于软件可靠解析。工具调用是它在 agent 系统中的典型形式(见《LLM Foundations》第 12 章)(第 1、4、8 章)。
+**ETCLOVG** — 一种综述分类：Execution、Tools、Context、Lifecycle、Observability、Verification、Governance。本书把它用作组织视角，而不是行业标准（[第 1 章](./01-what-is-an-agent-harness.md)）。
 
 ---
 
-## 上下文与记忆
+## Context、检索、状态与证据
 
-**Context window(上下文窗口)** — 模型在一次推理调用中能关注的有限 token 跨度(见《LLM Foundations》第 9 章)。在 harness 中,它是每个系统提示、工具结果和历史轮次都要争抢的预算(第 2 章)。
+**上下文（Context）** — 单次模型调用可见的 token 或多模态 representation。它是有限的，也不是持久 workflow state。
 
-**Context rot** — 随着上下文变长,模型准确回忆和使用信息的能力下降(见《LLM Foundations》第 9 章)。其 harness 视角:它是首要的运行约束,在本书中以 attention budget 来刻画(第 2 章)。
+**上下文窗口（Context window）** — 一次调用的 model/provider-specific 最大输入加输出跨度；实际可靠性可能在硬上限之前下降（[Foundations 第 9 章](../llm-foundations-zh/09-context-window-and-kv-cache.md)）。
 
-**Attention budget(注意力预算)** — 把上下文视为有限资源、每个新增 token 都在花费它的视角(第 2 章)。
+**单次请求 KV 缓存（Per-request KV cache）** — 一次 generation 内为已经处理的 token 复用 key/value state。模型机制见 [Foundations 第 9 章](../llm-foundations-zh/09-context-window-and-kv-cache.md)。
 
-**KV-cache** — 对已处理 token 的 key/value 张量的缓存(见《LLM Foundations》第 9 章)。相同的上下文前缀可由它服务,把首 token 延迟和成本降低约十倍;在 harness 中,前缀稳定性成为一个生产成本杠杆(第 2 章)。
+**Provider Prompt Cache** — Provider 跨独立请求复用合格 prompt prefix 的契约。匹配、TTL、billing 与 data control 都由 provider 决定（[OpenAI](https://developers.openai.com/api/docs/guides/prompt-caching)；[Anthropic](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)）。它不是 per-request KV cache 的同义词。
 
-**Prefill / decode(预填充/解码)** — prefill 是处理输入提示,decode 是生成输出 token(见《LLM Foundations》第 9 章)。Agentic 工作负载严重偏向 prefill(输入输出比约 100:1)(第 2 章)。
+**应用响应缓存（Application response cache）** — 应用按照自己的 key 与 invalidation 规则，对完全相同且 scope-compatible 的请求复用最终响应。
 
-**Lost-in-the-middle** — 模型对长上下文中段信息的关注,不如对开头和结尾可靠的倾向(见《LLM Foundations》第 9 章)(第 2、3 章)。
+**语义缓存（Semantic cache）** — 对语义相似请求复用响应。Similarity 只是一个 gate；tenant、user/auth scope、model、prompt、tool、retrieval、policy version、freshness 与 risk 也必须兼容（[Azure semantic caching](https://learn.microsoft.com/en-us/azure/api-management/azure-openai-enable-semantic-caching)；[Azure cache policy](https://learn.microsoft.com/en-us/azure/api-management/cache-lookup-policy)）。
 
-**Compaction(压缩)** — 在对话接近上下文上限时将其总结,并用该总结重新开启一个新窗口。有损(见《LLM Foundations》第 9 章)(第 3 章)。
+**检索管线（Retrieval pipeline）** — Source ingestion → parse/chunk → metadata 与 ACL → versioned index → query → dense/lexical retrieval → fusion/reranking → context assembly → citation/provenance → outcome evaluation（[第 4 章](./04-production-retrieval-grounding.md)）。
 
-**Context reset(上下文重置)** — 完全清空上下文,用结构化 handoff 启动一个全新 agent——区别于原地压缩(第 7 章)。
+**证据条目（Evidence item）** — 检索内容与 `source_id`、`source_version`、`chunk_id`、`content_hash`、`index_version`、`acl_scope` 等标识一起传递的单元，使 claim 可追溯、权限可复查。
 
-**Just-in-time retrieval(即时检索)** — 通过轻量引用(文件路径、查询、链接)按需把数据加载进上下文,而不是预先 embed 一切(第 2 章)。
+**Grounding** — 回答或 action 与所提供 evidence 之间的关系。Retrieval correctness、grounding/citation correctness 与最终 task outcome 是不同测量层。
 
-**Recitation(反复复述)** — 反复把目标或 todo list 重写到上下文尾部,使其留在模型最近的注意范围内(第 3 章)。
+**压缩（Compaction）** — 有损 context transformation：把选定的 decision、constraint、open work、artifact pointer、provenance 与 uncertainty 保存在较小 representation 中（[第 5 章](./05-compaction-memory-context-handoffs.md)）。Foundations 第 9 章解释 context 为何有限，但不定义 compaction algorithm。
 
-**结构化笔记(agentic memory)** — 让 agent 把进度笔记写到磁盘,以便上下文重置后重新加载(第 3 章)。
+**记忆（Memory）** — 为未来调用可能使用而保存的信息产品。它需要 scope、provenance、authority、freshness、update、access 与 forgetting 规则。
 
-**MemGPT** — 一种记忆架构,把上下文窗口当作 OS 式的“主存”、把外部存储当作“磁盘”,让模型通过函数调用把信息换入换出(虚拟上下文管理)(第 3 章)。
+**执行状态（Execution state）** — 当前 step、pending action、budget、lease、approval status 等权威结构化 workflow state（[第 10 章](./10-state-event-history-production-factors.md)）。
 
-**Mem0** — 一层记忆:跨会话动态抽取、整合并检索显著事实,并有可选的图变体捕获实体关系(第 3 章)。
+**事件历史（Event history）** — 在明确 replay contract 下，足以恢复 workflow 的有序持久 accepted-event 记录。Temporal 把 Event History 作为 workflow 的恢复记录（[Temporal](https://docs.temporal.io/workflow-execution/event)）。
 
-**Sleep-time compute(睡眠期计算)** — 在请求之间离线处理上下文——预判可能查询并预计算推断——以削减后续查询所需的计算(第 3 章)。
+**检查点（Checkpoint）** — 位于已知 history position 的可恢复状态，以及继续执行所需的引用、版本与 resume contract。它不是完整因果历史。
 
-**Persistent memory poisoning(持久记忆投毒)** — 不可信内容被提升进持久记忆、并在之后被当作可信状态的攻击,使一次注入能跨过 context reset 操纵未来运行(第 3、5 章)。
+**产物（Artifact）** — 文件、diff、报告、dataset、build、screenshot 或 test result 等可寻址工作产物。
 
----
+**Trace** — 由 span、event、attribute、status、link 与 timestamp 组成的 observability 数据；它可以被 sampling（[OpenTelemetry Trace API](https://opentelemetry.io/docs/specs/otel/trace/api/)）。Trace 不会自动成为 event history、eval trajectory、cost ledger 或 audit record。
 
-## 子代理与工作流
+**Eval Transcript / Trajectory** — 为一次 trial 评分而保存的完整 model、tool、observation、artifact 与 outcome 记录。只有 grader 所需证据完整时，才能由 tracing 派生（[第 11 章](./11-evaluation.md)）。
 
-**Sub-agent(子代理)** — 在自己的上下文窗口内处理聚焦任务、只向父代理返回浓缩摘要的专门 agent(第 3 章)。
+**审计记录（Audit record）** — 具有明确 content、identity、timestamp、integrity、access、review 与 retention 的受保护问责记录。NIST 把这些属性分别列为控制要求（[NIST SP 800-53 Rev. 5](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final)）。
 
-**Context firewall(上下文防火墙)** — 子代理模式的一个性质:父代理永远看不到子代理的中间噪声,只接收其浓缩结果(第 3 章)。
+**血缘（Lineage）** — 连接 identity、version、input、artifact、policy decision、approval、action 与 verified outcome 的 provenance graph。
 
-**Orchestrator-workers** — 一种工作流:中心 LLM 动态分解任务、委托给 worker LLM,并综合结果(第 6 章)。
+**上下文重置（Context reset）** — 从结构化 handoff 开始新的模型 context，而 durable execution state 与 artifact 仍保存在模型外。
 
-**Evaluator-optimizer** — 一种工作流:一个 LLM 生成、另一个 LLM 批评,循环往复直到满足评价标准(第 6 章)。
-
-**Micro-agent(小代理)** — 嵌入在确定性工作流中的小而聚焦的 agent(约 3-20 步),而非开放式"loop until done"的 agent(第 6、8 章)。
-
-**Multi-agent topology(多代理拓扑)** — 多代理系统的协调形态:orchestrator–worker、hierarchical、blackboard/shared-memory,或 debate/voting(第 3、6 章)。
-
-**MAST(多代理系统失败分类法)** — 一套经验性的多代理失败分类,含 14 种失败模式,分三大类:规格问题、代理间错位、任务验证(第 3 章)。
-
-**Trust escalation(信任升级)** — 一种委派失败:高权限 parent 接受低权限 worker 的说法,再用 worker 不曾拥有的权限采取行动(第 3、18 章)。
-
-**推理 / 自我纠错模式** — 单个 agent 用 token 换可靠性的思考模式:Reflexion(自我批评记忆)、Self-Refine(批评并修订)、CRITIC(工具落地的批评)、Tree of Thoughts 与 LATS(分支搜索)、ReWOO(先规划再执行)(第 6 章)。
+**上下文防火墙（Context firewall）** — 把 worker 的中间 context 与 parent 隔离。它能减少 context pollution，但不会提高 worker 的信任或权限；返回 claim 仍需 evidence 与 verification。
 
 ---
 
-## 工具与沙箱
+## 工具、授权与运行时执行
 
-**Namespacing(命名空间)** — 把相关工具放在共同前缀下(`asana_*`、`browser_*`),防止命名冲突并支持按组 masking(第 4 章)。
+**工具调用 / 动作提议（Tool call / action proposal）** — 指明工具与参数的结构化模型输出。Application code 决定是否以及如何执行（[Anthropic - How Tool Use Works](https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works)）。
 
-**Action masking(动作掩码)** — 在上下文中保持完整工具集稳定,同时根据当前状态约束哪些动作可被选择(第 2 章)。
+**调用生命周期（Invocation lifecycle）** — Proposal → stream completion → parse → schema validation → semantic validation → authorization → 必要时 mandatory approval → idempotency/dedup → execution → timeout/cancellation handling → result normalization → observation → outcome confirmation（[第 6 章](./06-tools-invocation-lifecycle.md)）。
 
-**Progressive disclosure(渐进披露)** — 只在需要时加载工具定义、文件或指令,而不是一次性全部前置(第 4 章)。
+**Schema validity** — Action 是否符合声明的 machine-readable shape。它不建立 semantic correctness、authorization 或安全后果。
 
-**Skill** — 由文件支撑的可复用能力(通常是一个 `SKILL.md` 加上配套代码),agent 可按需加载(第 4 章)。
+**Semantic validity** — 规范化参数对当前 task、resource 与 state 是否合理。
 
-**代码执行(作为元工具)** — 把工具呈现为 agent 通过写代码来调用的代码 API,而不是直接调用——大幅降低 token 成本(第 4 章)。
+**执行结果（Execution result）** — Executor 对 attempted action 返回的内容。即使 intended environment outcome 没有发生，它也可能返回成功；timeout 后也可能是 unknown。
 
-**Programmatic tool calling(程序化工具调用)** — 让模型编写有界程序,在 runtime 内过滤、连接、排序、去重、聚合或验证工具结果,从而减少模型往返与上下文传输(第 4 章)。
+**Outcome** — Action 或 trial 之后经过验证的 environment/business state；不同于模型自述与 executor 的即时响应。
 
-**Shell** — Bash、zsh 这类命令行接口。在 agent 系统中,shell 访问很强大,因为它让 agent 可以运行测试、检查文件、安装包,并临时组合工具(第 1、4、5 章)。
+**幂等键（Idempotency key）** — Caller 提供给兼容 service、用来 deduplicate 等价 mutation attempt 的标识。它可以减少重复 effect，但不能替代 outcome verification。
 
-**文件系统(filesystem)** — agent 可以读写的目录和文件。它既是工作区,也是持久记忆,还是 agent 与人类协作的界面(第 1、2、5 章)。
+**MCP（Model Context Protocol）** — 一种 client/server protocol；server 在自身实现与 access control 下暴露 tool 等 capability。Tool list 可以变化，因此 discovery 不能替代 invocation-time authorization（[MCP Tools Specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)）。
 
-**Sandbox(沙箱)** — 带有文件系统和网络边界的隔离环境,agent 可在其中自由行动而无需逐动作审批(第 5 章)。
+**A2A（Agent-to-Agent protocol）** — Agentic application 之间进行 delegation 与 coordination 的协议边界；它不同于向单个 agent runtime 暴露 tool 的边界。
 
-**Sandbox liveness(沙箱活性)** — 沙箱作为授权区域的作用:agent 可在配置边界内行动而无需逐动作审批(第 5 章)。
+**沙箱（Sandbox）** — 具有明确 filesystem、network、credential、process 与 persistence 边界的隔离执行环境。它限制 blast radius，并建立允许已授权 action 运行的区域（[第 7 章](./07-sandboxing-runtime-enforcement.md)）。
 
-**Governance(治理)** — 管理身份、权限策略、scoped credentials、人类审批、审计日志和跨层安全问责的 harness 机制(第 5、18 章)。
+**能力授予（Capability grant）** — 在给定 identity、purpose、environment、audience 与 expiry 条件下，对某项 resource operation 的 scoped authority。
 
-**Agentic readiness** — 一个系统是否适合自治调用者安全理解和操作的程度:幂等 mutation、明确 operation state、machine identity、清楚的 retry 语义、可观察 outcome 与补偿操作(第 5 章)。
+**委托授权（Delegated authorization）** — 从 user/service 派生的短期、audience-bound、purpose-bound authority。继续 delegation 可以收窄，但不能静默扩大权限。
 
-**Delegated auth(委托授权)** — Agent 通过 scoped credentials 或 proxy-authorized identity 行动,而不是继承用户完整环境权限的模式(第 5 章)。
+**指令优先级（Instruction priority）** — 模型可见 instruction 的预期行为顺序。它是 defense in depth，不是 authorization 或执行保证；hierarchy evaluation 研究仍会测量 conflict failure（[Instruction Hierarchy](https://arxiv.org/abs/2404.13208)；[IHEval](https://arxiv.org/abs/2502.08745)）。
 
-**Supply-chain provenance(供应链来源证据)** — 关于 agent 所依赖的 tools、packages、datasets、MCP servers 和 retrieval sources 的来源与完整性证据(第 5、18 章)。
+**模型可见策略（Model-visible policy）** — 放入模型 context、用于引导行为并帮助模型提出合规 action 的 instruction 与 explanation。
 
-**Hook / middleware(中间件)** — 由 harness 在生命周期事件(启动、工具调用后、停止)自动执行的脚本或检查点,确定性地强制规则(第 5 章)。
+**可执行策略（Executable policy）** — 由外部软件在受保护 action path 上计算并执行的规则。
 
-**Feedforward / feedback(前馈/反馈)** — 前馈控制(guides)在 agent 行动前引导它;反馈控制(sensors)在它行动后观察并帮助自我修正(第 5 章)。
+**策略决策点（Policy decision point，PDP）** — 根据 subject、action、resource、purpose、environment 与 policy 计算决策的组件（[NIST Zero Trust Glossary](https://pages.nist.gov/zero-trust-architecture/glossary.html)）。
 
-**Computational / inferential control(计算型/推断型控制)** — 计算型控制(linter、类型检查器)确定且快;推断型控制(AI review、LLM-as-judge)能处理细微判断,但更慢、非确定(第 5 章)。
+**策略执行点（Policy enforcement point，PEP）** — 对 protected-resource request 不可绕过地落实 policy decision 的组件。Prompt 不是 PEP（[NIST Zero Trust Glossary](https://pages.nist.gov/zero-trust-architecture/glossary.html)）。
 
-**Ambient affordances(环境可供性)** — 环境本身的属性(强类型、清晰模块边界、有立场的框架),使代码库对 agent 更易理解和处理(第 5 章)。
+**建议型 Hook（Advisory hook）** — 补充 context、告警或要求模型重新考虑，却不一定阻止 dispatch 的 lifecycle hook。
 
-**CI(持续集成)** — 围绕代码变更自动运行的检查,通常包括测试、linter、构建和部署关卡。在 harness 设计中,这类检查会成为反馈型 sensor(第 5、9 章)。
+**阻断执行（Blocking enforcement）** — 每个相关 action 必经、deny 会阻止 dispatch、且没有替代路径可以绕过的 control。
 
-**Linter / type checker(linter / 类型检查器)** — 在运行前发现风格、语法、结构或类型错误的确定性工具。它们是外层 harness 中常见的计算型 sensor(第 5 章)。
+**审批请求 / 咨询（Approval request / consultation）** — 模型或 workflow 提出的人类输入请求。它是有用的 orchestration，但本身不是硬安全 gate。
 
-**Prompt injection(提示注入)** — 一种攻击:藏在 agent 所读内容(网页、文件、工具结果)中的指令被模型当作命令执行(见《LLM Foundations》第 8、12 章)(第 5 章)。
+**强制审批门（Mandatory approval gate）** — Policy 通过 runtime/PEP 在 protected dispatch 前强制插入的 gate，与模型是否主动请求无关。Approval 绑定 reviewer 看到的 identity、resource、normalized arguments、policy version、constraint 与 expiry（[MCP Tools Specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)）。
 
-**Lethal trifecta(致命三要素)** — 同一 agent 同时具备:访问私有数据、接触不可信内容、向外通信能力——这三者的危险组合(第 5 章)。
-
-**Circuit breaker(熔断器)** — 一个可靠性包装:在失败达到阈值后跳闸,让后续对失败工具、服务或子代理的调用快速失败,而不是挂起或重试成风暴(第 5 章)。
-
-**Kill switch(终止开关)** — 由人或策略触发的停止,立即且独立于 agent 自身控制流地终止一个 agent 或 fleet;它存在于 harness 中,因为被操纵的 agent 不能被指望停下自己(第 5 章)。
-
-**Canary token(金丝雀令牌)** — 一份被种下的假机密(未使用的 key、诱饵文件、陷阱 URL),其被访问或外泄会触发高信号警报,表明 agent 已被操纵——对 lethal-trifecta 外泄路径的检测(第 5 章)。
-
-**Action budget(动作预算)** — 对工具调用、token、墙钟时间或花费设的硬性上限,达到后循环停止并上报,而非失控奔跑(第 5、8、17 章)。
+**致命三要素（Lethal trifecta）** — Private-data access、untrusted content 与 external communication 三者组合的实践者术语。它是 threat-model heuristic，不是正式安全标准（[第 7 章](./07-sandboxing-runtime-enforcement.md)）。
 
 ---
 
-## 评估
+## 路由与工作流控制
 
-**Eval harness(评估 harness)** — 端到端运行评估的基础设施;区别于被评估的 agent harness(第 10 章)。
+**路由器（Router）** — 在执行 target 前，按照声明的 quality、cost、latency、capability 与 governance feature 选择 route target 的 policy。
 
-**Readiness validation(就绪验证)** — 验证某个具体 model + harness 配置是否适合特定任务分布、环境、预算和治理规则(第 10 章)。
+**路由目标（Route target）** — Model + adapter + tool contract + reasoning policy 的组合，而不只是 model name。
 
-**Failure attribution(失败归因)** — 在选择修复方式前,先把 agent 失败标注到最可能的问题层:execution、tool interface、context、lifecycle、observability、verification 或 governance(第 10、12 章)。
+**质量级联（Quality cascade）** — 先尝试较低成本 target，评估结果后，在 acceptance signal 拒绝时升级到更强 target。
 
-**Task / trial(任务/试验)** — *task* 有定义好的输入和成功标准;*trial* 是对它的一次尝试(第 10 章)。
+**可靠性回退（Reliability fallback）** — Timeout、rate limit、provider error 等 availability failure 后切换 target；切换前必须检查 compatibility 与 side effect。
 
-**Grader** — 为试验某个方面评分的组件:code-based、model-based 或 human(第 10 章)。
+**对冲（Hedging）** — 启动多个兼容 attempt 来降低 tail latency，并明确 winner、cancellation、cost 与 side-effect semantics。
 
-**Evaluator integrity** — 评测系统自身的可信度,由盲评、确定性证据、abstention、calibration、meta-eval、版本化与可复现 audit artifact 支撑(第 10 章)。
+**人工升级（Human escalation）** — 把 uncertainty、incompatibility、policy conflict 或高 consequence 交给人，而不是静默换模型。
 
-**Transcript(trace、trajectory)** — 一次试验的完整记录:每条消息、工具调用和结果(第 10、12 章)。
+**兼容性门（Compatibility gate）** — 检查 fallback target 的 modalities、context limit、tool protocol/schema、structured output、continuation state、safety policy、latency envelope 与 data region 是否兼容（[第 8 章](./08-model-selection-routing-reasoning.md)）。
 
-**Outcome(结果状态)** — 试验结束时的最终环境状态,区别于 agent 的文本回应(第 10 章)。
+**推理策略（Reasoning policy）** — 对 reasoning effort、continuation、token accounting 与 allowed disclosure 的 provider-specific control/budget。它不是 hidden reasoning 的可移植 representation。
 
-**Capability eval / regression eval** — capability eval 衡量 agent 新近能做什么(通过率低、正在爬升);regression eval 保护它已能可靠做到的事(接近 100%)(第 10 章)。
+**确定性工作流（Deterministic workflow）** — 外部 code 拥有 sequencing 与 state；model call 填充有界 step。
 
-**pass@k / pass^k** — pass@k 是 k 次尝试中至少一次成功的概率(随 k 上升);pass^k 是 k 次试验*全部*成功的概率(随 k 下降)(见《LLM Foundations》第 13 章)(第 10 章)。
+**模型驱动循环（Model-directed loop）** — 模型选择下一项 proposed action；harness 负责 state、authorization、execution、stop rule 与 outcome check。
 
-**Infrastructure noise(基础设施噪声)** — 由运行时资源配置(而非模型能力)造成的 benchmark 分数波动(第 11 章)。
+**混合工作流（Hybrid workflow）** — 在确定性结构内部放置有边界的 model-selected branch 或 loop。
 
----
-
-## 长运行代理与领域
-
-**交接班问题(shift-change problem)** — 由于上下文窗口有限,后续 agent session 到来时对之前的 session 毫无记忆这一挑战(第 7 章)。
-
-**Initializer agent** — 只运行一次、为后续 coding agent session 搭好项目(init 脚本、进度日志、feature list)的 agent(第 7 章)。
-
-**Managed agent** — 平台管理的 agent 架构,把模型侧 brain、执行侧 hands 和持久 session/event log 分开,使它们能独立失败、重置或迁移(第 7 章)。
-
-**Brain / hands split** — Managed-agent 中决策上下文(brain)与可替换执行环境(hands)的分离(第 7 章)。
-
-**Sprint contract** — generator 与 evaluator 两个 agent 之间基于文件的约定,在每个构建 sprint 前敲定要构建什么、如何验证成功(第 7 章)。
-
-**Event log(事件日志)** — 对消息、工具调用、结果、审批和错误的追加式记录。执行状态可以从中推导出来,因此 agent 更容易重放和调试(第 9 章)。
-
-**Agent platform** — 超出本地 framework 的基础设施:跨多次运行和多用户的 durable workspaces、managed sandboxes、identity、billing、observability、evaluation、governance 和 human handoff(第 9、18 章)。
-
-**Checkpoint / resume(检查点/恢复)** — 一种可靠性模式:agent 定期保存足够状态,以便在失败或上下文重置后继续工作而不丢进度(第 7、9 章)。
-
-**Durable execution(持久化执行)** — 一种基础设施保证:把每个工作流步骤持久化,使崩溃或被中断的 agent 从最后记录的一步恢复;非确定的模型/工具调用被记录并重放,而非重算(第 7 章)。
-
-**Time horizon(时间视野)** — METR 的能力指标:模型以 50% 可靠性能完成的人类任务长度;前沿值大约每七个月翻一番(第 7、19 章)。
-
-**Stateless reducer(无状态归约器)** — 把 agent 建模为对 event log 的纯 fold,使其可序列化、可重放、可测试(第 9 章)。
-
-**Model-harness co-evolution(模型与 harness 共同演化)** — frontier 模型在其 harness 一起参与的情况下 post-train 所形成的耦合,因此改变任一侧都可能损害性能(第 12 章)。
-
-**Span telemetry** — 以 span tree 表示的结构化 trace 数据,覆盖 model calls、tool calls、retrieval、context assembly、permissions、costs 和 outcomes(第 12 章)。
-
-**OpenTelemetry GenAI semantic conventions** — 一套新兴的、面向 LLM 与 agent 遥测的标准 span 与属性名 schema(`invoke_agent`、`chat`、`execute_tool` span),让 agent trace 加入普通可观测栈(第 12 章)。
-
-**Trace-to-eval loop** — 把真实生产失败转换成脱敏、可复现、带 outcome assertion 的 regression case(第 12 章)。
-
-**Controlled self-improvement(受控自我改进)** — 一条外部、版本化回路:把经过审查的生产纠正变成有界 change task,用 eval gate、canary 与 rollback 发布,而不是允许 deployed agent 原地修改自己(第 12、17 章)。
-
-**Meta-harness** — 把 harness 设计本身当作优化对象:用 eval feedback 消融或搜索 prompts、tools、retries、context policies、evaluators 和 control loops(第 12 章)。
-
-**Cost-quality-speed trilemma(成本-质量-速度三难)** — 更强 execution environment、observability、verification 和 governance 会提高可靠性,但也增加成本和延迟(第 19 章)。
-
-**Capability-control tradeoff(能力-控制权衡)** — 更多权限、工具、记忆和自治会提升能力,同时扩大控制、provenance 和审计问题(第 18、19 章)。
-
-**Ralph Wiggum loop** — 一个 hook,拦截 agent 的退出尝试,并在干净的上下文窗口中重新注入原始 prompt,迫使它继续对照目标工作(第 7、8 章)。
-
-**Loop engineering(循环工程)** — 把 agent loop 本身当作设计单元:规定环绕模型的 trigger、topology、verifier 和 stop rule,使它能无人值守地运行。这是外层控制循环的运维者视角(第 8 章)。
-
-**Trigger(触发器 / heartbeat)** — 无需人类 prompt 就启动一趟 loop 的东西:一个 schedule、一个 webhook,或另一个 agent(第 8 章)。
-
-**Verifier(验证器 / maker–checker)** — 决定“够好了”的固定标准,由一个不同于产出工作的 agent 来施加,使 maker 不能批改自己的作业;是 loop 设计的瓶颈(第 8 章)。
-
-**Stop rule(停止规则)** — 结束一个 loop 的明确条件——success、no-op、ask-for-approval——外加兜住失控的三个硬停:最大迭代次数、无进展检测、预算上限(第 8 章)。
-
-**Closed vs. open loop(闭环与开环)** — 闭环预先钉死硬的、可检查的验收标准,放着跑是安全的;开环朝模糊目标探索,需要一个更强的 verifier,否则会 ship 出自信的垃圾(第 8 章)。
+**Orchestrator–workers** — Orchestrator 提出分解并委托有边界工作；外部 state 与 handoff contract 保存 evidence 与 recovery 信息的模式（[第 9 章](./09-agentic-workflow-patterns.md)）。
 
 ---
 
-## 指令与模型选择
+## 评估与验证
 
-**Instruction hierarchy(指令层级)** — 指令按来源带有不同权威——system 高于 developer 高于 user 高于工具/检索内容——使低优先级指令无法覆盖高优先级指令。Prompt injection 就是这一层级的失效(第 13 章)。
+**任务 / 试验（Task / trial）** — Task 定义 input、environment、constraint 与 success criteria；trial 是对该 task 的一次 attempt。
 
-**Right altitude(合适的高度)** — System prompt 的目标具体程度:具体到能可靠引导行为,一般到能跨情况迁移,既不沦为脆弱的硬编码规则,也不流于含糊指引(第 13 章)。
+**评分器（Grader）** — 测量 trial 某一项声明属性的 code-based、model-based 或 human component。
 
-**Model routing(模型路由)** — 给请求的难度分类,把简单的派给便宜的弱模型、把困难的派给昂贵的强模型。只有当路由决策远比它带来的节省更便宜时才划算(第 14 章)。
+**过程 / 轨迹评分（Process / trajectory grading）** — 检查 action、policy use、tool argument、budget 或 recovery behavior，不假定 final artifact 正确。
 
-**LLM cascade(级联)** — 先试便宜模型,只在 verifier 否决便宜答案时才升级到更强的模型。升级信号可靠时,能以更低成本匹配强模型准确率(第 14 章)。
+**产物评分（Artifact grading）** — 检查 code、report、dataset 等可寻址 output。
 
-**Fallback(回退)** — 当主模型出错、超时或被限流时切换到备用模型,使 agent 优雅降级(第 14 章)。
+**环境状态评分（Environment-state grading）** — 检查执行后的实际外部状态，而不是相信 agent final message。
 
-**AI gateway(AI 网关)** — 位于 harness 与各模型供应商之间的基础设施组件,对外呈现一个统一接口覆盖多个模型,并承载路由、fallback、预算、缓存和日志(如 LiteLLM、Portkey)(第 14、17 章)。
+**用户 / 业务结果评分（User / business outcome grading）** — 测量对用户或组织真正重要、可能延迟出现的产品结果。
 
-**Reasoning model(推理模型)** — 经过 post-training(通常是在可验证奖励上做 RL),学会在回答前生成很长内部推理、用 inference token 换困难任务上更好表现的模型(第 14 章;*LLM Foundations* 第 7–8 章)。
+**pass@k / pass^k** — `pass@k` 测量 `k` 次 attempt 中至少一次成功的概率；`pass^k` 测量全部 `k` 次一致成功。应按 product contract 选择指标并报告 uncertainty（[Foundations 第 13 章](../llm-foundations-zh/13-evaluation-for-llm-behavior.md)；[第 11 章](./11-evaluation.md)）。
 
-**Test-time compute** — 在回答时花更多 inference token、时间和金钱以在困难问题上做得更好——区别于更大模型或更多硬件的一条 scaling 轴(第 14 章)。
+**验证器层级（Verifier hierarchy）** — Schema check → deterministic test/linter → environment outcome check → same-agent critique → independent model grader → human review。按 consequence、ambiguity、correlated failure、latency 与 cost 选择；并非所有任务都必须使用另一个 agent（[第 13 章](./13-loop-engineering.md)）。
 
----
+**基础设施噪声（Infrastructure noise）** — Hardware、resource limit、disk/network behavior、image/dependency、cache、parallelism 或 timeout 导致的分数变化，而不是被测 agent change 的影响（[Anthropic - Infrastructure Noise](https://www.anthropic.com/engineering/infrastructure-noise)）。
 
-## 人类交互
-
-**Permission fatigue(许可疲劳)** — 当 agent 过于频繁请求批准时监督的退化,把人训练成不读就盖橡皮图章(第 5、14 章)。
-
-**Mixed-initiative(混合主动)** — 一种交互风格:系统逐动作决定是自主行动还是让步给人,并管理打断的代价(第 15 章)。
-
-**Approval as a tool call(批准即工具调用)** — 把人类批准建模为 agent 调用的一个工具,使请求成为持久、可重放、可审计、并与挂起/恢复组合的事件(第 15 章)。
-
-**Steering(引导)** — 把一条新指令注入正在运行的 agent,使其在下一回合被纳入,从而在不丢 session 状态的前提下重定向(第 15 章)。
-
-**Calibrated trust(校准过的信任)** — 人接口的目标:人对 agent 的信任恰好等于它在给定任务上配得到的程度,通过透明和扎根于验证的不确定性、而非流畅度来实现(第 15 章)。
+**发布证据包（Release evidence packet）** — 用于 release decision 的 pinned model-plus-harness configuration、per-slice trial result、uncertainty、grader version/calibration、failure、policy check 与 approval。
 
 ---
 
-## Computer-Use Agent
+## 长运行任务、人类交互与 Computer Use
 
-**Computer-use agent** — 通过 GUI 操作软件的 agent——查看截图并发出光标、键盘和导航动作——而不是调用定义好的 API(第 16 章)。
+**持久执行（Durable execution）** — 持久化 progress，使 run 能在 process、worker、network 或 infrastructure failure 后恢复。Replay 复用 recorded model/tool output，而不是重新生成（[第 10 章](./10-state-event-history-production-factors.md)）。
 
-**Visual grounding(视觉接地)** — 把意图(“点击 Submit”)翻译成具体动作(在特定坐标点击);一种在 API 工具里没有对应物的错误模式(第 16 章)。
+**交接（Handoff）** — 包含 completed work、verified evidence、open risk、next action、artifact pointer 与 permission context 的 transfer package。
 
-**Set-of-Mark prompting** — 在候选可交互元素上叠加编号标记,让模型选择离散标签而不是产出裸坐标,提升 grounding 可靠性(第 16 章)。
+**停止规则（Stop rule）** — 在 success、budget exhaustion、no progress、repeated failure、policy deny、human cancel 或 terminal environment state 时明确终止。
 
-**Accessibility tree(可达性树)** — UI 的结构化语义表示(role、label、state),为辅助技术构建;常比裸像素或 DOM 更紧凑、更精确的屏幕编码(第 16 章)。
+**动作预算（Action budget）** — 同时覆盖 token、dollar、tool call、wall time、external spend 与 retry/fallback 的硬限制。
 
----
+**引导事件（Steering event）** — 在明确 acceptance point 后改变未来 planning 的 recorded instruction；它不会追溯取消已经 dispatch 的 action。
 
-## 成本与运维
+**取消事件（Cancellation event）** — 停止未来工作并取消 compatible in-flight operation 的 recorded request；已经 commit 的 effect 可能需要 compensation。
 
-**AgentOps** — 跨 governance and security、build and operations、evaluation 与 observability 运行 agent 完整生命周期的纪律,覆盖 planning 到 retirement(第 17 章)。
+**Computer-use 工具循环（Computer-use tool loop）** — 模型提出 structured computer action；application 执行；screenshot 或其他 UI state 作为 tool result/observation 返回（[OpenAI](https://developers.openai.com/api/docs/guides/tools-computer-use)；[Anthropic](https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool)）。
 
-**Per-task budget(每任务预算)** — 对单次 agent 运行的 token、工具调用或成本设的明确上限,超过后 agent 停下来问,而不是无限循环(第 17 章)。
+**截图观察（Screenshot observation）** — 某一时点捕获的 pixel evidence。执行时它可能已经过期，也不能单独证明 post-action outcome。
 
-**Cost attribution(成本归因)** — 给 trace 的每个 span 附上 token 和美元成本,把“agent 很贵”变成一个具体、可修的工程发现(第 17 章)。
+**界面身份（Surface identity）** — Observation 与 proposed UI action 所绑定的 application、process、window/tab、frame、URL/origin、viewport、geometry 与 capture version。
 
-**Multi-tenancy / 租户隔离** — 用一个平台服务许多用户或组织,同时防止状态串味(context/记忆/缓存跨租户泄露)和权限串味(用错误租户的凭据行事)(第 17 章)。
+**观察 / 动作竞态（Observation/action race）** — Interface 在 observation 之后、dispatch 之前或期间发生变化，使基于状态 `S0` grounding 的 action 针对状态 `S1` 执行。Freshness check 与 observation barrier 用于控制该竞态（[第 15 章](./15-computer-use-multimodal-agents.md)）。
 
-**Canary rollout(金丝雀放量)** — 把 harness 改动发布给一小部分流量,在全量部署前盯住生产 trace 和 outcome 指标,接住 eval 套件漏掉的案例(第 17 章)。
+**视觉 / 坐标 Grounding（Visual / coordinate grounding）** — 把 intended UI target 映射到当前 interface state 中的 coordinate、element 或 action。
 
-**Semantic cache(语义缓存)** — 一种缓存:通过嵌入查询、在相似度超过阈值时返回已存响应,来服务*相似*(而非仅相同)的请求;能省掉整次模型调用,但有错误命中的风险(第 17 章)。
-
-**AI 管理体系(ISO/IEC 42001)** — 首个用于治理组织 AI 的可认证标准:如何建立、运行并持续改进一套 AI 管理体系——ISO 27001 的 AI 对应物(第 17 章)。
-
-**欧盟 AI 法案(EU AI Act)** — Regulation (EU) 2024/1689,首部全面的 AI 法律;它按风险层级对系统分类,并对高风险用途施加有约束力的义务(第 17 章)。
+**Accessibility tree** — UI role、label、state 与 relationship 的结构化视图；可用时很有帮助，但不保证覆盖全部可见或可执行状态。
 
 ---
 
-## Fleet、身份与控制平面
+## 运维、Fleet 与治理
 
-**Agent fleet** — 由 agent definition、version、run、sandbox、tool、identity 与 owner 组成的受治理集合,而不是一个本地配置的 agent(第 18 章)。
+**熔断器（Circuit breaker）** — 在 failure 达到阈值后使不健康 dependency 的后续 call 快速失败、避免 retry storm 的 runtime control。
 
-**Agent control plane(agent 控制平面)** — 跨 fleet 注册 agent artifact、管理 identity 与 delegated authority、强制 policy、reconcile lifecycle 并保存 lineage 与 audit 的共享基础设施;区别于真正做工作的 data plane(第 18 章)。
+**终止开关（Kill switch）** — 通过 run lifecycle、credential revocation 与 PEP denial 实现的人类或 policy stop，而不是只发送自然语言 instruction。
 
-**Agent identity** — Agentic principal 的持久 machine identity,区别于 user、sponsor、runtime process、model 与单个 session(第 18 章)。
+**Span telemetry** — Model call、tool call、retrieval、context assembly、policy、cost 与 outcome 的 trace span/attribute。
 
-**Agent registry** — Agent 与 capability definition、version、ownership、dependency、requested permission、attestation、deployment state 与 lineage 的被治理 source of truth(第 18 章)。
+**Trace-to-eval loop** — 把经过 redaction、consent/licensing review 的 production failure 变成具有完整 outcome assertion 的可复现 regression task。
 
-**Delegated authorization(委派授权)** — 从 user 或 service 派生短期、audience-bound、purpose-bound 权限给 agent;后续每次 delegation 只能收窄 grant(第 5、18 章)。
+**成本账本（Cost ledger）** — 与 run、action、provider、tool 与 external spend 关联的完整、未 sampling cost event。Sampled trace 本身不能支撑完整 ledger。
 
-**Agent gateway** — Data-plane enforcement point:评估 model、tool、MCP、A2A、egress 或 memory request 的 identity 与 execution envelope,并能 allow、deny、redact、缩小 scope、强化 isolation 或要求 approval(第 18 章)。
+**发布单元（Release unit）** — Model、prompt、tool schema/implementation、retrieval configuration/index、memory policy、sandbox image、policy、grader 与 budget 的版本化组合。
 
-**Lineage(血缘/溯源链)** — 把一次 agent action 连接到 publisher、source 与 build、configuration、identity 与 delegation chain、policy decision、trace evidence、approval 与 environment outcome 的因果图(第 18 章)。
+**Agent 身份链（Agent identity chain）** — 相互连接的 agent version、sponsor、delegator、tenant、purpose、runtime/workload identity、credential audience、expiry 与 revocation state。
 
-**Non-repudiation(不可否认性)** — 用 signed 或 integrity-protected event、timestamp 与 immutable version,提供足以把 request 与 authorization 归因到特定 workload 与 policy identity 的证据;它不能证明人理解了 approval,也不能证明模型 rationale 真实(第 18 章)。
+**Agent Registry** — Agent definition、version、owner、capability、requested authority、attestation、dependency 与 deployment state 的受治理 source of truth。
+
+**Agent Fleet** — Agent definition、release、run、runtime、identity、tool 与 owner 的受治理集合，而不是单一 local agent instance。
+
+**AgentOps** — 围绕 service health、agent outcome、safety/policy event、cost、privacy、release、incident 与 human escalation 的运营 discipline（[第 18 章](./18-agentops.md)）。
+
+**不可否认性（Non-repudiation）** — 把 request 或 authorization 归因到 workload/policy identity 的 integrity-protected evidence。它不证明人类理解了 approval，也不证明模型 rationale 真实。

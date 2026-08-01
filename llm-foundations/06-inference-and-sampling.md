@@ -1,114 +1,108 @@
 # Chapter 6: Inference and Sampling
 
-Inference is what happens when a trained model is used. Given a context, the model computes a probability distribution over the next token. That distribution is often represented as logits before normalization. The system then chooses a token, appends it to the context, and repeats.
+Inference is the use of a trained model to compute outputs without updating its parameters. Given a token context, the model produces a score, called a **logit**, for every token in its vocabulary. A decoding rule turns those scores into a token choice. The chosen token is appended to the context, and the process repeats.
 
-This loop is why generation appears word by word. It is also why generation is sensitive to decoding settings.
+This chapter follows that path from logits to a complete generated sequence.
 
-## Greedy Decoding and Sampling
+## What Inference Computes
 
-The simplest strategy is greedy decoding: always choose the highest-probability next token. Greedy decoding can be stable, but it can also be dull, repetitive, or trapped by local choices.
+For a context \(x_{1:t}\), a decoder-only Transformer produces a vector of next-token logits \(z\), with one value for each vocabulary token. Logits are relative scores, not probabilities. Softmax converts them into a probability distribution:
 
-Sampling chooses from the distribution. Temperature scales the logits before the softmax, which adjusts how sharp or flat the distribution is. At `t=1` the distribution is exactly the one the model was trained to produce. As `t` approaches 0 the distribution collapses onto its single most likely token, so `t→0` is effectively greedy decoding (argmax); the `temperature=0` exposed by most APIs corresponds to the greedy decoding above. Above `t=1` the distribution flattens, giving lower-probability tokens more chance. Top-p, or nucleus, sampling restricts choices to the smallest set of tokens whose cumulative probability crosses a threshold, then samples within that set; Holtzman et al. introduced nucleus sampling as a response to repetitive degeneration in neural text generation ([The Curious Case of Neural Text Degeneration](https://arxiv.org/abs/1904.09751)).
+```text
+p_i = exp(z_i) / sum_j exp(z_j)
+```
 
-For creative writing, variation is useful. For code edits, data extraction, compliance workflows, or evals, variation can be harmful. Harnesses should set decoding parameters intentionally instead of inheriting defaults.
+Higher logits produce higher probabilities, but every probability also depends on the other logits in the vector. Ordinary inference performs forward computation through the existing parameters; it does not run backpropagation or update the checkpoint.
 
-Karpathy distinguishes training from inference repeatedly: once a neural network is trained, inference is the act of running it forward to produce predictions ([Deep Dive, around 00:26:12](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=1572s)). There is no parameter update during ordinary inference. The model is not learning from the user's message in the weight-update sense. It is conditioning on the user's message in the context-window sense.
+The context can change a model's output without changing its parameters. A fact mentioned earlier in the current input can influence the next-token distribution because the model conditions on that input. This temporary conditioning is different from learning the fact into the weights or storing it as durable memory.
 
-This distinction matters for user expectations. A model may "remember" something in the current conversation because it is still in context. That is not the same as updating its parameters or writing durable memory.
+## From Logits to a Token
 
-## Determinism Is Not Truth
+**Greedy decoding** selects the token with the highest probability. Given exactly the same logits, transformations, and tie-breaking rule, greedy decoding makes the same next-token choice. It can nevertheless produce repetitive or locally attractive continuations because each step commits to one token without considering every possible complete sequence.
 
-A deterministic output is not necessarily correct. It is only repeatable under the same model, context, decoding settings, and infrastructure assumptions. Conversely, a nondeterministic output is not necessarily bad. Some tasks benefit from multiple samples and selection.
+**Sampling** draws a token from a probability distribution instead of always taking the maximum. Temperature commonly modifies the distribution as
 
-A common mistake is to assume that `temperature=0` or greedy decoding guarantees identical outputs across API calls. It does not. Hosted inference batches requests dynamically, and floating-point addition is not associative, so the same logits can come out slightly different depending on how a request is batched with others. Kernel and code paths can vary across hardware or server versions, and a Mixture-of-Experts model can route the same token to different experts depending on the batch it lands in. Any of these can flip a near-tie at the argmax and change a token, which then changes everything after it. Build eval replay and regression tests on semantic or structural assertions, not byte-for-byte equality of `temperature=0` runs.
+```text
+p_i(T) = softmax(z_i / T)
+```
 
-Harness engineers should distinguish:
+for \(T>0\):
 
-- **Stability**: does the system produce similar behavior under similar inputs?
-- **Correctness**: does the output satisfy the task?
-- **Calibration**: does expressed confidence match actual reliability?
-- **Robustness**: does the system hold up under prompt variation and edge cases?
+- At `temperature=1`, the logits are not rescaled, so softmax yields the model's unmodified next-token distribution.
+- For `0 < temperature < 1`, the distribution becomes sharper and high-logit tokens receive more probability.
+- For `temperature > 1`, the distribution becomes flatter and lower-logit tokens receive more probability.
+- `temperature=0` is not defined by the formula because it would divide by zero. APIs usually interpret it as greedy or argmax decoding, but the exact contract is provider-specific.
 
-Decoding settings can improve stability, but they do not replace verification.
+**Top-p sampling**, also called nucleus sampling, first sorts tokens by probability and keeps the smallest set whose cumulative probability reaches at least \(p\). It then renormalizes and samples from that set. A top-p value of `1` normally removes no tokens; it does not itself make decoding greedy. Nucleus sampling was introduced to avoid sampling from an unreliable long tail while retaining context-dependent diversity ([The Curious Case of Neural Text Degeneration](https://arxiv.org/abs/1904.09751)).
+
+Temperature and top-p are often combined, although the precise order and edge-case behavior depend on the implementation. Lower randomness can suit tasks with a narrow expected form, while broader sampling can expose alternative continuations. Neither setting determines whether the content is correct.
 
 ## The Autoregressive Loop
 
-At inference time, the loop is:
+Generation is autoregressive: every selected token becomes part of the context for the following token. In simplified form:
 
-1. Serialize the conversation and context into tokens.
-2. Run the Transformer forward.
-3. Produce logits for the next token.
-4. Apply decoding controls such as temperature, top-p, penalties, or masks.
-5. Select a token.
-6. Append it to the context.
-7. Repeat until stop.
+1. Encode the input context as tokens.
+2. Run the model to obtain logits for the next position.
+3. Apply any configured logit transformations or constraints.
+4. Select a token by greedy decoding or sampling.
+5. Append the selected token to the context.
+6. Repeat until a stopping condition is reached.
 
-This explains why output length matters. Every generated token becomes part of the next step's input. Long answers cost more than short answers not only because they contain more output tokens, but because the model repeatedly runs the next-token loop.
+The initial pass over the input is commonly called **prefill**. The subsequent one-token-at-a-time phase is **decode**. Implementations normally reuse a KV cache during decode rather than recomputing all earlier attention keys and values; [Chapter 9](./09-context-window-and-kv-cache.md) explains that distinction.
 
-For harness design, the autoregressive loop creates several controls:
+An early token choice changes the context and therefore changes all later distributions. This is why two sampled completions can diverge substantially after a small initial difference.
 
-- Use concise output contracts when downstream systems only need structure.
-- Stop generation as soon as the needed artifact is complete.
-- Avoid asking for hidden scratch work if it is not used.
-- Split long work into tool-backed steps instead of one sprawling answer.
-- Prefer code execution for exact loops over asking the model to simulate many iterations in text.
+Longer outputs require more computation because each additional output token requires another decode step. The cause is not merely that the final text contains more tokens: generation cannot produce token \(t+1\) until token \(t\) has been selected and appended.
 
-## Stop Conditions and Output Contracts
+## Stopping Generation
 
-Generation must stop. It may stop because the model emits an end token, reaches a maximum token limit, or matches a stop sequence. Bad stop conditions cause subtle failures: truncated JSON, incomplete code, missing citations, or rambling outputs.
+A generation can stop for several reasons:
 
-For harness work, output contracts should be explicit:
+- The model emits an end-of-sequence token.
+- The configured maximum number of output tokens is reached.
+- A configured stop sequence is encountered.
+- The serving API ends generation for another documented, provider-specific reason.
 
-- Use schemas when downstream code parses the response.
-- Validate structured outputs before acting on them.
-- Retry with error feedback when validation fails.
-- Keep maximum output tokens large enough for the task but small enough to control cost.
-- Avoid asking the model to produce both long prose and strict machine-readable payloads in the same channel unless the parser is robust.
+Many APIs return a **finish reason** that distinguishes a normal stop from a token-limit stop or another termination mode. The field names and possible values vary by provider, so they must be interpreted according to that API's contract.
 
-## Logit Bias, Masks, and Tool Choice
+Reaching the maximum output length means the sequence may be truncated. The last characters can look fluent even when a sentence, code block, or structured value is incomplete. A stop sequence is also an external boundary: depending on the API, the matched sequence may be omitted from the returned text. Neither case says anything by itself about the correctness of the preceding content.
 
-Some systems modify the next-token distribution directly. They may force valid JSON, mask unavailable tool names, bias toward a small set of labels, or constrain generation to a grammar. These controls are harness-level interventions on inference.
+## Logit Transformations and Constrained Decoding
 
-Used well, constraints reduce invalid outputs. Used badly, they can hide model uncertainty or force a model to choose among wrong options. A classification harness should include an explicit "none of the above" or "insufficient evidence" option when that is a real possibility.
+Decoding can alter or restrict the next-token distribution before selection. Examples include logit bias, repetition or frequency penalties, and masks that assign invalid tokens effectively zero probability.
 
-Tool-calling systems often combine schema constraints with natural-language descriptions. The model still decides which tool call is likely, but the harness can restrict the syntax and validate the result.
+**Constrained decoding** applies such restrictions at every step so that the growing token sequence remains a valid prefix under a grammar, JSON schema, regular language, or fixed label set. Because textual units and tokens do not always align, the decoder must determine which token continuations preserve the constraint rather than merely checking one character at a time.
 
-## Latency, Throughput, and Model Routing
+These methods can guarantee that an output belongs to the supported syntactic language, provided the implementation is correct. They cannot guarantee that a JSON value is factually true, that code has the intended behavior, or that one of several forced labels is an adequate answer. A constraint can also hide uncertainty by requiring a choice when the model would otherwise express that none of the options fits.
 
-Inference cost depends on model size, prompt length, output length, batching, hardware, and provider implementation. A harness that feels fast in a demo can become expensive under production load.
+Constrained generation concerns which token sequences may be emitted. Interpreting a generated action description or executing an external action is a separate boundary covered in [Chapter 12](./12-reasoning-tools-and-agents.md).
 
-Useful patterns include:
+## Randomness and Repeatability
 
-- route simple formatting tasks to smaller models,
-- use larger models for planning, ambiguity, or difficult synthesis,
-- cache deterministic retrieval and preprocessing,
-- stream output only when the user benefits from partial text,
-- avoid streaming internal machine-readable JSON that will be parsed only after completion,
-- and measure p50, p95, and p99 latency separately.
+Sampling uses a pseudorandom state, so repeated runs can choose different tokens even when their probability distributions match. If an API exposes a seed, fixing it may improve repeatability, but guarantees are provider-specific and can depend on the model version, backend, and other decoding settings.
 
-The model is part of a distributed system. Treat inference parameters as production configuration, not notebook decoration.
+Greedy decoding removes sampling randomness, but `temperature=0` does not guarantee byte-for-byte identical responses across all hosted requests. Nominally identical requests can produce slightly different logits because batching, floating-point kernels, hardware, or serving software can change. If two leading tokens are nearly tied, a small numerical difference can change the argmax; that first difference then changes the rest of the autoregressive path.
 
-## Streaming
+The important distinction is:
 
-Many providers can stream a response instead of returning it all at once. The transport is an event stream: the server emits small chunks as the model generates, including text deltas and the incremental arguments of a tool call. The client assembles these chunks into the final result. The key consequence is that a partial payload is not yet valid: a tool call's JSON arguments arrive a few characters at a time, so any structure read mid-stream may be incomplete and must not be parsed until the stream finishes.
+- With exactly the same logits and deterministic tie-breaking, argmax chooses the same token.
+- Requests that look identical at the API boundary are not guaranteed to produce exactly the same logits on every serving stack.
+- With sampling, repeatability additionally depends on the pseudorandom state and the sampling implementation.
 
-Stream when a human is waiting on long text and benefits from seeing it appear: chat answers, generated prose, a long explanation. Do not bother streaming when only downstream code consumes the output and it parses the final structured payload anyway — there is no one to read the partial text, and assembling deltas just adds complexity. Streaming also interacts with control flow: a cancel or timeout can arrive after some tokens have already been delivered, and a retry restarts the stream from the beginning, so the client must be ready to discard a partial response and re-emit the full one.
+Finally, repeatability is not correctness. A greedy decoder can reproduce the same false answer consistently, while a sampled decoder can produce a correct answer on one run and an incorrect one on another.
 
-## Call-Boundary Failure Handling
+## Multiple Complete Samples
 
-A model call is a network call, so it fails the way network calls fail. Sort the failures into two buckets. Retryable failures are transient and usually succeed on a second attempt: rate limits (HTTP 429), timeouts, and transient 5xx errors. Non-retryable failures will fail again identically until the request itself changes: a context that is too long, a content refusal, or an otherwise invalid request. Retrying the second kind just wastes time and money.
+Instead of generating one completion, an inference procedure can generate \(k\) complete samples from the same input. Each sample follows its own autoregressive path, so the set may reveal different phrasings, approaches, or candidate solutions.
 
-For retryable failures, back off exponentially with jitter so that many clients recovering at once do not retry in lockstep and re-overload the provider. When a call carries tool side effects — sending an email, charging a card, writing a row — attach an idempotency key so that a retry after an ambiguous timeout does not perform the action twice. Finally, detect truncated output: a response stopped by the token limit rather than a natural stop is a distinct outcome from a complete one, and the harness should either continue generation or fail loudly rather than treat the fragment as final. These same patterns scale up into the operational discipline that long-running agents need (see [Reasoning, Tools, and Agents](./12-reasoning-tools-and-agents.md)).
-
-## Multiple Samples and Selection
-
-Some workflows benefit from sampling several candidates and grading them. This can improve tasks where there are many plausible paths: planning, test generation, summaries, or refactoring options. But pass@k-style improvement can hide operational cost. (Pass@k is the fraction of problems solved by at least one of k sampled attempts.) If a harness samples five outputs and grades them, latency and token spend may multiply.
-
-Use multi-sample strategies when the task value justifies the cost and when the grader is trustworthy.
+Multiple samples are useful when the distribution contains several plausible continuations, but they do not identify the best candidate by themselves. Producing \(k\) candidates also consumes roughly \(k\) times as many generated tokens unless batching or early stopping changes the amount of work. How candidates are scored, how pass@k is reported, and whether an evaluator is trustworthy are evaluation questions covered in [Chapter 13](./13-evaluation-for-llm-behavior.md).
 
 ## Key Takeaways
 
-- Inference repeatedly predicts and selects the next token.
-- Temperature, top-p, max tokens, and stop conditions are behavioral controls.
-- Determinism improves repeatability but does not guarantee truth.
-- Harnesses should validate outputs and choose decoding settings per workflow.
+- Inference maps a token context to next-token logits without updating model parameters.
+- Greedy decoding selects an argmax; sampling draws from a distribution shaped by controls such as temperature and top-p.
+- `temperature=1` leaves logits unscaled, while `temperature=0` is an API convention that usually requests greedy decoding.
+- Autoregressive generation appends one selected token at a time and stops on an end token, a limit, a stop sequence, or another documented condition.
+- Constrained decoding can enforce syntax, not semantic correctness.
+- Lower randomness can improve repeatability, but deterministic output is not necessarily correct and hosted execution may still vary.
+- Multiple complete samples explore more of the model's distribution at additional inference cost.

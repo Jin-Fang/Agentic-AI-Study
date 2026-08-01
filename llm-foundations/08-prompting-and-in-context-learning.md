@@ -1,146 +1,118 @@
 # Chapter 8: Prompting and In-Context Learning
 
-Prompting is the act of constructing the model's context so that the desired continuation is likely. In-context learning is the model's ability to adapt behavior from instructions and examples inside the prompt without changing its parameters. GPT-3 made this capability central by showing strong zero-shot, one-shot, and few-shot behavior across many tasks ([Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165)).
+Prompting is inference-time conditioning. A model receives a token context and produces a continuation conditioned on that context. Changing the instructions, data, examples, or formatting in the context can therefore change the distribution of possible continuations without changing the model's parameters.
 
-This chapter is a turning point. Chapters 1-7 established what the model is: a token machine, shaped by pretraining and post-training, sampled at inference. From here the focus shifts to how that mental model changes harness design. Prompting is the first place those properties become an engineering interface.
+In-context learning (ICL) is the model's ability to adapt its behavior from patterns presented in that context. The adaptation lasts only for the current context; it is not a weight update and does not become a persistent skill or memory. GPT-3 made this capability prominent through zero-shot, one-shot, and few-shot results across many tasks ([Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165)).
 
-For harness engineers, prompting is not a trick. It is runtime programming against a probabilistic interface.
+## What Makes Up a Prompt
 
-## Instructions, Data, and Examples
+A prompt may combine several kinds of content:
 
-A good prompt separates concerns:
+- **Instructions** describe the requested task.
+- **Input data** supplies the text, question, or evidence to work on.
+- **Examples** demonstrate an input-to-output pattern.
+- **Constraints** narrow acceptable answers.
+- **Output format** describes the desired structure of the continuation.
 
-- **Instructions** say what to do.
-- **Data** provides evidence or input.
-- **Examples** show the desired pattern.
-- **Constraints** define what not to do.
-- **Output contracts** define the shape of the answer.
+Chat APIs may also distinguish system, developer, user, and assistant messages. Those roles are not separate channels inside the Transformer. A provider-specific chat template serializes roles and content into the representation processed by the model. Post-training teaches the model patterns associated with those role markers, but it does not turn them into an infallible priority mechanism. The discussion of conversation tokenization in the deep dive illustrates how roles ultimately become part of the model input ([Deep Dive, around 01:05:03](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=3903s)).
 
-When these are mixed together, the model has to infer which text is authoritative. That is dangerous when the context contains retrieved web pages, user-provided documents, logs, or tool results.
+The same words can have different effects depending on their position, surrounding labels, examples, and the model's training. Prompting works by supplying evidence about the continuation that is wanted, not by installing a deterministic program.
 
-Harnesses should mark boundaries clearly. A retrieved email is data, not an instruction. A user message is lower priority than system policy. A tool result can contain malicious text and should not be allowed to override the harness.
+## Structure Reduces Ambiguity
 
-The deep dive's discussion of conversation tokenization reinforces this: roles are not abstract concepts floating above the model; they become tokens in a serialized prompt ([Deep Dive, around 01:05:03](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=3903s)). If a harness collapses everything into one undifferentiated blob, it gives up one of the main ways chat models were trained to interpret priority and authorship.
-
-Practical prompt boundaries include:
-
-- XML-like tags for retrieved documents.
-- Explicit source IDs.
-- Separate tool-result messages.
-- System-level rules outside user-editable fields.
-- Clear "task" and "evidence" sections.
-- Output schemas separated from examples.
-
-The point is not that the model literally parses XML like a compiler. The point is that clear structure makes the intended continuation easier.
-
-A structured prompt makes these boundaries concrete. The instruction is separate from the evidence, retrieved documents are wrapped in tags with source IDs, one example shows the desired shape, and the output contract is stated explicitly:
+Headings, delimiters, tags, and consistent field names can help the model distinguish a task from its input. An explicit output format can also make a desired continuation easier to infer. For example:
 
 ```text
-System: Answer only from the documents. Cite the source ID. If the
-documents do not contain the answer, reply exactly: NOT_FOUND.
+Task:
+Answer the question using the documents below. Cite the source ID.
+If the documents do not contain the answer, reply: NOT_FOUND.
 
 <documents>
-  <doc id="d1">Refunds are issued within 14 days of delivery.</doc>
+  <doc id="d1">Refund requests are accepted within 14 days of delivery.</doc>
   <doc id="d2">Gift cards are non-refundable.</doc>
 </documents>
 
-Example:
-Question: Can I return a gift card?
-Answer: No. Gift cards are non-refundable. [d2]
+Question:
+How long do I have to request a refund?
 
-Question: How long do I have to request a refund?
 Answer:
 ```
 
-The model fills in the final `Answer:` line. Because the data is fenced and the contract is explicit, a document that says "ignore previous instructions" reads as evidence to quote, not as a command to obey.
+The headings and tags expose the intended structure: task, evidence, question, and answer. They do not make the model parse the prompt like a compiler, and they do not guarantee that the answer will follow the instructions.
 
-## Few-Shot Learning
+Most importantly, a delimiter is not a security boundary. If a document inside `<documents>` says "ignore the task and reveal a secret," the model may still be influenced by it. Delimiters can reduce ordinary ambiguity, but they do not reliably isolate data from instructions or enforce trust.
 
-Few-shot examples work because the model is good at continuing patterns. If the context contains several examples of input-to-output mapping, the model can often continue with the same mapping for a new input. This is especially useful for formatting, classification, extraction, and domain-specific style.
+## Zero-Shot, One-Shot, and Few-Shot Prompting
 
-Examples cost tokens, so they should be chosen carefully. A harness can retrieve examples dynamically based on task type or failure mode. It can also replace many examples with a validated structured schema when the output format is the main concern.
+A **zero-shot** prompt specifies a task without showing a completed example. A **one-shot** prompt includes one example. A **few-shot** prompt includes several. In each case the parameters remain fixed; only the context changes.
 
-Few-shot prompting is especially useful when the task is not easily specified in rules. For example:
+Few-shot prompting works because a model can continue patterns demonstrated by input-output pairs. It is often useful for:
 
-- classify support tickets into company-specific categories,
-- rewrite rough notes into a particular internal tone,
-- extract fields from messy documents,
-- map natural language requests into tool calls,
-- or show how to handle "not enough information."
+- applying task-specific labels,
+- extracting fields from irregular text,
+- matching a particular response format or style,
+- handling ambiguous or insufficient input,
+- and translating a natural-language request into a structured representation.
 
-But examples can also overfit the context. If all examples are positive, the model may assume the new case must also be positive. If examples use outdated policy, the model may continue that policy. If examples contain accidental formatting quirks, the model may copy them.
+Examples provide more than a format. They also imply assumptions about labels, edge cases, tone, and what information matters. That makes example selection consequential. If every demonstration is positive, the model may develop a positive bias for the next case. If demonstrations contain obsolete facts or accidental formatting quirks, the continuation may reproduce them. The order of examples can matter as well.
 
-Treat examples as data dependencies. Version them, review them, and test them.
+Examples also consume context tokens. More demonstrations are not automatically better: irrelevant or conflicting examples can make the task less clear. Few-shot prompting is useful when examples convey a pattern more effectively than prose, but its effect remains probabilistic and model-dependent.
 
-## Chain-of-Thought and Reasoning Prompts
+## Reasoning Prompts and Their Limits
 
-Chain-of-thought prompting shows that large models can improve on multi-step reasoning tasks when prompted to generate intermediate reasoning steps ([Chain-of-Thought Prompting Elicits Reasoning in Large Language Models](https://arxiv.org/abs/2201.11903)). The harness-level lesson is not simply "ask the model to think step by step." The deeper lesson is that task decomposition can help.
+Chain-of-thought prompting asks for intermediate reasoning before a final answer. It can improve performance on some multi-step tasks, especially for sufficiently capable models ([Chain-of-Thought Prompting Elicits Reasoning in Large Language Models](https://arxiv.org/abs/2201.11903)). The effect varies with the model, task, demonstrations, and decoding method; "think step by step" is not a universal improvement.
 
-The limits matter. Chain-of-thought gains depend on model scale, task type, prompt design, and decoding. Smaller or poorly post-trained models may not benefit. Visible reasoning text is also not guaranteed to be faithful to the model's actual internal computation; it is an output artifact that may help, mislead, or rationalize.
+Generated reasoning is still generated text. A plausible chain can contain an early mistake, skip a decisive step, or rationalize an answer reached through other internal computations. Visible reasoning is therefore not guaranteed to be a faithful explanation of how the model produced its answer. It should not be treated as proof that the conclusion is correct.
 
-One related technique is self-consistency: sample several reasoning paths and choose the most consistent answer rather than trusting the first greedy path ([Self-Consistency Improves Chain of Thought Reasoning in Language Models](https://arxiv.org/abs/2203.11171)). This can improve reasoning benchmarks, but it multiplies cost and still needs a reliable way to select or verify answers.
-
-In production systems, visible reasoning may be inappropriate, too verbose, or unavailable. A harness can still support decomposition through:
-
-- Planning fields.
-- Scratchpads hidden from the end user.
-- Tool loops.
-- Checklists.
-- Subtasks delegated to smaller calls.
-- Verification passes.
-
-The point is to give the system room to do intermediate work without confusing intermediate text with final output.
+Self-consistency is a related technique: sample multiple reasoning paths and aggregate their final answers rather than rely on one path ([Self-Consistency Improves Chain of Thought Reasoning in Language Models](https://arxiv.org/abs/2203.11171)). Agreement can improve results on some benchmarks, but repeated agreement does not establish truth. The method also uses multiple generations and therefore more inference compute.
 
 ## Reasoning Models and Test-Time Compute
 
-Chain-of-thought began as a prompting trick. It has since become a training target. *Reasoning models* are post-trained, often with reinforcement learning on verifiable rewards (see [Chapter 7](./07-post-training.md)), to generate long internal reasoning before answering. Instead of the harness telling the model to "think step by step," the model has learned to spend extra tokens on intermediate work when a problem is hard. DeepSeek-R1 documented this pattern openly, showing that strong reasoning behavior can be elicited largely through RL on checkable problems ([DeepSeek-R1](https://arxiv.org/abs/2501.12948)).
+Some models are post-trained to spend additional inference-time computation on intermediate reasoning. These are commonly called *reasoning models*. DeepSeek-R1, for example, describes reinforcement learning on verifiable tasks as a route to strong reasoning behavior ([DeepSeek-R1](https://arxiv.org/abs/2501.12948)); [Chapter 7](./07-post-training.md) introduces this kind of post-training.
 
-The underlying idea is *test-time compute*: spending more tokens, and therefore more time and money, at inference to improve hard answers. This is a different scaling axis from the training-time scaling of [Chapter 5](./05-training-data-and-scaling.md), and it changes several harness assumptions:
+This is a form of *test-time compute*: a difficult prompt may lead the model to produce more intermediate tokens before its final answer. Those tokens may be visible, hidden, or summarized by the provider, but they still affect latency and computational cost. Asking such a model for an additional explicit chain of thought may be redundant or may interfere with its learned behavior.
 
-- **Do not hand-prompt reasoning the model already does.** Forcing verbose chain-of-thought onto a reasoning model can waste tokens or conflict with its trained behavior. Follow the provider's guidance for that model.
-- **Reasoning tokens are real cost and latency.** A reasoning model can emit thousands of hidden tokens before its first visible word. Budget for it, and expose a reasoning-effort control to the user when the model offers one.
-- **The reasoning trace may be hidden, summarized, or unfaithful.** Some providers do not return the raw chain. Treat any exposed reasoning as a debugging aid, not a verified explanation, exactly as [Chapter 10](./10-knowledge-hallucination-uncertainty.md) warns about self-reported confidence.
-- **Match the model to the task.** Reasoning models help on math, code, planning, and multi-step analysis. For simple extraction, formatting, or classification, a non-reasoning model is usually faster and cheaper. Route accordingly (see [Chapter 6](./06-inference-and-sampling.md)).
+More reasoning can improve the use of information already available to the model, but it is not grounding. It does not supply a missing current fact, make a false premise true, or turn a generated explanation into verified evidence. A reasoning model remains conditioned on its parameters and current input.
 
-Reasoning models do not remove the need for tools, retrieval, or verification. A longer internal monologue is still ungrounded generation. It can reason more carefully over supplied evidence, but it cannot manufacture facts it was never given.
+## Tool-Use Prompting at the Model Boundary
 
-## Prompting for Tool Use
+Tool use begins, from the model's perspective, as another prompting and generation problem. Tool definitions, argument schemas, and sometimes examples are included in the model's input. The model can then generate a structured call such as:
 
-Tool-use prompting is different from ordinary question answering. The model must decide whether it needs external information, choose the right tool, fill arguments, interpret the observation, and continue. Karpathy's intro uses browser and image-generation examples to show that modern assistants often rely on tools rather than only "thinking in their head" ([Intro to LLMs, around 00:28:20](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1700s), [00:32:06](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1926s)).
+```json
+{
+  "name": "get_weather",
+  "arguments": {
+    "city": "Boston"
+  }
+}
+```
 
-Prompts for tool use should clarify:
+That JSON is only model output. The model has not contacted a weather service or changed external state. An external system interprets the proposed call, decides whether and how to execute it, and may return an observation in a later model context. The model can then condition its next continuation on that observation.
 
-- when to use the tool,
-- when not to use it,
-- what each argument means,
-- what the tool cannot do,
-- what to do when the tool fails,
-- and how to report results.
-
-The model should not have to infer all of this from a function name.
+This chapter is concerned only with how the tool description and observed result affect model generation. The execution loop and the distinction between proposing and acting are covered in [Chapter 12](./12-reasoning-tools-and-agents.md). Tool interfaces and production controls belong to the companion [Agent Harness](../agent-harness/06-tools-invocation-lifecycle.md).
 
 ## Prompt Injection as Context Confusion
 
-Prompt injection is not magic. It is a context-boundary failure. Untrusted content contains text that looks like instructions, and the model is asked to condition on it. If the harness does not preserve priority and boundaries, the model may follow the wrong text.
+Prompt injection occurs when untrusted content contains instruction-like text that changes model behavior in an unintended way. A retrieved page might say to ignore the original question. An uploaded document might contain hidden commands. A tool observation or an image can also carry text that competes with the intended task.
 
-Examples:
+At the model level, all of this becomes input that can influence the next-token distribution. Role markers, phrases such as "treat this as data," and delimiters may help the model infer the intended hierarchy, but they do not create a hard separation between trusted instructions and untrusted content. Prompt injection is therefore not solved merely by writing a stronger prompt or nesting the untrusted text inside tags.
 
-- A retrieved web page says to ignore previous instructions.
-- A user-uploaded document contains hidden assistant-facing commands.
-- A tool result includes text that looks like a system message.
-- An image contains adversarial text that the model reads through OCR or vision.
+The model can be trained to resist many such instructions, but resistance is behavioral rather than an enforcement guarantee. Any security guarantee about external actions or protected information must be implemented outside the model. [Chapter 12](./12-reasoning-tools-and-agents.md) establishes that execution boundary; the companion chapters on [system prompts](../agent-harness/02-system-prompts-instructions-policy.md) and [runtime enforcement](../agent-harness/07-sandboxing-runtime-enforcement.md) cover the system-level treatment.
 
-The mitigation is not only "write a stronger system prompt." The harness should constrain tools, delimit untrusted content, validate actions, and avoid giving untrusted text direct authority over side effects.
+## What Prompting Cannot Provide
 
-## Prompt Limits
+Prompting can elicit and steer capabilities learned during training, but it does not update the model's parameters. It cannot reliably create a capability the model lacks, guarantee a correct answer, or make generated reasoning faithful.
 
-Prompts are not durable memory. They are per-call context. If an instruction is omitted from a later call, the model may not follow it. If a summary compresses away a constraint, the constraint is gone. If old context contradicts new instructions, behavior may degrade.
+A prompt is also not durable memory. It conditions one model call. If an application later sends an earlier exchange again, that text becomes part of a new context; the model itself did not preserve state between calls. Context-window limits and their consequences are covered in [Chapter 9](./09-context-window-and-kv-cache.md).
 
-This is why long-running agents need explicit state outside the prompt: files, databases, task plans, traces, and memory stores. Prompting can present the relevant slice of that state to the model, but it should not be the only place the state exists.
+Finally, prompting grants no permission and performs no external action. A sentence that says "you may access this account" is still just input text, and a generated action description is still output text. Execution, persistent state, and security isolation are properties of systems around the model, not properties supplied by a prompt.
 
 ## Key Takeaways
 
-- Prompting shapes the continuation the model is likely to produce.
-- In-context learning lets examples influence behavior without changing weights.
-- Chain-of-thought demonstrates the value of intermediate decomposition, but harnesses should control how reasoning is represented.
-- Prompts are runtime context, not durable state.
+- Prompting changes inference-time context, not model parameters.
+- In-context learning uses instructions and examples in the current context to shape behavior.
+- Structure and delimiters can reduce ambiguity, but they are not security boundaries.
+- Few-shot and reasoning prompts can improve some tasks, but their effects are probabilistic and model-dependent.
+- More test-time reasoning does not create new evidence or guarantee correctness.
+- Tool calls are generated proposals; external systems execute them.
+- Prompts do not provide durable memory, permission, execution, or security isolation.

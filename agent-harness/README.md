@@ -1,6 +1,6 @@
 # Agent Harness: A Practitioner's Textbook
 
-*A fact-based synthesis of contemporary writing on harness engineering, drawn from the [Awesome Harness Engineering](https://github.com/walkinglabs/awesome-harness-engineering) reading list and the OpenReview survey [Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh). Every substantive claim is referenced inline.*
+*A fact-based synthesis of agent-harness engineering. Substantive factual claims are cited where they appear, not only in the bibliography.*
 
 中文版见：[Agent Harness：实践者教材](../agent-harness-zh/)
 
@@ -8,17 +8,26 @@
 
 ## Introduction
 
-This textbook is about the system that surrounds a language model when it is asked to do real work. That system has a name now — *the harness* — and a small but rapidly maturing body of literature describing how to build it.
+This book studies the systems that turn model outputs into controlled work. Foundations uses *harness* as a deliberately broad shorthand for responsibilities outside the model. This volume separates that surrounding system into the **agent harness**, **runtime**, **product/application**, **platform/control plane**, and **evaluation harness**. The distinction matters because the component that assembles a prompt need not be the component that owns durable state, executes an action, enforces policy, or grades the outcome. Anthropic likewise distinguishes the agent harness being tested from the evaluation harness that constructs tasks, runs trials, and applies graders ([Anthropic — Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)).
 
-The premise of the field is simple. As Vivek Trivedy of LangChain puts it: "Agent = Model + Harness. **If you're not the model, you're the harness.**" Everything else — system prompts, tools, sandboxes, memory, sub-agents, control flow, evaluation infrastructure — is the harness. A recent OpenReview survey sharpens this into a systems claim: for long-horizon agents, the harness can be the binding constraint on reliability, not merely a wrapper around model capability. The work of designing it well is what we study here.
+The standing boundary across both volumes is simple: the model proposes tokens or structured actions; external systems own authorization, execution, state, verification, and consequences. A structured tool call is therefore a proposal until the harness validates it and an authorized runtime executes it ([Anthropic — How Tool Use Works](https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works)).
 
 ---
 
 ## How to Read This Book
 
-This is the second book in a two-part sequence. It assumes the model fundamentals covered in the companion volume, [*LLM Foundations for Harness Engineering*](../llm-foundations/) — tokens, attention and the KV-cache, the context window, sampling, post-training, retrieval, the agent loop and tool-call protocol, prompt injection, and pass@k vs pass^k. Where this book names a Foundations concept, it points back (e.g. "see Foundations ch 9") rather than re-deriving it. Read that volume first if those terms are unfamiliar.
+This is the second book in a two-part sequence. It assumes the model-side mechanisms covered in [*LLM Foundations for Harness Engineering*](../llm-foundations/): tokens, attention and per-request KV state, context limits, sampling, post-training, retrieval primitives, structured tool-call generation, prompt injection, and model-behavior evaluation. This book starts where that volume stops: production context assembly, retrieval data paths, durable state, tool dispatch, policy enforcement, outcome verification, operations, and fleets.
 
-The chapters are a single narrative pass over the ETCLOVG taxonomy and can be read straight through. If you arrive with a specific goal: context budget is Ch 2–3; tools and MCP are Ch 4; safety and sandboxing are Ch 5; evaluation and iteration are Ch 10–12; and the production checklist is Ch 9.
+Read straight through for the dependency order, or use these paths:
+
+- **Core loop and boundaries:** Chapters 1–3, 6–7
+- **Retrieval, memory, and long-running state:** Chapters 4–5, 10, 12
+- **Routing, workflows, and verification:** Chapters 8–9, 11, 13
+- **Human and computer interaction:** Chapters 14–15
+- **Production measurement and operations:** Chapters 16–19
+- **Cross-book lookup:** [Source Map](./source-map.md) and [Glossary](./glossary.md)
+
+Provider prices, cache behavior, product features, benchmark results, and other time-sensitive examples are labeled by provider, scope, and date. Treat them as verified examples, not permanent definitions.
 
 ---
 
@@ -26,29 +35,31 @@ The chapters are a single narrative pass over the ETCLOVG taxonomy and can be re
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| [Preface](./00-preface.md) | Preface | Framing and purpose of the textbook |
-| [Ch 1](./01-what-is-an-agent-harness.md) | What Is an Agent Harness? | The Model + Harness equation, the agent loop, inner/outer harness layers, ETCLOVG taxonomy, historical arc |
-| [Ch 2](./02-context-as-finite-resource.md) | Context as a Finite Resource | Context rot, attention budgets, KV-cache, filesystem as memory |
-| [Ch 3](./03-compaction-memory-subagent.md) | Compaction, Memory, and the Sub-Agent Pattern | Compaction, note-taking, recitation, context firewalls, memory architectures, poisoning and trust escalation, multi-agent failure taxonomy |
-| [Ch 4](./04-tools-agent-computer-interface.md) | Tools and the Agent–Computer Interface | Tool design, MCP and private connectivity, programmatic tool calling, A2A, namespacing, token-efficient responses, code execution as meta-tool |
-| [Ch 5](./05-sandboxing-guardrails.md) | Sandboxing, Guardrails, and Safe Autonomy | Threat model, containment patterns, permission fatigue, agentic readiness, identity and governance, filesystem/network isolation, hooks, operational safety |
-| [Ch 6](./06-agentic-workflow-patterns.md) | Agentic Workflow Patterns | Five compositional workflow patterns, micro-agent approach, reasoning and self-correction patterns (Reflexion, ToT, LATS, ReWOO) |
-| [Ch 7](./07-long-running-agents.md) | Long-Running Agents and Multi-Context-Window Tasks | Shift-change problem, initializer+coding agent pattern, managed agents, GAN-inspired architecture, durable execution and checkpointing, the METR time-horizon metric |
-| [Ch 8](./08-loop-engineering.md) | Loop Engineering | Designing the outer loop: triggers and nested loops, the verifier as bottleneck, stop rules, the Ralph lineage, building blocks, the maturity ladder |
-| [Ch 9](./09-twelve-factors.md) | Twelve Factors for Production Agents | HumanLayer's 12-factor manifesto, state reducers, and the framework-to-platform shift |
-| [Ch 10](./10-evaluation.md) | Evaluation | Eval anatomy, grader types, evaluator integrity, pass@k vs pass^k, readiness validation, eight-step roadmap |
-| [Ch 11](./11-infrastructure-noise.md) | Infrastructure Noise | Resource configuration effects on benchmark scores |
-| [Ch 12](./12-trace-driven-iteration.md) | Trace-Driven Iteration and Model–Harness Co-Evolution | Traces as feedback loops, span telemetry, regression extraction, bounded self-improvement, meta-harness, model–harness coupling |
-| [Ch 13](./13-system-prompts-and-instructions.md) | System Prompts and Instruction Architecture | The instruction layer, the instruction hierarchy, dynamic assembly, prompt versioning, the right altitude |
-| [Ch 14](./14-model-selection-routing-reasoning.md) | Model Selection, Routing, and Reasoning Models | Per-step model choice, routing, cascades and fallbacks, AI gateways, reasoning models and test-time compute |
-| [Ch 15](./15-human-agent-interaction.md) | Human–Agent Interaction | Permission fatigue vs blind trust, mixed-initiative, approval as a tool call, review surfaces, steering, supervising fleets |
-| [Ch 16](./16-computer-use-and-multimodal-agents.md) | Computer-Use and Multimodal Agents | Operating GUIs, screen encodings, visual grounding, action spaces, the widest attack surface, environmental evals |
-| [Ch 17](./17-cost-privacy-and-operations.md) | AgentOps — Cost, Privacy, and Production Operations | Lifecycle operations, budgets, cost attribution, semantic caching, data governance, multi-tenancy, releases, monitoring, governance frameworks |
-| [Ch 18](./18-agent-fleets-identity-control-plane.md) | Agent Fleets, Identity, and the Control Plane | Agent identity and registry, delegated authorization, gateways and policy enforcement, fleet lifecycle, lineage, audit, and non-repudiation |
-| [Ch 19](./19-outlook.md) | Outlook | Open problems, cross-layer tradeoffs, and standing principles |
+| [Preface](./00-preface.md) | Preface | Prerequisites and the model/harness responsibility boundary |
+| [Ch 1](./01-what-is-an-agent-harness.md) | What Is an Agent Harness? | System layers, the proposal-to-outcome loop, and responsibility ownership |
+| [Ch 2](./02-system-prompts-instructions-policy.md) | System Prompts, Instructions, and Policy Boundaries | Instruction priority, prompt assembly provenance, and executable policy |
+| [Ch 3](./03-context-as-finite-resource.md) | Context as a Finite Resource | Context transformations, cache boundaries, and tool-catalog strategies |
+| [Ch 4](./04-production-retrieval-grounding.md) | Production Retrieval and Grounding | Ingestion, indexing, ACLs, retrieval, grounding, provenance, and evaluation |
+| [Ch 5](./05-compaction-memory-context-handoffs.md) | Compaction, Memory, and Context Handoffs | Loss-aware compaction, scoped memory, artifacts, and evidence-bearing handoffs |
+| [Ch 6](./06-tools-invocation-lifecycle.md) | Tools and the Invocation Lifecycle | Proposal, validation, authorization, execution, normalization, and outcome checks |
+| [Ch 7](./07-sandboxing-runtime-enforcement.md) | Sandboxing, Guardrails, and Runtime Enforcement | Sandboxes, PDP/PEP, mandatory approvals, hooks, and operational safety |
+| [Ch 8](./08-model-selection-routing-reasoning.md) | Model Selection, Routing, and Reasoning Budgets | Routing modes, compatibility gates, fallbacks, and reasoning controls |
+| [Ch 9](./09-agentic-workflow-patterns.md) | Agentic Workflow Patterns | Deterministic workflows, model-directed loops, and hybrid patterns |
+| [Ch 10](./10-state-event-history-production-factors.md) | State, Event Histories, and Production Factors | Execution state, event history, checkpoints, replay, IDs, and recovery |
+| [Ch 11](./11-evaluation.md) | Evaluation | Tasks, trials, graders, transcripts, outcomes, reliability, and release evidence |
+| [Ch 12](./12-long-running-agents.md) | Long-Running Agents and Multi-Context Tasks | Milestones, artifact handoffs, context resets, resume, and finalization |
+| [Ch 13](./13-loop-engineering.md) | Loop Engineering and Verifier Hierarchies | Triggers, verifier selection, stop rules, and bounded autonomy |
+| [Ch 14](./14-human-agent-interaction.md) | Human–Agent Interaction | Consultation, mandatory approval, review surfaces, steering, and cancellation |
+| [Ch 15](./15-computer-use-multimodal-agents.md) | Computer-Use and Multimodal Agents | Structured computer-tool loops, visual observations, races, safety, and evals |
+| [Ch 16](./16-infrastructure-noise.md) | Infrastructure Noise in Agent Evals | Resource confounds, paired experiments, uncertainty, and reporting |
+| [Ch 17](./17-trace-driven-iteration.md) | Trace-Driven Iteration | Trace semantics, regression extraction, and controlled harness improvement |
+| [Ch 18](./18-agentops.md) | AgentOps: Cost, Privacy, and Production Operations | Budgets, caches, privacy, monitoring, release units, and governance |
+| [Ch 19](./19-agent-fleets-control-plane.md) | Agent Fleets, Identity, and the Control Plane | Identity chains, delegated authority, distributed enforcement, lineage, and lifecycle |
+| [Ch 20](./20-outlook.md) | Outlook | Durable principles, open problems, and cross-book navigation |
+| [Source Map](./source-map.md) | Foundations → Harness Source Map | Model concept to engineering responsibility and chapter |
 | [References](./references.md) | References | Full bibliography |
-| [Glossary](./glossary.md) | Glossary | Quick definitions for key terms used throughout the book |
+| [Glossary](./glossary.md) | Glossary | Canonical definitions used throughout the book |
 
 ---
 
-*Most source articles were published in 2025–2026. The field moves fast; check the references for the latest.*
+*The field and provider contracts change quickly. Follow inline citations for the scope and date of each factual claim.*

@@ -1,115 +1,94 @@
 # 第 9 章：Context Window 与 KV Cache
 
-Context window 是模型单次调用中最多能条件化的 token 序列。Karpathy 把 context window 描述为模型当前能看到的工作上下文 ([Intro to LLMs, around 00:32:42](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1962s))。把长 context window 当成记忆很诱人，但这是错误的。
+Context window 是模型在一次生成中能够条件化的 token 序列。它的上限通常约束 prompt **加上已经生成的 token**，而不只约束 prompt。如果模型的 context 上限是 \(C\) 个 token，序列化后的 prompt 使用了 \(n\) 个，那么最多只剩 \(C-n\) 个位置可用于生成。Provider 还可能分别设置 input 和 output 上限，因此模型的架构上限与 API 实际接受的限制并不总是相同。
 
-Context 是输入；memory 是调用之外持久存在的状态。
+Context 是一次生成的临时输入。它不是持久状态，也不能保证模型会可靠使用其中的每个 token。
 
-## 有限上下文
+## 有限的 Token 序列
 
-Prompt 里的每个 token 都在争夺 attention 和预算。系统指令、developer 指令、用户消息、检索文档、工具输出、示例和摘要共享同一个窗口。窗口满了，就必须省略或压缩某些内容。
+模型接收 token ID，其中包括 chat template 添加的 special token。它们都会占用序列位置。生成继续时，每个被选中的 token 都会追加到同一序列，并减少剩余容量。因此，tokenization 和不可见的格式开销既影响能放入多少输入，也影响还能生成多少输出；见[第 2 章](./02-tokenization.md)。
 
-失败模式不只是硬性溢出。即使窗口还没满，性能也可能下降。重要约束可能离生成点太远，干扰文本可能吸走 attention，摘要可能遗漏细节，检索文档也可能引入冲突说法。
+超出限制是容量问题：API 可能拒绝请求、截断一部分内容，或在配置的 output 上限处停止生成。低于限制只能说明序列放得下，并不能证明模型能够同样可靠地回忆、比较或推理序列的每一部分。
 
-Karpathy 把 context window 称为有限而珍贵的资源，并把它和模型完成任务所能使用的信息联系起来 ([Intro to LLMs, around 00:32:42](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1962s), [00:44:38](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2678s))。这就是模型机制和 context engineering 的连接点。如果信息不在上下文里，也不能通过工具获得，模型就只能依赖参数或猜测。
+Karpathy 把 context window 描述为模型有限的工作上下文，也就是它生成时当前能看到的信息 ([Intro to LLMs, around 00:32:42](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1962s))。把它类比成 working memory 很有用，前提是不要误以为它具有持久性或可靠的随机访问能力。
 
-因此每一份信息都要回答设计问题：
+## Prefill 与 Decode
 
-- 它现在应该进 prompt 吗？
-- 是否应该按需检索？
-- 是否应该摘要？
-- 是否应该外部存储并用 ID 引用？
-- 是否应该用工具检查，而不是让模型阅读？
+自回归 inference 包含两个计算特征不同的阶段。
 
-Context window 让这些问题不可避免。
+### Prefill
 
-## KV Cache
+在 **prefill** 阶段，模型让 prompt 通过所有 [Transformer layer](./04-transformer-attention.md)。Causal mask 使 prompt 中的各个位置可以并行计算，同时每个位置仍然只能 attend 到自身和更早的位置。
 
-Inference 过程中，[Transformer attention](./04-transformer-attention.md) 会为 token 产生 key 和 value 向量。系统会缓存这些向量，让生成时复用已有前缀的计算，而不用每次重算整段上下文。这就是 KV cache。
+对于长度为 \(n\) 的 prompt，标准 dense self-attention 的 attention 计算量按 \(O(n^2)\) 增长。优化后的 attention kernel 可以大幅减少中间内存读写和常数开销，但不会改变这种两两比较的基本 scaling。Prefill 产生用于选择第一个生成 token 的 logits，也会创建 decode 阶段将要复用的 key 和 value tensor。
 
-KV cache 是 inference 优化，不是语义记忆。它帮助模型高效继续当前序列。它不会决定哪些事实重要，不会更新长期状态，也不会解决 context pollution。
+因此，prompt 长度会直接影响 prefill 工作量，通常也会影响首 token 延迟。模型的其他部分、硬件、batching 和 serving 实现同样会产生影响，所以 token 数量不能单独决定延迟。
 
-对 harness 来说，KV cache 重要是因为长 prompt 和长输出会消耗内存并影响延迟。KV cache 也正是让每 token 的 attention 成本可承受的原因：没有它，每一步都要重算整段前缀，而前缀的 attention 计算量大致随 context length 平方增长（见[第 4 章](./04-transformer-attention.md)）。复用稳定前缀能提高性能，但过期或臃肿前缀仍然伤害模型行为。
+### Decode
 
-### 从 KV Cache 到 provider prompt caching
+在 **decode** 阶段，模型每次选择一个新 token。在每个 layer 中，模型计算新 token 的 query、key 和 value。Query 会 attend 到已经为此前序列保存的 key 和 value，随后新的 key 和 value 被追加到 cache。
 
-Provider 把前缀复用产品化为 prompt caching：当新请求和近期请求共享开头前缀时，provider 直接给出该前缀缓存好的 KV 状态，而不重新计算。收益很大——缓存命中的前缀 token 以大幅折扣计费，而且因为模型跳过了匹配部分的 prefill，首 token 延迟（TTFT）也会下降。
+使用 KV cache 后，无需重复进行更早 token 的 projection 和 MLP 计算。不过对于标准 dense attention，新 query 仍然需要与不断增长的前缀比较。因此，序列长度为 \(t\) 时，单个 decode token 的 attention 计算量是 \(O(t)\)，并不是常数时间。在 \(n\) 个 prompt token 之后生成 \(m\) 个 token，这些 token 的 decode attention 总工作量约为 \(O(mn+m^2)\)。如果没有 cache，朴素实现会在每一步反复运行整个增长中的前缀，重复大量计算。
 
-关键在于匹配方式。缓存按前缀作为 key，所以只匹配到第一个不同的 token 为止。改动任何一个早期 token——系统 prompt 里的时间戳、重排过的工具定义、被编辑的较早消息——其后所有 token 都要重算并重新计费。这推出一条具体的 harness 规则：让系统 prompt 和工具定义保持稳定并放在最前面，然后让对话历史只追加（append-only）地增长，不要原地改写历史。
+这个区别解释了两种常见延迟指标：prefill 在很大程度上决定首 token 延迟，而顺序执行的 decode 在很大程度上决定后续 token 的生成速率。
 
-这条规则和本章下文推荐的摘要与 compaction 存在直接张力。Compaction 通过改写较早轮次来省 token，但改写它们会击穿其后全部内容的缓存，于是下一次调用要付完整 prefill。这个权衡是真实的：只有当省下的 token（以及减轻的 context rot）盖过损失的缓存命中时才做 compaction，而不是每轮都做。成本一侧见[第 5 章](./05-training-data-and-scaling.md)，把这些 prompt 和历史改动当作对回归敏感的内容来对待见[第 13 章](./13-evaluation-for-llm-behavior.md)。
+## KV Cache 存储什么
 
-## 工作记忆 vs 长期记忆
+在每个 attention layer 中，每个已经处理过的 token 都有一个 key vector 和一个 value vector。**KV cache** 保存这些 tensor，供后续 decode step 复用。它缓存的是某个精确 token 前缀的中间数值状态，而不是事实，也不是文本摘要。
 
-Context window 是工作记忆。长期记忆必须存在别处。Karpathy 提到 memory 和 computational tools 是增强模型能力的方式，可以帮助模型完成自然 context 之外的任务 ([Intro to LLMs, around 00:42:46](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2566s))。Harness 会把这个想法变成具体基础设施。
+对于每个活跃序列，它的大小近似随下式增长：
 
-长期记忆可以是：
+```text
+每个请求的 KV 元素数 =
+  2 * layer 数 * 缓存 token 数 * KV head 数 * head dimension
+```
 
-- 用户 profile；
-- vector index；
-- task database；
-- 写入文件的笔记；
-- 对话摘要；
-- repository checkout；
-- browser session；
-- workflow engine 中的结构化状态。
+还要乘以每个元素所占的 byte 数。Batch size、并行采样和 beam search 都可能成倍增加这项成本。Grouped-query attention 或 multi-query attention 等架构使用更少的 KV head，可以降低开销；sliding-window 或其他 attention 变体则可能改变必须保留哪些 token。
 
-模型在需要时读取这份记忆的切片，而不应该被要求把所有状态都背在 prompt 里。
+因此，更长的 context 会消耗更多 cache memory，也要求每个新 query 读取更多缓存状态。即使 model weight 能轻松装入内存，KV-cache 容量仍可能限制 batch size 和 throughput。
 
-## Context Selection
+不能仅仅因为前缀描述了过期事实就称 cache “过期”。这些 tensor 仍然正确表示生成它们的精确 token；过期的是**内容**。如果前缀中的某个 token 改变，受影响的 hidden state 及其派生的 key 和 value 就必须重新计算。
 
-Harness 需要 context-selection policy。每次模型调用，它都要选择包含什么：
+## Context、KV Cache 与 Provider Prompt Caching
 
-- 当前用户请求；
-- 持久任务状态；
-- 相关历史决策；
-- 可用工具；
-- 最新 observation；
-- 检索文档；
-- 示例；
-- 输出约束。
+这三个概念相互关联，但不能互换：
 
-选择通常比压缩更重要。一个只包含正确 file diff 和 failing test 的短 prompt，可能胜过一个包含整个项目历史的长 prompt。
+- **Context** 是允许模型条件化的 token 序列。
+- **单次请求内的 KV cache** 保存本次生成中已经处理位置的 layer-level key 和 value tensor。
+- **Provider prompt caching** 可以在不同请求之间复用共享前缀的 prefill 工作。
 
-## Context Rot
+Provider prompt caching 是 API 和 serving contract，并不是模型有 context window 就必然具备的性质。它的适用条件、前缀匹配规则、保留时间、计费方式和延迟效果都取决于 provider；匹配通常要求开头的 token 完全相同。Provider 可能通过保留 KV 派生状态或其他内部方式实现这个功能。无论如何，它都不会扩大 context window、提高前缀的可信度，也不会把请求变成持久的语义记忆。
 
-Context rot 指模型输出随输入变长而退化。它有两层。第一层是长度引起的：即使每个 token 都相关、总量也远未触及窗口上限，输入越长，模型使用它就越不可靠。下文的 *Lost in the Middle* 效应就是一个实例——埋在大输入里的材料召回率下降，不是因为材料本身错了，只是因为材料更多了。第二层是无关材料累积：任务变长时，上下文会堆积旧工具输出、失败计划、重复日志、过期假设、摘要的摘要，模型把 attention 花在不再代表当前任务的文本上。两层会叠加。上下文足够长时，干净的上下文也会 rot；上下文充满噪声时，短上下文也会 rot。
+## 工作上下文不是持久状态
 
-好的 harness 会这样对抗 context rot：
+一次调用结束时，它的 context 不会自动成为后续调用可用的状态。Application 可以在外部保存信息，再把其中一部分放入之后的 prompt，但那是另一个系统机制。详细的 context management 和 memory 架构见 *Agent Harness* [第 3 章](../agent-harness-zh/03-context-as-finite-resource.md)和[第 5 章](../agent-harness-zh/05-compaction-memory-context-handoffs.md)；持久 execution state 与 event history 则见[第 10 章](../agent-harness-zh/10-state-event-history-production-factors.md)。
 
-- 把结构化任务状态放在模型外部；
-- 摘要时显式保留约束和开放问题；
-- 从工具输出抽取持久事实后丢掉原始输出；
-- 大型对象用 handle 存储；
-- 每次调用只 rehydrate 相关切片；
-- 把用户内容和系统指令分开。
+## Long-Context 容量与可靠性
 
-另一个实用规则是：工具原始输出中的信息被抽取后，就不要继续把原始输出留在上下文里。5000 行日志应该变成“测试 `x` 在调用 `z` 后因为断言 `y` 失败”，再加一个指向完整日志的 handle。模型之后需要时再请求完整日志。
+更大的标称窗口提高的是**容量**：能够放入更多 token。它不保证模型会均匀或可靠地**利用**这些 token。长输入会暴露多种经验性弱点：
 
-## Context 也是安全边界
+- 对相关信息所在位置敏感；
+- 相关材料被 distractor 包围时准确率降低；
+- 难以整合分散在相距很远位置的证据；
+- 在触及硬性 context 上限之前，任务表现就已经下降。
 
-Context 不只是记忆预算，也是信任边界。模型可能 attend 到 prompt 中任何内容，包括检索网页或文档里的恶意指令。Context 越大，攻击面越大。
+**Context rot** 常用来泛指 context 变长时出现的这类退化。它是一种经验行为，而不是单一机制，也没有对所有情况都成立的统一阈值。严重程度取决于模型、任务、序列长度、位置和周围内容。
 
-Harness 应该对进入 context 的内容做权限和标记：
+*Lost in the Middle* 发现，在 key-value retrieval 和 multi-document question answering 任务上，当相关信息位于输入开头或结尾时，模型表现可能优于信息位于中间时 ([Liu et al., 2023](https://arxiv.org/abs/2307.03172))。并非每个模型都会呈现完全相同的模式，但这个结果说明了核心区别：信息处于模型支持的窗口之内，不等于模型会可靠使用它。
 
-- 不要检索用户无权查看的文档；
-- 把不可信内容标记为 data；
-- 工具说明不要放进检索内容里；
-- 除非必要，不要粘贴 secrets；
-- 优先用 handle 和 scoped tools，而不是裸敏感上下文。
+因此，阅读 long-context 主张时必须区分概念。最大 token 数描述的是能够接受的序列长度；短 retrieval probe 上的表现描述的是一种行为。两者单独都不能证明模型能在该长度下对任意输入进行可靠的理解、回忆或推理。
 
-## Long-Context Models
+## Context 不是 Enforcement Boundary
 
-Long-context model 降低压力，但不能取消 context engineering。更大的窗口能支持更大文档、更丰富 trace、更少 compaction；也会鼓励粗心堆料。
+模型会对收到的序列化 token 进行计算；它不会在序列不同部分之间提供可靠的信任隔离。Label、role marker 和 delimiter 可能影响行为，但不可信文本仍然可能影响生成，详见[第 8 章](./08-prompting-and-in-context-learning.md)。
 
-长上下文也不意味着每个 token 都被均匀使用。*Lost in the Middle* 发现，模型使用输入开头或结尾附近的相关信息时，可能明显好于使用中间位置的信息 ([Lost in the Middle](https://arxiv.org/abs/2307.03172))。不同模型和上下文长度会有差异，但稳定结论是：“放进窗口某处”不等于“模型可靠可用”。
-
-对 harness 来说，evidence placement 是设计问题。当前任务、关键约束和决定性证据应该放在模型更可能使用的位置。如果必须放入长文档，应考虑 section summaries、targeted retrieval、citations 和 follow-up search，而不是假设整个窗口都会被同等可靠地阅读。
-
-用真实任务衡量 long-context workflow。问清楚：额外上下文是否提高成功率、减少重试，还是只是增加成本？有时 search tool 加小上下文会胜过巨大 prompt。
+因此，context 是输入面和攻击面，而不是 authorization 或 enforcement boundary。任何硬性的访问或行动边界都必须存在于模型之外。详细控制属于配套教材 [*Agent Harness*](../agent-harness-zh/README.md)。
 
 ## 要点
 
-- Context window 是有限输入，不是持久记忆。
-- KV cache 加速 inference，但不解决语义状态。
-- Context rot 是长运行 workflow 的主要失败模式。
-- Harness 应外部化状态，并给模型相关切片。
+- Context-window 上限通常约束 prompt 加生成 token；provider 的 input 和 output 上限还可能带来额外约束。
+- Prefill 处理 prompt，并构建每层的 key 和 value；decode 随后复用它们，顺序生成 token。
+- KV cache 避免重复计算旧 token，但其内存随缓存序列长度线性增长，标准 decode attention 仍然要扫描不断增长的前缀。
+- Context、单次请求内的 KV cache 和 provider prompt caching 是生命周期与 contract 都不同的概念。
+- Long-context 容量不保证模型可靠使用每个已放入的 token。
+- Context 是临时输入，不是持久记忆，也不是模型强制执行的信任边界。

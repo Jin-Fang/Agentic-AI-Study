@@ -17,9 +17,9 @@ This map links the book's main concepts to the two source lectures. The timestam
 | [00:22:11](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1331s) | Reinforcement learning from human feedback | Chapter 7 |
 | [00:28:20](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1700s) | Tool use, including browser-like tools | Chapter 12 |
 | [00:32:42](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1962s) | Context window as finite working context | Chapter 9 |
-| [00:33:41](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2021s) | Multimodal systems that see and generate images | Chapters 2, 14 |
+| [00:33:41](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2021s) | Multimodal systems that see and generate images | Chapters 2, 12, 14 |
 | [00:41:33](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2493s) | Retrieval-augmented generation and tool augmentation | Chapters 11, 12 |
-| [00:46:16](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2776s) | Jailbreak attacks and safety/refusal behavior | Chapters 7, 10, 12 |
+| [00:46:16](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2776s) | Jailbreak attacks and safety/refusal behavior | Chapters 7, 10 |
 
 ## Deep Dive into LLMs like ChatGPT
 
@@ -46,6 +46,4 @@ This map links the book's main concepts to the two source lectures. The timestam
 | [03:00:54](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=10854s) | Reward model as a lossy simulation of human preference | Chapters 7, 13 |
 | [03:04:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11051s) | Reward hacking and limits of optimizing a reward model | Chapters 7, 13 |
 | [03:09:24](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11364s) | Use models as tools, not as fully trusted authorities | Chapters 10, 14 |
-| [03:09:57](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11397s) | Multimodal models over audio and images | Chapters 2, 14 |
-| [03:11:58](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11518s) | Long-running agents and humans as supervisors | Chapters 12, 14 |
-
+| [03:09:57](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11397s) | Multimodal models over audio and images | Chapters 2, 12, 14 |

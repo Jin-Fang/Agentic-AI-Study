@@ -1,130 +1,152 @@
 # 第 1 章：什么是 Agent Harness？
 
-### 1.1 Model + Harness 公式
+### 1.1 从有用的简称到精确的边界
 
-原始语言模型只能接收文本、输出文本；配套的前置卷介绍了它的原生能力与局限（见《LLM Foundations》第 1 章）。要把模型变成 agent，让它能够浏览代码库、运行测试、写入数据库、与用户对话、从错误中恢复，乃至在长达数小时的任务中持续推进，就必须围绕模型构建所有这些额外能力。LangChain 将由此形成的 harness 分为几类：系统提示；工具及其描述；文件系统、沙箱和浏览器等内置基础设施；子代理派生、模型路由等编排逻辑；以及负责压缩、续跑、lint 检查等确定性操作的 hooks 或中间件 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
+配套的《LLM Foundations》把 **harness** 有意用作模型外部系统的粗粒度简称。在这个粒度上，下面的核心公式很有用：
 
-这一框架把系统设计问题清楚地摆在了台面上。模型本身无法跨多次交互保存持久状态、执行代码、获取实时知识，也不能自行配置环境和安装软件包。这些都属于 harness 层的能力 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。即便是最基本的聊天也依赖一种 harness 模式：while-loop 保存历史消息，再把新消息加入上下文，于是模型看起来像是“记得”刚才的对话。
+> **Agent 的行为 = 模型的行为 + 周边系统的行为**
 
-HumanLayer 从配置 coding agent 的角度给出了几乎相同的公式：“coding agent = AI model(s) + harness”。它把 harness 称为 agent 的运行时或“外围设备”，也就是模型与环境交互所依赖的各个组件 ([HumanLayer - Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents))。
+模型接收为当前一次推理组装好的表示，并生成 token 或结构化输出。模型本身不会保存持久的应用状态、授予权限、执行 shell 命令、写入数据库记录，也不会验证所请求的现实世界变化是否真的发生。这些责任位于模型之外，属于[模型—系统责任边界](../llm-foundations-zh/14-operational-mental-model.md)。
 
-### 1.2 Agent 循环
+但在设计生产系统时，“模型之外的一切”范围太宽，因此本书需要更细的词汇。例如，Anthropic 把 **agent harness**（也称 scaffold）定义为使模型能够作为 agent 行动的系统：它处理输入、编排工具调用并返回结果；同时又单独定义了围绕该系统创建并运行测试的 **evaluation harness**（[Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)）。本书采用这一区分，并在下文继续划分 runtime、product 和 platform 层。
 
-配套的前置卷已经介绍了 agent 循环，以及它背后的一项关键原则：工具调用只是交给 harness 执行的结构化输出，并不是模型亲自采取的行动（见《LLM Foundations》第 1 章与第 12 章）。简要回顾一下：原始模型调用是一次性的，也就是文本输入、文本输出；*agent* 则把这次调用放进一个循环。Harness 先组装上下文，模型再输出最终答案或一个 *工具调用*。工具调用通常是 JSON 格式的结构化输出，其中包含工具名称和参数。随后，确定性的 harness 代码执行该调用，把观察结果加入上下文，并以扩展后的上下文开始下一轮。
+因此，本书用 **agent harness** 指紧邻模型的循环控制系统；当一项论断涉及更大范围时，则使用**周边系统（surrounding system）**。“模型 + harness”这一粗粒度公式仍然是有用的教学工具，但它并不表示所有外部责任都由同一个进程、软件库或团队承担。
 
-HumanLayer 用一句话概括了同一个意思：“tools are just structured outputs” ([HumanLayer - 12-Factor Agents](https://www.humanlayer.dev/blog/12-factor-agents))。无论是编辑文件、执行 shell 命令、点击浏览器，还是写入数据库，都只有在 harness 接受并执行模型请求之后，才会在现实中产生效果。位于这个循环中心的模型，就是 Anthropic 所说的 *augmented LLM*，也是研究文献中的 *ReAct*（reason + act）（具体机制见《LLM Foundations》第 12 章）。
+### 1.2 最小 Agent 循环：提议不等于效果
 
-这个循环会带来两个贯穿全书的后果。第一，**上下文单调增长**：每一轮都会追加一次工具调用及其观察结果，因此一个包含 N 个步骤的任务会积累 N 轮历史。正因如此，第 2 章把上下文视为有限资源，而压缩、子代理和记忆都是管理这种资源的手段。第二，**模型本身从不执行任何操作**。模型只会发出请求，确定性的 harness 代码则负责决定是否执行、如何执行。请求与执行之间的这段距离，为后续章节中的护栏、沙箱、hook 和审批关卡提供了介入点。Harness 就位于循环之中，连接模型提出的请求与最终发生的现实效果。
+《LLM Foundations》已经介绍了模型侧的工具使用与最小循环（[Foundations 第 12 章](../llm-foundations-zh/12-reasoning-tools-and-agents.md)）。这里需要进一步明确工程边界：
+
+1. Agent harness 从指令、筛选后的历史或记忆、工具 schema、检索数据和当前状态中**组装上下文**。
+2. 模型**提出**最终回复，或提出工具调用等结构化动作。
+3. Harness **解析并验证**这一提议，再把它送入所需的授权或审批关卡。
+4. Runtime 或工具服务**执行**获准的动作。
+5. 周边系统接收执行结果；如果动作后果重要，还要检查最终的环境状态或业务 outcome。
+6. 系统记录状态并组装下一次模型输入，或者结束本次 run。
+
+这是一项实际的接口契约，而不只是比喻。在 Anthropic 文档描述的客户端工具循环中，模型发出结构化的 `tool_use` 请求，应用代码执行操作，再把 `tool_result` 返回对话。由 provider 执行的工具只是把 executor 移到了 provider 的基础设施上，并没有让模型本身变成 executor（[Anthropic - How Tool Use Works](https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works)）。
 
 ```mermaid
 flowchart LR
-    A["组装上下文<br/>(系统提示 + 历史<br/>+ 工具 + 检索数据)"] --> B{"模型做决定"}
-    B -->|"工具调用"| C["harness 执行<br/>(shell、文件、API…)"]
-    C --> D["把观察结果<br/>追加进上下文"]
-    D --> A
-    B -->|"最终答案"| E["完成"]
+    A["Agent harness<br/>组装上下文"] --> B{"模型提出结果"}
+    B -->|"最终回复"| F["返回结果"]
+    B -->|"结构化动作"| C["Harness 验证<br/>Policy gate 授权"]
+    C -->|"拒绝 / 需要审批"| G["停止、等待或修订"]
+    C -->|"允许"| D["Runtime 或工具服务<br/>执行"]
+    D --> E["返回执行结果<br/>并验证 outcome"]
+    E --> H["记录状态 / 证据"]
+    H --> A
 
-    style C fill:#16213e,color:#fff
-    style E fill:#1b4332,color:#fff
+    style C fill:#5b3a29,color:#fff
+    style D fill:#16213e,color:#fff
+    style F fill:#1b4332,color:#fff
 ```
 
-### 1.3 Harness 的边界：内层与外层
+真正关键的边界位于**提议（proposal）**与**效果（effect）**之间。通过 schema 验证的请求并不自动拥有执行权限，成功的 API 响应也不一定能证明预期 outcome 已经发生。模型可以解释、请求或建议一项动作，但不能自行授予权限。后续章节会把 validation、authorization、execution 和 outcome confirmation 分别落成具体设计。
 
-“Harness”这个词并没有完全统一的边界。Thoughtworks 的作者指出，不同人所说的 harness 可能覆盖不同层次。Birgitta Böckeler 建议将其理解为三层同心圆：核心是模型；中间层是 coding agent 的 *builder harness*，包括 Anthropic、OpenAI 等厂商提供的系统提示和工具；外层是 *user harness*，包括团队为适配自己的代码库而添加的 AGENTS.md、hooks、skills 和 review agents ([Thoughtworks / Martin Fowler - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html))。多数工程师的日常工作主要集中在最外层。
+### 1.3 上下文不必单调增长
 
-OpenReview 论文 *Agent Harness Engineering: A Survey* 对这条边界给出了更正式的定义：harness 是一套软件和接口基础层，用来管理 foundation model 如何获取上下文、调用工具、持续执行任务，并在部署环境中保持可审计性 ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。论文进一步将 harness 视为一种潜在的 *binding constraint*：对于长周期 agent，可靠性往往既取决于模型本身的质量，也同样取决于模型周围的运行基础。
+在最简单的 append-only 实现中，每轮循环都会向 transcript 加入模型请求和工具结果，因此 transcript 会单调增长。但生产 harness 不必在每次调用时重新发送全部原始 transcript。它可以裁剪消息、把 artifact 移出上下文、压缩旧内容、重置 context、检索部分 memory，或只在需要时暴露工具。Anthropic 把 context engineering 描述为整理推理期间可用的 token 集合，而不只是不断累积对话文本（[Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)）。
 
-### 1.4 ETCLOVG：七层系统地图
+因此，准确的不变量不是“上下文始终增长”，而是**一次 run 会持续产生需要管理的信息**。下一次 context 是对这些信息筛选和序列化后的视图。筛选与压缩可能丢失证据或改变行为，所以系统必须在模型输入之外保存持久状态、artifact、provenance 和尚未解决的不确定性。Context 是一次调用的有限输入，而不是系统数据库或 event history；其底层机制见 [Foundations 第 9 章](../llm-foundations-zh/09-context-window-and-kv-cache.md)。
 
-这篇综述用 **ETCLOVG** 组织 harness 的设计空间：Execution environment、Tool interface、Context、Lifecycle、Observability、Verification 和 Governance ([OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh))。这张地图提醒我们，harness 不能被简化为只有 prompt 或 tool。
+### 1.4 本书使用的六个系统层级
 
-- **Execution environment**：让操作产生实际效果的沙箱、浏览器、操作系统、代码执行器或托管云环境。
-- **Tool interface**：协议、schema、registry、function calling、MCP/A2A 式边界和工具选择策略。
-- **Context**：prompt 组装、检索、记忆、压缩、状态压缩，以及允许模型看到哪些信息。
-- **Lifecycle**：任务启动、规划、checkpoint/resume、失败恢复、handoff、session 终止和长时间运行所需的状态。
-- **Observability**：trace、telemetry、成本归因、延迟、token 用量核算和失败取证。
-- **Verification**：eval harness、grader、任务集、outcome check 和 readiness gate。
-- **Governance**：权限、策略语言、审计记录、人类审批、constitutional/rule-based 控制和跨层安全。
+下列层级是本书采用的架构约定。真实产品可能把几个层级合并到一个服务中，也可能把一个层级拆给多个 vendor，但这些责任仍然可以区分。
 
-接下来的大部分章节，都可以看作对这七个层次的逐一展开。第 2—3 章主要讨论 context 和 memory；第 4—5 章讨论 tools 和 execution；第 7—9 章转向 lifecycle；第 10—12 章则展开 verification、observability 和 governance，并在展望部分再次回到这些主题。
+| 层级 | 本书中的定义 | 典型责任 |
+|---|---|---|
+| **Model** | 接收当前表示并生成 token 或结构化输出的概率组件 | 语言与多模态推理、动作提议、分类、计划 |
+| **Agent harness** | 组装输入、解析输出并驱动一个或多个 agent loop 的模型邻近系统 | Prompt/context 组装、工具暴露、循环控制、handoff 协调 |
+| **Runtime** | 让工作可持久执行，并负责运行获准操作的执行基础 | 调度、队列、checkpoint、retry 语义、沙箱、worker 生命周期 |
+| **Product / application** | Agent 所嵌入的用户侧 workflow 与领域系统 | UX、领域逻辑、业务状态、review surface、用户沟通 |
+| **Platform / control plane** | 管理多 tenant、多版本、多 agent 和多 runtime 的管理层 | Registry、identity、policy 管理与决策、rollout、fleet 生命周期 |
+| **Evaluation harness** | 创建 trial、调用被测系统、采集证据并应用 grader 的测试系统 | 任务环境、隔离、多次 trial、transcript、outcome、报告 |
 
-### 1.5 Harness 为什么存在：从模型缺陷倒推
+在每一种部署中，这些层级都不一定表现为同心结构。例如，授权决策可能来自 platform 服务，但由 runtime 中的 enforcement point 阻止不允许的动作。同样，由 provider 执行的工具可以提供一部分 runtime 能力，而 workflow 仍归 product 所有。
 
-LangChain 提供了一种倒推 harness 组件的方法：先列出你希望 agent 表现出的行为，再找出模型原生无法做到的部分。所需的 harness 组件便可以从这些能力缺口中推导出来 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
+**Framework** 与这些层级不同：它是用于实现一个或多个层级的一组抽象或软件库。把某个组件称为 framework，说明的是开发者如何用它构建系统，而不是它拥有哪项生产责任。
 
-例如，模型只能处理上下文窗口中的信息，因此文件系统需要承担持久存储、信息卸载，以及 agent 与人类共享工作空间的作用。Bash 和代码执行解决的是另一项局限：我们不可能预先定义 agent 可能用到的每一种工具，因此需要提供通用执行通道，让模型按需创建工具。执行过程又必须置于安全边界之内，所以需要沙箱。模型无法凭空获知权重和当前上下文之外的信息，所以需要借助记忆与搜索把新信息注入上下文。上下文窗口本身容量有限，而且内容越多，性能越可能下降，因此还需要压缩、工具结果卸载和 skills。
+### 1.5 六类外部责任分别归谁所有？
 
-每个组件都在弥补一项具体局限，而 harness 就是这些组件共同构成的系统。
+Foundations 卷在结尾给出了必须位于模型预测之外的六类责任：context、state、tools、permissions、verification 和 consequences。按照本书采用的更细粒度，它们的归属如下：
 
-### 1.6 历史脉络：从 Prompt Engineering 到 Harness Engineering
+| 责任 | 周边系统中的主要 owner | 模型的合理角色 |
+|---|---|---|
+| **Context** | Agent harness 筛选并序列化模型可见的视图 | 使用所提供的上下文；指出可能还需要哪些信息 |
+| **State** | Runtime 保存 execution state；product 拥有领域和业务状态 | 提议状态变更；绝不能充当唯一的持久记录 |
+| **Tools** | Agent harness 暴露契约；runtime 或工具服务执行 | 选择工具并提出参数 |
+| **Permissions** | Product/platform policy 作出决策；runtime 中不可绕过的 enforcement point 负责落实 | 请求访问或解释意图；绝不能自行授予权限 |
+| **Verification** | Runtime、product 和 evaluation harness 采用测试、环境检查、grader 或人工 review | 提供 critique 或假设，但只作为一种可能出错的信号 |
+| **Consequences** | Runtime 与接入的外部系统产生并记录实际效果；product 负责解释其业务含义 | 预测或描述预期效果 |
 
-Anthropic 将这几次转变描述为一种自然演进。早期 LLM 应用主要关注 *prompt engineering*，也就是为一次性任务编写和组织指令。随着应用发展成能够多轮交互、长时间运行的 agent，关注范围扩展到了 *context engineering*：在 LLM 推理期间整理并持续维护最有用的一组 token，其中也包括提示词之外进入上下文的所有信息 ([Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents))。
+在 Foundations 教材的粗粒度边界上，说“harness 拥有这些责任”是正确的。本书通过这张表进一步避免这个简称掩盖真正需要实现某项保证的子系统。
 
-Harness engineering 又比 context engineering 高一个层次。按照 Mitchell Hashimoto 的说法，每当 agent 出错，都应投入时间设计系统性解决方案，避免它以后重犯同样的错误 ([HumanLayer - Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) quoting Hashimoto)。Prompt engineering 调整的是单个提示；harness engineering 改进的则是提示运行于其中的整套系统。
+### 1.6 Agent Harness 与 Evaluation Harness 是不同系统
 
-2026 年，这一演进又出现了名为 *loop engineering（循环工程）* 的新视角。随着 agent 开始在更长周期内无人值守地运行，工作的关注点再次转移：先是 prompt，再到 context，如今则是决定“给模型什么提示、何时调用模型、结果是否合格”的 *loop* ([Addy Osmani - Loop Engineering](https://addyosmani.com/blog/loop-engineering/))。Loop engineering 与其说是 harness engineering 的替代方案，不如说是从运行管理角度观察其外层控制循环，重点关注围绕 agent 的 trigger、verifier 和 stop rule。第 8 章将完整展开这一概念。
+**Agent harness** 是被评估系统的一部分。**Evaluation harness** 则在测试期间包围这个系统：它配置任务与环境，调用 model 与 agent harness 的组合，记录一次 trial，检查 transcript 或最终环境状态，应用 grader，再汇总结果。Anthropic 的评估术语也作出了相同区分，并指出评估一个“agent”时，实际评估的是模型与其 agent harness 的组合（[Anthropic - Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)）。
 
-### 1.7 Framework、Runtime 与 Harness
+这一区分在运营中很重要。生产 trace 可以为评估提供证据，但生产 observability 并不会自动构成 evaluation harness。反过来，测试 runner 可以模拟工具与环境，却不一定是为用户提供服务的 runtime。把二者分开后，团队才可能在保持测试基础设施足够稳定的同时，更换 agent harness 并测量改动效果。
 
-这三个词有时会被混用。LangChain 的 Harrison Chase 对它们作了如下区分 ([LangChain - Agent Frameworks, Runtimes, and Harnesses, Oh My!](https://blog.langchain.com/agent-frameworks-runtimes-and-harnesses-oh-my/))：
+### 1.7 两张有用的地图，但都不是通用标准
 
-*Framework*（如 LangChain、Vercel AI SDK、CrewAI、OpenAI Agents SDK 或 Google ADK）提供开发抽象，帮助开发者快速入门，并统一应用的构建方式。*Runtime*（如 LangGraph、Temporal 或 Inngest）处理基础设施问题，包括持久执行、流式输出、human-in-the-loop，以及线程内和跨线程的状态持久化。*Harness*（如 LangChain 的 DeepAgents 或 Anthropic 的 Claude Agent SDK）则又高一层，通常内置默认提示、对工具处理方式的明确取舍、规划工具、文件系统访问，以及其他“开箱即用”的能力。三者的边界并非绝对，例如 LangGraph 既可以被视为 runtime，也可以被视为 framework；即便如此，这一区分仍有助于团队判断应该采用什么。
+业界使用多种彼此重叠的地图来描述周边系统。它们回答的问题不同，不应被误认为规范层级。
 
-### 1.8 更好的模型会让 Harness 过时吗？
+Birgitta Böckeler 为 coding agent 提出了三层同心范围：模型；由模型或 agent vendor 提供的 **builder harness**；以及由采用方团队加入 repository 指令、hooks、skills 和 review agents 的 **user harness**（[Thoughtworks / Martin Fowler - Harness Engineering](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html)）。这是一张描述 ownership 与 customization 的地图。Builder harness 和 user harness 都可能分别包含上文所定义的 agent-harness、runtime、product 与 evaluation 层组件。
 
-一个始终伴随 harness engineering 的问题是：模型变得更好之后，周边系统会不会就不再重要？HumanLayer 在 “Skill Issue” 中指出，团队常常把问题归咎于模型——“GPT-6 会解决”“我们只需要模型更听指令”——但真正的症结往往在于 harness 配置 ([HumanLayer - Skill Issue: Harness Engineering for Coding Agents](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents))。更好的模型会消除一些现有的失败模式，但也会被交付更困难的任务，并继续以意想不到的方式失败。这样的意外失败，是非确定性系统的基本属性。因此，harness engineering 是一项需要持续投入的工作，而不是等模型足够强大后就能丢弃的临时脚手架。
+2026 年的论文稿 *Agent Harness Engineering: A Survey* 提出了 **ETCLOVG**，用七个方面组织工程关注点：Execution environment、Tool interface、Context、Lifecycle、Observability、Verification 和 Governance（[OpenReview - Agent Harness Engineering: A Survey](https://openreview.net/pdf?id=3hXEPbG0dh)）。本书把它当作覆盖范围 checklist，而不是行业标准或部署架构：
 
-LangChain 也得出了类似结论。随着模型能力提升，今天位于 harness 中的一部分功能可能会被模型吸收。即便如此，harness engineering 仍有价值：既可以弥补模型的不足，也可以围绕模型智能构建系统，让这种智能得到更有效的发挥 ([LangChain - The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/))。
+- **Execution environment**：获准动作在何处转化为实际效果。
+- **Tool interface**：schema、协议、registry 和选择策略。
+- **Context**：组装、检索、memory 注入与压缩。
+- **Lifecycle**：启动、checkpoint、恢复、handoff 与终止。
+- **Observability**：trace、telemetry、延迟、成本与失败证据。
+- **Verification**：outcome check、测试套件、grader 与发布门。
+- **Governance**：identity、权限、审批、policy 与审计证据。
 
----
+六个系统层级回答的是**责任位于哪里**。ETCLOVG 问的是**需要覆盖哪些关注点**。Builder/user 同心范围问的是**谁提供或定制组件**。同一个组件可以处于某个层级、覆盖多个关注点，也可以由多个参与方共同定制。
 
-## 图：模型到 Harness 层
+### 1.8 Framework、Runtime、Harness 与 Product 标签
 
-```mermaid
-flowchart TB
-    subgraph UH["外层：User Harness"]
-        direction TB
-        AM["AGENTS.md / CLAUDE.md"]
-        SK["Skills 与 Review Agents"]
-        HK["Hooks 与自定义工具"]
+Vendor 和 practitioner 文献并不统一使用这些标签。LangChain 的一种分类把 framework 描述为开发抽象，把 runtime 描述为持久执行基础设施，再把 harness 描述为更有明确取舍、功能更完整的 agent 系统；同时也承认存在相互重叠的案例（[LangChain - Agent Frameworks, Runtimes, and Harnesses, Oh My!](https://blog.langchain.com/agent-frameworks-runtimes-and-harnesses-oh-my/)）。这套分类有助于比较产品，但它不是协议规范。
 
-        subgraph BH["中间层：Builder Harness"]
-            direction TB
-            SP["系统提示"]
-            TD["工具定义"]
-            OL["编排逻辑"]
-            MW["中间件 / Hooks"]
+因此，本书按照一个组件实际承担的责任对其分类，而不是照搬网站上的产品标签。名为“agent runtime”的软件库可能包含 agent-harness 逻辑；作为“agent platform”销售的产品也可能同时打包 runtime、control-plane、evaluation 和 application 功能。六层词汇让我们可以直接讨论这些功能，而无需强行把每个 vendor 放进唯一类别。
 
-            subgraph MODEL["核心：语言模型"]
-                LM["LLM<br/>(文本输入 -> 文本输出)"]
-            end
-        end
-    end
+### 1.9 Prompt、Context、Harness 与 Loop Engineering
 
-    style MODEL fill:#1a1a2e,color:#fff
-    style BH fill:#16213e,color:#fff
-    style UH fill:#0f3460,color:#fff
-```
+Prompt engineering、context engineering、harness engineering 和 loop engineering 更适合作为四种互补视角：
+
+- **Prompt engineering** 设计模型可见的指令和示例。
+- **Context engineering** 筛选并维护一次推理可用的信息；Anthropic 明确把它描述为整理推理期间使用的 token 集合（[Anthropic - Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)）。
+- **Harness engineering** 设计紧邻模型的控制与接口，把提议转换为受治理的工作。
+- **Loop engineering** 是一个 practitioner 术语，关注重复调用、反馈、验证、budget 和 stop rule 的设计（[Addy Osmani - Loop Engineering](https://addyosmani.com/blog/loop-engineering/)）。
+
+这些词并不表示所有系统都必须沿着同一条历史阶梯演进，彼此之间也不存在替代关系。可靠系统通常需要同时在四个范围内作出设计决策。
+
+### 1.10 模型变强后，这条边界为什么仍然存在？
+
+能力更强的模型可以减少失败，也可以吸收一些过去需要复杂 prompt 或 orchestration 才能实现的行为。但模型能力不会消除概率性提议与已授权、已记录外部效果之间的区别。只要 agent 能够花钱、修改数据、对外沟通或操作基础设施，某个周边系统就仍然必须负责 credential、policy enforcement、execution、durable state、verification 和 recovery。
+
+能够变化的是这些机制的位置与复杂度。Provider 可能在服务端执行工具；product 可能把原先由显式 workflow 代码完成的 planning 移进模型；runtime 也可能让恢复过程对上层透明。实现边界可以移动，但责任边界仍应清晰可见。这就是本书其余章节的组织原则。
 
 ---
 
 ## 要点
 
-- **Agent = Model + Harness**：任何超出原始文本输入输出的能力，都必须通过周边系统构建出来。
-- **Agent 循环是基础**：组装上下文、由模型发出工具调用、由 harness 执行，再把结果追加到上下文——循环每运行一轮，上下文都会继续增长。
-- **工具调用是结构化请求**：模型以文本形式提出操作请求，harness 决定哪些请求会产生实际效果。
-- **三层同心圆**：LLM 核心、AI 实验室提供的 builder harness、团队自行构建的 user harness。
-- **ETCLOVG 提供系统地图**：execution、tools、context、lifecycle、observability、verification、governance 都是 harness 层。
-- **Harness 组件来自模型局限**：文件系统、沙箱、记忆和压缩分别弥补不同的能力缺口。
-- **Harness engineering 需要持续投入**：模型越强，承担的任务也越难，新的失败模式仍会出现。
-- **Framework 不等于 Runtime，也不等于 Harness**：理解这些区别有助于团队做出技术选型。
+- **“模型 + harness”是粗粒度公式**：它把模型预测与周边系统分开，但生产设计需要更细的层级。
+- **Agent harness 紧邻模型**：它组装输入、解释提议并驱动循环，但并不自动等于完整产品或 platform。
+- **提议不等于效果**：validation、authorization、execution 和 outcome confirmation 都发生在模型之外。
+- **Context 是组装出来的，并非注定永远追加**：单调增长描述的是朴素 transcript，而不是所有 harness。
+- **Runtime、product、platform 和 evaluation harness 各有不同职责**，即使同一 vendor 把它们打包出售。
+- **Context、state、tools、permissions、verification 和 consequences 都有外部 owner**；模型只贡献提议和可能出错的判断。
+- **ETCLOVG 与 builder/user 同心范围是有用的地图，不是通用标准**。
+- **更好的模型可能移动实现边界，但不会因此取得对现实后果的权限**。
 
 ## 延伸阅读
 
-- Vivek Trivedy, *The Anatomy of an Agent Harness*, LangChain, Mar 2026. https://blog.langchain.com/the-anatomy-of-an-agent-harness/
-- Harrison Chase, *Agent Frameworks, Runtimes, and Harnesses, Oh My!*, LangChain, Oct 2025. https://blog.langchain.com/agent-frameworks-runtimes-and-harnesses-oh-my/
-- Kyle Brunet, *Skill Issue: Harness Engineering for Coding Agents*, HumanLayer, Mar 2026. https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents
-- Birgitta Böckeler, *Harness Engineering for Coding Agent Users*, Thoughtworks / martinfowler.com, Apr 2026. https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html
-- Anthropic Applied AI Team, *Effective Context Engineering for AI Agents*, Anthropic, Sep 2025. https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+- Anthropic, *How Tool Use Works*. https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works
+- Anthropic, *Demystifying Evals for AI Agents*, Jan 2026. https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents
+- Anthropic, *Effective Context Engineering for AI Agents*, Sep 2025. https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
 - Erik Schluntz and Barry Zhang, *Building Effective Agents*, Anthropic, Dec 2024. https://www.anthropic.com/engineering/building-effective-agents
-- *Agent Harness Engineering: A Survey*, OpenReview / TMLR submission, 2026. https://openreview.net/pdf?id=3hXEPbG0dh
+- Birgitta Böckeler, *Harness Engineering for Coding Agent Users*, Thoughtworks / martinfowler.com, Apr 2026. https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html
+- Harrison Chase, *Agent Frameworks, Runtimes, and Harnesses, Oh My!*, LangChain, Oct 2025. https://blog.langchain.com/agent-frameworks-runtimes-and-harnesses-oh-my/
+- *Agent Harness Engineering: A Survey*, OpenReview 论文稿, 2026. https://openreview.net/pdf?id=3hXEPbG0dh

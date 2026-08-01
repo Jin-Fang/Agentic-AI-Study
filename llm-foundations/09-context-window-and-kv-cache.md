@@ -1,119 +1,94 @@
 # Chapter 9: Context Windows and KV Cache
 
-The context window is the maximum token sequence a model can condition on in one call. Karpathy describes the context window as the model's working context: the text it can currently see while generating ([Intro to LLMs, around 00:32:42](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1962s)). It is tempting to treat a long context window as memory. That is a mistake.
+The context window is the token sequence a model can condition on during one generation. Its limit usually applies to the prompt **plus the tokens generated so far**, not to the prompt alone. If a model has a context limit of \(C\) tokens and the serialized prompt uses \(n\), at most \(C-n\) positions remain for generation. Providers may also impose separate input and output limits, so the model's architectural limit and an API's accepted limits are not always identical.
 
-Context is input. Memory is state that persists outside the call.
+Context is temporary input to one generation. It is not durable state, and it is not a guarantee that the model will use every included token reliably.
 
-## Finite Context
+## A Finite Token Sequence
 
-Every token in the prompt competes for attention and budget. System instructions, developer instructions, user messages, retrieved documents, tool outputs, examples, and summaries all share the same window. When the window fills, something must be omitted or compressed.
+A model receives token IDs, including any special tokens added by its chat template. All of them occupy positions in the sequence. As generation proceeds, each selected token is appended to that same sequence and reduces the remaining capacity. Tokenization and hidden formatting overhead therefore affect both how much input fits and how much output can still be produced; see [Chapter 2](./02-tokenization.md).
 
-The failure mode is not only hard overflow. Performance can degrade before the window is full. Important constraints may be far from the generation point. Distracting text may receive attention. Summaries may omit details. Retrieved documents may introduce conflicting claims.
+Exceeding a limit is a capacity failure: an API may reject the request, truncate part of it, or stop generation at its configured output bound. Staying below the limit answers only whether the sequence fits. It does not establish that the model can recall, compare, or reason over every part of the sequence equally well.
 
-Harness design should therefore treat context as a scarce resource.
+Karpathy describes the context window as the model's finite working context: the information it can currently see while generating ([Intro to LLMs, around 00:32:42](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1962s)). The working-memory analogy is useful as long as it is not mistaken for persistence or reliable random access.
 
-Karpathy calls the context window a finite, precious resource and connects it to the information the model can use to perform the task ([Intro to LLMs, around 00:32:42](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=1962s), [00:44:38](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2678s)). This is the bridge from model mechanics to context engineering. If information is not in the context or available through a tool, the model must rely on parameters or guesswork.
+## Prefill and Decode
 
-The finite-context constraint creates a design question for every piece of information:
+Autoregressive inference has two computationally different stages.
 
-- Does this belong in the prompt now?
-- Should it be retrieved only if needed?
-- Should it be summarized?
-- Should it be stored externally and referenced by ID?
-- Should it be checked by a tool instead of read by the model?
+### Prefill
 
-Context windows make these questions unavoidable.
+During **prefill**, the model processes the prompt through all [Transformer layers](./04-transformer-attention.md). Causal masking allows the prompt positions to be computed in parallel even though each position can attend only to itself and earlier positions.
 
-## KV Cache
+For a prompt of length \(n\), standard dense self-attention performs attention work that grows as \(O(n^2)\). Optimized attention kernels can greatly reduce intermediate memory traffic and constants without changing that basic pairwise-comparison scaling. Prefill produces the logits used to select the first generated token and also creates the key and value tensors that will be reused during decoding.
 
-During inference, [Transformer attention](./04-transformer-attention.md) produces key and value vectors for tokens. Systems cache these vectors so generation can reuse previous computation instead of recomputing the whole prefix every time. This is the KV cache.
+Prompt length therefore has a direct effect on prefill work and often on time to first token. Other parts of the model, hardware, batching, and serving implementation also contribute, so token count alone does not determine latency.
 
-The KV cache is an inference optimization, not semantic memory. It helps the model continue the current sequence efficiently. It does not decide what facts matter, does not update long-term state, and does not solve context pollution.
+### Decode
 
-For harness engineers, KV cache matters operationally because long prompts and long outputs consume memory and affect latency. The cache is also what makes attention's cost tolerable per token: without it, each step would recompute the whole prefix, whose attention work grows roughly quadratically with context length (see [Chapter 4](./04-transformer-attention.md)). Reusing stable prefixes can improve performance, but stale or bloated prefixes still hurt model behavior.
+During **decode**, the model selects one new token at a time. At each layer, it computes the new token's query, key, and value. The query attends to the keys and values already stored for the preceding sequence; the new key and value are then appended to the cache.
 
-### From KV Cache to Provider Prompt Caching
+With a KV cache, projections and MLP computations for earlier tokens do not need to be repeated. For standard dense attention, however, the new query still compares against a growing prefix. The attention work for one decoded token is therefore \(O(t)\) at sequence length \(t\), not constant time. Generating \(m\) tokens after an \(n\)-token prompt requires roughly \(O(mn+m^2)\) decode-attention work across those tokens. Without a cache, a naive implementation would repeatedly run the whole growing prefix and redo much more computation.
 
-Providers productize prefix reuse as prompt caching: when a new request shares a leading prefix with a recent one, the provider serves the cached KV state for that prefix instead of recomputing it. The wins are large — cached prefix tokens are billed at a steep discount, and time-to-first-token drops because the model skips the prefill for the matched portion.
+This distinction explains two familiar latency measures: prefill largely determines time to first token, while sequential decode largely determines the rate at which later tokens arrive.
 
-The catch is how the match works. Caching keys on the prefix, so it holds only up to the first token that differs. Change one early token — a timestamp in the system prompt, a reordered tool definition, an edited earlier message — and every token after it is recomputed and re-billed. This dictates a concrete harness rule: keep the system prompt and tool definitions stable and put them first, then grow the conversation append-only. Do not rewrite history in place.
+## What the KV Cache Stores
 
-That rule is in direct tension with the summarization and compaction this chapter recommends below. Compaction saves tokens by rewriting earlier turns, but rewriting them busts the cache for everything downstream, so the next call pays full prefill. The trade is real: compact when the token savings (and reduced context rot) outweigh the lost cache hit, not on every turn. See [Chapter 5](./05-training-data-and-scaling.md) for the cost side and [Chapter 13](./13-evaluation-for-llm-behavior.md) for treating these prompt and history changes as regression-sensitive.
+In every attention layer, each previously processed token has a key vector and a value vector. The **KV cache** stores those tensors for reuse by later decode steps. It is a cache of intermediate numerical state for an exact token prefix, not a cache of facts or a summary of the text.
 
-## Working Memory vs Long-Term Memory
+Its size grows approximately with
 
-The context window is working memory. Long-term memory must live elsewhere. Karpathy mentions memory and computational tools as augmentations that can help models solve tasks beyond what fits naturally in context ([Intro to LLMs, around 00:42:46](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=2566s)). A harness turns that idea into concrete infrastructure.
+```text
+KV elements per request =
+  2 * layers * cached_tokens * KV_heads * head_dimension
+```
 
-Long-term memory may be:
+per active sequence, multiplied by the number of bytes used for each element. Batch size, parallel samples, and beam search can multiply that cost. Architectures such as grouped-query or multi-query attention use fewer KV heads and can reduce it, while sliding-window or other attention variants may change which tokens must remain cached.
 
-- a user profile,
-- a vector index,
-- a task database,
-- notes written to files,
-- conversation summaries,
-- a repository checkout,
-- a browser session,
-- or structured state in a workflow engine.
+Longer contexts thus consume more cache memory and require each new query to read more cached state. KV-cache capacity can limit batch size and throughput even when model weights fit comfortably in memory.
 
-The model reads slices of that memory when needed. It should not be expected to carry all of it in the prompt.
+A cache is not “stale” merely because the prefix describes an outdated fact. The tensors still correctly represent the exact tokens from which they were computed; the **content** is stale. If a token in that prefix changes, the affected hidden states and their derived keys and values must be recomputed.
 
-## Context Selection
+## Context, KV Cache, and Provider Prompt Caching
 
-A harness needs a context-selection policy. For each model call, it chooses what to include:
+These three ideas are related but not interchangeable:
 
-- the current user request,
-- durable task state,
-- relevant prior decisions,
-- tool availability,
-- recent observations,
-- retrieved documents,
-- examples,
-- and output constraints.
+- The **context** is the token sequence the model is allowed to condition on.
+- The **per-request KV cache** holds layer-level key and value tensors for positions already processed during that generation.
+- **Provider prompt caching** may reuse prefill work for a shared prefix across separate requests.
 
-Selection is often more important than compression. A short prompt with exactly the right file diff and failing test can outperform a long prompt containing an entire project history.
+Provider prompt caching is an API and serving contract, not a property implied by the model's context window. Eligibility, prefix-matching rules, retention time, billing, and latency effects are provider-specific; a match often requires identical leading tokens. A provider may implement the feature by retaining KV-derived state or by other internal means. Either way, it does not enlarge the context window, make the prefix more trustworthy, or turn the request into persistent semantic memory.
 
-## Context Rot
+## Working Context Is Not Persistent State
 
-Context rot is the degradation of model output as the input grows. It has two layers. The first is length-induced: a model uses a long input less reliably even when every token is relevant and the total is well under the window limit. The *Lost in the Middle* effect below is one instance — recall drops for material buried in a large input, not because that material is wrong, just because there is more of it. The second layer is irrelevant-material accumulation: as tasks get longer, the context piles up old tool outputs, failed plans, duplicate logs, stale assumptions, and summaries of summaries, and the model spends attention on text that no longer represents the current task. Both layers compound. A clean context still rots if it is long enough; a short context still rots if it is full of noise.
+When a call ends, its context does not by itself become state available to a future call. An application can preserve information externally and include some of it in a later prompt, but that is a separate system mechanism. Detailed context management and memory architectures belong to [Chapter 3](../agent-harness/03-context-as-finite-resource.md) and [Chapter 5](../agent-harness/05-compaction-memory-context-handoffs.md) of *Agent Harness*; durable execution state and event history are defined in [Chapter 10](../agent-harness/10-state-event-history-production-factors.md).
 
-Good harnesses fight context rot by:
+## Long-Context Capacity and Reliability
 
-- Keeping a structured task state outside the model.
-- Summarizing with explicit constraints and open questions.
-- Dropping tool outputs after extracting durable facts.
-- Storing large artifacts by handle.
-- Rehydrating only relevant slices for each call.
-- Separating user-provided content from system instructions.
+A larger advertised window increases **capacity**: more tokens can fit. It does not guarantee uniform or reliable **utilization** of those tokens. Long inputs can expose several empirical weaknesses:
 
-Another useful rule: do not keep raw tool outputs after their information has been extracted. A 5,000-line log should become "test `x` fails with assertion `y` after call `z`" plus a handle to the full log. The model can request the full log later if needed.
+- sensitivity to where relevant information appears;
+- reduced accuracy when relevant material is surrounded by distractors;
+- difficulty integrating evidence spread across distant positions;
+- declining task performance before the hard context limit is reached.
 
-## Context as a Security Boundary
+The term **context rot** is often used for this broad degradation as context grows. It is an empirical behavior, not a single mechanism or a universal threshold. Its severity depends on the model, task, sequence length, position, and surrounding content.
 
-Context is not only a memory budget. It is also a trust boundary. A model may attend to anything in its prompt, including malicious instructions embedded in retrieved pages or documents. As context grows, the attack surface grows.
+*Lost in the Middle* found that models on key-value retrieval and multi-document question answering could perform better when relevant information appeared near the beginning or end than when it appeared in the middle ([Liu et al., 2023](https://arxiv.org/abs/2307.03172)). The exact pattern is not identical for every model, but it demonstrates the central distinction: information being inside the supported window does not mean the model will use it reliably.
 
-For harnesses, this means context admission should be permissioned and labeled:
+Long-context claims should therefore be read precisely. A maximum token count describes an accepted sequence length. Performance on a short retrieval probe describes one behavior. Neither alone establishes dependable comprehension, recall, or reasoning across arbitrary inputs at that length.
 
-- Do not retrieve documents the user is not allowed to see.
-- Mark untrusted content as data.
-- Keep tool instructions outside retrieved content.
-- Avoid pasting secrets unless absolutely required.
-- Prefer handles and scoped tools over raw sensitive context.
+## Context Is Not an Enforcement Boundary
 
-Long context is useful, but clean context is more useful.
+The model computes over the serialized tokens it receives; it does not provide reliable trust isolation between different parts of that sequence. Labels, role markers, and delimiters may influence behavior, but untrusted text can still influence generation, as discussed in [Chapter 8](./08-prompting-and-in-context-learning.md).
 
-## Long-Context Models
-
-Long-context models reduce pressure but do not remove the need for context engineering. More room can support larger documents, richer traces, and fewer compactions. It can also encourage careless dumping.
-
-Long context also does not mean uniform use of every token. *Lost in the Middle* showed that models can be much better at using relevant information near the beginning or end of the input than information placed in the middle ([Lost in the Middle](https://arxiv.org/abs/2307.03172)). Different models and context lengths vary, but the lesson is stable: "included somewhere" is not the same as "usable."
-
-For harnesses, evidence placement is a design choice. Put the current task, critical constraints, and decisive evidence where the model is likely to use them. If a long document must be included, consider section summaries, targeted retrieval, citations, and follow-up search instead of assuming the full window will be read with equal reliability.
-
-Measure long-context workflows with realistic tasks. Ask whether the additional context improves success rate, reduces retries, or merely increases cost. Sometimes a search tool plus a small context beats a giant prompt.
+Context is therefore an input and attack surface, not an authorization or enforcement boundary. Any hard access or action boundary must exist outside the model. The detailed controls belong to the companion [*Agent Harness*](../agent-harness/README.md).
 
 ## Key Takeaways
 
-- The context window is finite input, not durable memory.
-- KV cache accelerates inference but does not solve semantic state.
-- Context rot is a major failure mode in long-running workflows.
-- Harnesses should externalize state and feed the model relevant slices.
+- A context-window limit usually covers the prompt plus generated tokens; provider input and output limits may add further constraints.
+- Prefill processes the prompt and builds per-layer keys and values; decode then generates sequentially while reusing them.
+- KV cache removes repeated computation for old tokens, but its memory grows linearly with cached sequence length and standard decode attention still scans a growing prefix.
+- Context, a per-request KV cache, and provider prompt caching are different concepts with different lifetimes and contracts.
+- Long-context capacity does not guarantee reliable use of every included token.
+- Context is temporary input, not persistent memory or a model-enforced trust boundary.

@@ -2,7 +2,7 @@
 
 ## Agent
 
-智能体。由 harness 驱动的模型系统：反复调用工具、读取观察结果、跨多轮采取行动以达成目标。区别于单次 token 预测——模型在循环中运行，它自己的输出会塑造它下一步看到的内容。
+智能体。把模型调用放入循环的系统：模型可以提出工具调用，外部系统执行该调用，观察结果再进入后续模型调用。执行、授权和持久状态仍位于模型之外。
 
 ## Attention / Self-Attention
 
@@ -22,27 +22,19 @@
 
 ## Chain-of-Thought
 
-一种 prompting 模式，让模型在答案前生成中间推理步骤。它能改善某些推理任务，但生产 harness 应控制中间推理如何表示。
+一种 prompting 模式，让模型在答案前生成中间推理文本。它能改善某些任务，但这些文本不保证忠实反映产生答案的实际计算过程。
 
 ## Chat Template
 
 把包含 system、user、assistant、tool 等角色的聊天对话，序列化成模型实际接收的 token 序列的格式。
 
-## Compaction
-
-总结或压缩累积的上下文，以留在 token 预算之内。它腾出了空间，但会改写 prefix，从而与 prefix caching 相冲突。
-
-## Context Engineering
-
-上下文工程。在 token 预算内，刻意决定什么进入上下文、以及以何种形式进入（prompt、工具结果还是检索到的段落）。
-
 ## Context Rot
 
-上下文随输入增长而被模型利用得越来越差：既来自单纯的长度，也来自累积的无关材料挤占了真正重要的内容。
+序列变长时，模型利用信息的有效程度可能出现经验性下降。其严重程度取决于模型、任务、长度、信息位置和周围的干扰内容。
 
 ## Context Window
 
-模型单次调用中最多能利用的 token 数。它是输入上下文，不是持久记忆。
+模型在一次调用中能够条件化的最大序列长度，通常由 prompt 与已经生成的 token 共享。它是临时工作序列，不是持久记忆。
 
 ## DPO
 
@@ -52,13 +44,17 @@ Direct preference optimization。一种 post-training 方法，直接用偏好�
 
 文本、代码、图片或其他数据的向量表示。文本 embedding 常用于语义搜索和检索。
 
+## Epistemic Abstention
+
+认识论弃答。模型因为未知或证据不足而不作答的行为。它是学习到的行为，不是模型内部知识边界的可靠读数。
+
 ## Fine-Tuning
 
 预训练之后的额外训练。LLM 场景中通常包括基于 demonstrations 的 supervised fine-tuning 或基于偏好的优化。
 
 ## Grounding
 
-接地 / 锚定。把生成的论断与所提供的证据绑定，使答案能追溯回 harness 提供的来源段落。
+基于外部证据约束生成，并把论断与证据关联起来。Grounding 改变模型输入，不会更新模型参数，也不保证模型会忠实使用证据。
 
 ## Hallucination
 
@@ -66,11 +62,11 @@ Direct preference optimization。一种 post-training 方法，直接用偏好�
 
 ## Harness
 
-模型周围的软件系统：prompt、工具、检索、记忆、状态、权限、执行、评估和用户交互。
+模型周围的软件系统。它承担单靠 token 生成无法提供的责任，例如执行、持久状态、权限、验证和现实后果。
 
 ## Hybrid Search
 
-混合检索。把词法或精确检索（如 BM25 或 grep）与向量检索结合起来，使结果既能命中关键词匹配，也能命中语义匹配。
+混合检索。把稠密向量检索与 BM25 等词法或稀疏检索结合起来。`grep` 一类字面或正则搜索是另一种精确文本信号，也可以与前两者组合。
 
 ## In-Context Learning
 
@@ -84,10 +80,6 @@ Transformer inference 中缓存的 key/value 张量，用于避免重复计算�
 
 模型在转换成概率之前，对可能下一个 token 给出的原始分数。
 
-## Mixture-of-Experts (MoE)
-
-一种架构：router 对每个 token 只激活少数 expert 子网络，因此总参数量可以增长而每 token 计算量不必同比上升。激活参数决定每 token 计算量，但总参数仍决定 serving 时的显存占用。
-
 ## Next-Token Prediction
 
 模型根据之前 token 预测下一个 token 的训练目标。
@@ -99,6 +91,10 @@ Transformer inference 中缓存的 key/value 张量，用于避免重复计算�
 ## pass@k
 
 一种评测指标：用 k 次采样尝试中至少一次解出问题的占比。k 越大，越偏向那些多试几次就能做对的模型。
+
+## pass^k
+
+一种评测指标：k 次采样尝试全部成功的问题占比。它衡量给定采样条件下的重复可靠性，而不是至少一次成功的机会。
 
 ## Post-Training
 
@@ -112,17 +108,21 @@ Transformer inference 中缓存的 key/value 张量，用于避免重复计算�
 
 不可信内容包含类似指令的文本，并以 harness 未预期的方式影响模型行为的失败模式。
 
-## Quantization
+## Provider Prompt Caching
 
-量化。用更低数值精度（例如 8 位或 4 位）提供模型服务，以减少内存、加快 inference，代价是一些精度损失。精度变化应当成行为变化重新评测。
+供应商在多个请求之间复用匹配 prompt 前缀计算的特定功能。它不同于单次请求内的 KV cache，匹配方式、有效期和计费规则均由供应商约定。
 
 ## RAG
 
-Retrieval-augmented generation。Harness 检索外部信息，并把它作为上下文提供给模型生成。
+Retrieval-augmented generation。在 inference 时由外部检索步骤选择信息并加入模型输入；模型权重不会改变。
 
 ## Reasoning Model
 
-推理模型。经过 post-training（通常是在可验证奖励上做 reinforcement learning），学会在回答前生成很长内部推理的模型。用额外的 inference token（test-time compute）换取困难任务上更好的表现。
+推理模型。经过 post-training，在困难任务上使用额外 test-time compute 的模型；训练中常使用基于可验证奖励的 reinforcement learning。更多推理 token 可以改善某些任务，但不会创造缺失事实或外部证据。
+
+## Retrieval Embedding
+
+用于相似度搜索的固定长度 query 或 passage 向量。它不同于 Transformer 内部逐 token 使用的表示。
 
 ## Reward Hacking
 
@@ -135,6 +135,10 @@ Retrieval-augmented generation。Harness 检索外部信息，并把它作为上
 ## RLHF
 
 Reinforcement learning from human feedback。用人类偏好数据引导模型行为的一种 post-training 方法。
+
+## Safety Refusal
+
+安全拒答。模型因为请求属于被视为不安全或不允许的类别而拒绝响应的学习行为。它不同于认识论弃答，也不是执行层保证。
 
 ## Sampling
 

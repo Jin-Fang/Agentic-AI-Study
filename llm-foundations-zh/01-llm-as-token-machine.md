@@ -1,96 +1,71 @@
 # 第 1 章：把 LLM 看成 Token 机器
 
-最有用的第一近似很简单：大语言模型接收一串 token，然后预测后续 token。它并不直接“看见”单词、文件、网页、测试套件、数据库或用户；它看到的是这些对象被编码后的 token 序列，并继续生成新的 token。
+最有用的第一近似很简单：大语言模型接收一串 token，并为下一个可能出现的 token 计算概率。它并不直接看见单词、文件、网页或用户，而是接收表示当前上下文的 token ID 序列。
 
-生成是循环进行的：每次前向计算只产生下一个 token 的概率分布，运行时采样出一个 token、追加到上下文，再次调用模型，直到达到停止条件。[inference 和 sampling](./06-inference-and-sampling.md) 会详细讲这个循环。
+## Token 输入，概率输出
 
-Karpathy 在短讲座一开始就刻意去神秘化：一个训练好的模型可以粗略理解为两个文件，一个保存参数，另一个知道如何运行这些参数 ([Intro to LLMs, around 00:00:24](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=24s))。这不是完整实现说明，但它是很好的纠偏：模型本身不是 agent。它更像一个函数式组件，把 token context 映射成下一个 token 的概率分布。
+对于给定的 token 上下文，模型会为词表中的每个 token 计算一个分数。运行时将这些分数转换成下一个 token 的概率分布。从这个意义上说，LLM 是一个从 token 序列映射到下一个 token 概率的参数化函数。
 
-## 参数是压缩后的行为
+Karpathy 在短讲座中使用了一个刻意去神秘化的框架：一个训练好的模型可以粗略理解为两个文件，一个保存参数，另一个保存知道如何运行这些参数的代码（[Intro to LLMs, around 00:00:24](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=24s)）。真实实现包含更多机制，但这一近似揭示了基本接口：输入 token 上下文，输出下一个 token 的概率分布。
 
-参数文件里保存着数十亿到数万亿个学出来的数字。预训练阶段，这些数字被不断调整，使模型越来越擅长预测大规模文本中的下一个 token。经过 [post-training](./07-post-training.md) 后，同一个参数文件还会编码 assistant 行为：遵循指令、拒绝某些请求、按指定格式输出，并偏向人类更喜欢的回答。
+## 序列如何生成
 
-模型知识不是数据库里的行。它分布在权重中。这个区别对 harness 设计非常关键。如果系统需要当前政策、精确发票、用户私有文档或可审计引用，harness 应该检索或提供这些信息。模型可以基于给定材料推理，但不应该被当成可变事实或高风险事实的 source of truth。
+一次计算通常不会直接产生完整回答。生成过程会重复以下基本操作：
 
-Karpathy 用文件系统里的普通文件来说明参数：参数文件可以被复制、下载，也可以被运行时代码加载 ([Intro to LLMs, around 00:01:35](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=95s))。参数文件大小大致由参数数量和数值精度决定。一个 70B 参数模型，如果每个参数用 2 bytes 存储，仅参数文件就约 140 GB。这不是比喻，而是实实在在的工程对象。
+1. 计算当前 token 上下文。
+2. 产生下一个 token 的概率分布。
+3. 按照某种解码规则选择一个 token。
+4. 将这个 token 追加到上下文。
+5. 重复以上步骤，直到满足停止条件。
 
-这个框架能帮助我们拆开四件经常被混在一起的事：
+这里使用“选择”一词很重要。贪心解码选择概率最高的 token，随机解码则从概率分布中采样。两者都是解码规则，但贪心选择不属于采样。[Inference 和 sampling](./06-inference-and-sampling.md) 会详细说明这个循环及其停止条件。
 
-- **模型架构**：计算结构，例如 Transformer。
-- **参数**：让架构具备具体能力的学得数字。
-- **运行时**：加载参数并执行 inference 的代码。
-- **产品系统**：更大的整体应用，包括聊天 UI、工具系统、记忆层、安全层和部署层。
+## 架构、参数、运行时与应用层
 
-两个系统可能使用相同架构但参数不同。两个产品也可能使用同一个参数文件，但因为一个有工具、检索和记忆，另一个没有，最终能力完全不同。
+四个层次经常被混在一起：
 
-## 模型本身没有副作用
+- **架构**定义计算的形状，例如 decoder-only Transformer。
+- **参数**是通过学习得到、使架构具备具体特性的数值。
+- **运行时**加载参数、计算模型，并应用解码规则。
+- **应用层**准备输入、调用运行时，并解释或呈现输出。
 
-原始语言模型不会执行代码、发送邮件、打开浏览器、修改仓库，也不会自动记住下一次对话。它只输出 token。副作用来自周围系统对这些 token 的解释和执行。这就是 model 和 harness 的核心边界。
+两个模型可能共享同一种架构，但包含不同的参数。反过来，两个应用也可能调用同一个 checkpoint，却因为准备了不同的上下文，或以不同方式解释返回的 token，而呈现不同的用户体验。
 
-例如模型可能输出：
+Karpathy 把参数描述为可以复制、下载并由运行时代码加载的普通文件，使这个概念变得具体（[Intro to LLMs, around 00:01:35](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=95s)）。参数文件的存储大小大致取决于参数数量和数值精度。一个 700 亿参数的模型，如果每个参数用 2 bytes 存储，仅参数本身就需要约 140 GB，尚未计入运行时开销。
 
-```text
-{"tool": "read_file", "path": "/repo/README.md"}
-```
+## 参数从哪里来
 
-到这里为止，什么都还没有发生。harness 必须解析这个输出，判断调用是否被允许，执行文件读取，捕获结果，再把结果以某种形式送回模型。模型提出动作，harness 决定动作是否真的发生。
+参数由训练产生，而不是由 inference 循环产生。预训练期间，优化过程反复修改参数，以降低模型在大规模 token 序列集合上的下一个 token 预测误差。创建大型 checkpoint 可能需要大量数据、算力和时间，而运行已有 checkpoint 则是更常规的操作（[Intro to LLMs, around 00:03:59](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=239s)、[00:05:16](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=316s)）。
 
-所以 harness engineering 不是 prompt engineering 的放大版。harness 负责执行、状态、权限、观察、重试、压缩、检索和评估。
+[Post-training](./07-post-training.md) 从预训练 checkpoint 开始，进一步修改已经学得的参数，或加入学得的 adapter 参数，从而塑造遵循指令、答案格式和拒答等倾向。其结果是更新后的 checkpoint 或另一组新增的学得权重，而不是让原始参数文件保持不变。
 
-## 训练产生参数
+大多数模型使用者不会自己创建 base checkpoint，而是通过 API、inference provider 或本地运行时调用已有 checkpoint。无论 inference 在哪里运行，这一区分都成立：训练产生学得的参数，运行时使用这些参数计算下一个 token 的概率。
 
-有了参数之后，运行时代码就可以执行 inference。但运行时代码并不能解释参数从哪里来。参数来自训练：这是一个在数据、算力和时间上都很昂贵的大规模优化过程。Karpathy 对比了“运行模型”这个相对普通的动作和“产生参数”这个昂贵动作，后者可能需要大规模 GPU 集群和长时间训练 ([Intro to LLMs, around 00:03:59](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=239s), [00:05:16](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=316s))。
+## 参数不是数据库
 
-这对 harness engineer 的实际意义是：大多数时候你不是在训练 base model，而是在使用一个已经训练好的模型产物。你的杠杆在别处：
+参数编码的是分布式统计结构和学得的行为。它们不是可以按键查询、作为精确记录检查或逐条更新事实的数据库行。模型可以复现训练中学到的事实和模式，但参数文件并不是权威数据库，也不会为每个生成的断言附带内置来源。
 
-- 选择模型和供应商。
-- 设计 prompt 和 context。
-- 提供工具和检索。
-- 限制副作用。
-- 评估行为。
-- 判断模型升级是否可以上线。
+这一区分说的是表示方式，而不是模型能否回答事实问题。模型可以从学得的参数中流畅地回忆信息，但这不会让参数变成记录存储系统。
 
-Fine-tuning 位于 base-model training 和 harnessing 之间。它能改变参数，但仍不等于让模型拥有外部状态或真实的行动权限。
+## Token 不会产生外部副作用
 
-## 文本界面，系统行为
+模型的直接输出是 token。生成的后续文本可能描述读取文件、发送消息或采取其他动作，但生成这段描述并不会让动作真正发生。外部软件必须解释输出并执行相应操作。
 
-用户看到的是一个文本框。Karpathy 的 deep dive 一开始问的就是：这个文本框背后是什么？生成出来的词到底是怎么来的？([Deep Dive, around 00:00:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=28s))。对 harness engineer 来说，答案是：一个被软件系统包起来的概率文本接口。
+[推理、工具与 agent](./12-reasoning-tools-and-agents.md) 会再次讨论这条边界：模型可以生成一个拟议调用，外部系统执行它，并可能返回 observation。动作提议和外部效果始终是两个不同的事件。
 
-“概率”这个标签背后其实藏着两件不同的事。输出逐次不同来自采样：运行时从一个概率分布里抽出一个 token。小的 prompt 改动会改变结果则是另一个原因：学得的函数对输入敏感，所以即使在 temperature=0 或贪心解码、采样被关掉时，相近的 prompt 也可能落到不同答案上。这两点共同解释了为什么看似确定的行为在输入偏离开发与测试时覆盖的情形时仍会失败。软件外壳解释了为什么一些产品能浏览网页、引用来源、操作电脑、保存长期记忆或运行测试，而另一些使用类似基础模型的产品做不到。
+## 一次模型调用不等于完整应用
 
-同一个文本框背后可能是很不同的系统：
+Karpathy 的 deep dive 一开始就问：文本框背后是什么，生成出来的词又从哪里来（[Deep Dive, around 00:00:28](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=28s)）？在模型边界上，答案是 token 生成循环；在应用边界上，还包括构造输入、调用运行时和处理输出的软件。
 
-- 一个 raw completion model 接收普通前缀。
-- 一个 chat model 接收带 system/user/assistant role 的序列化对话。
-- 一个检索系统先注入文档，再调用模型。
-- 一个 agent loop 允许模型调用工具并观察结果。
-- 一个多模态模型把图片或音频转换成 token 或类似 token 的表示后再生成。
+讨论 *模型行为* 仍然是有意义的：这个说法可以指特定条件下学得的倾向、概率分布或生成序列。但可观察到的应用行为还可能包含界面呈现、存储状态和外部效果。这些额外结果并不是一次模型调用单独产生的。
 
-从外部看，它们都像是在“问模型”。从 harness 角度看，它们是不同的运行时系统，失败模式也不同。
-
-## 模型输出不等于产品行为
-
-最好把 *behavior* 留给整个系统。模型输出 token，产品决定这些 token 意味着什么。
-
-例如模型输出一个 Markdown 链接。聊天应用可能渲染它；浏览器自动化 harness 可能点击它；安全层可能阻止它；eval harness 可能因为 URL 没有来源支持而判错。每一种产品级结果都依赖模型之外的代码。
-
-这个区别可以避免两个常见错误。第一个错误是把浏览、记忆、执行等 harness 提供的能力都归功于模型。第二个错误是把工具设计糟糕、检索过期、指令模糊或缺少验证导致的问题全部归咎于模型。
-
-## 对 Harness 的影响
-
-应该把模型看成强大但有边界的组件：
-
-- 权威状态放在模型外部。
-- 工具副作用必须显式、可审计。
-- 每一步只给模型需要的上下文。
-- 需要为真的输出必须验证。
-- 评估完整的 model-harness loop，而不是只评估单次回答。
-
-后面的章节会逐步展开这个框架。[Tokenization](./02-tokenization.md) 解释模型输入到底是什么；[预训练](./03-next-token-prediction.md)解释广泛能力从哪里来；[inference 和 sampling](./06-inference-and-sampling.md) 解释行为为什么会变化；[post-training](./07-post-training.md) 解释 assistant model 为什么不只是 raw completion；[检索](./11-embeddings-and-retrieval.md)、[工具](./12-reasoning-tools-and-agents.md)和 [evals](./13-evaluation-for-llm-behavior.md) 则解释为什么严肃系统必须有 harness。
+接下来的章节会进一步展开模型侧图景：[Tokenization](./02-tokenization.md) 解释文本如何变成 token ID，[下一个 token 预测](./03-next-token-prediction.md) 解释训练目标，[Transformer attention](./04-transformer-attention.md) 解释核心架构，[inference 和 sampling](./06-inference-and-sampling.md) 解释解码。模型边界之外的系统设计属于配套教材 [Agent Harness](../agent-harness-zh/README.md)，尤其是其中关于 [harness 边界](../agent-harness-zh/01-what-is-an-agent-harness.md)、[状态与事件历史](../agent-harness-zh/10-state-event-history-production-factors.md)、[权限与副作用](../agent-harness-zh/07-sandboxing-runtime-enforcement.md)和[评估](../agent-harness-zh/11-evaluation.md)的章节。
 
 ## 要点
 
-- LLM 在操作上应被看作 token 输入、token 输出的组件。
-- 参数编码的是压缩后的统计结构和行为，不是可查询数据库。
-- 工具调用和真实世界效果由 harness 创建，不由模型单独创建。
-- Harness engineering 从 token 输出变成系统动作的边界开始。
+- LLM 将 token 上下文映射为下一个 token 的概率。
+- 序列生成会重复下一个 token 预测和 token 选择，直到满足停止条件。
+- 架构、参数、运行时与应用层是彼此不同的层次。
+- 预训练和 post-training 产生学得的参数；inference 使用这些参数。
+- 参数是分布式的学得表示，而不是可查询数据库。
+- 模型生成的 token 本身不会引发外部动作。

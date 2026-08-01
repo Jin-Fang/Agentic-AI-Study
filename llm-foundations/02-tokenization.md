@@ -1,116 +1,107 @@
 # Chapter 2: Tokenization
 
-Before a model can process text, the text is converted into tokens. Tokens may be whole words, word fragments, punctuation, whitespace patterns, bytes, or other subword units. The model does not receive "hello world" as a human sentence. It receives a sequence of token IDs, each pointing into a vocabulary.
+Before a language model can process text, a tokenizer converts the text into a sequence of integer token IDs. A token may correspond to a whole word, part of a word, punctuation, whitespace together with nearby characters, a byte, or another learned unit. The boundaries are properties of a particular tokenizer, not universal linguistic boundaries.
 
-Karpathy's deep dive spends time with tokenizer examples because they explain many practical surprises: spacing changes token IDs, capitalization can change segmentation, and rare strings may be broken into many pieces ([Deep Dive, around 00:12:07](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=727s)). For harness work, tokenization is not trivia. It determines cost, latency, context capacity, and sometimes model behavior.
+Karpathy spends time on tokenizer examples because they explain otherwise surprising behavior: leading spaces can change token IDs, capitalization can change segmentation, and rare strings can expand into many pieces ([Deep Dive, around 00:12:07](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=727s)). The direct result of tokenization is sequence length. That length then affects how much text fits in a context window and, depending on the model and service, how much computation, latency, or billed usage a request requires.
+
+## Text to Token IDs
+
+At a high level, the input path is:
+
+```text
+text → token pieces → token IDs → embedding vectors
+```
+
+The tokenizer performs the first two transformations. It segments text according to a fixed vocabulary and encoding rules, then looks up the integer ID assigned to each piece. The model uses those IDs to select rows from its learned embedding table. It operates on the resulting vectors, not directly on the original characters.
+
+Decoding follows the reverse mapping: token IDs are mapped back to pieces and joined into text. This does not mean every tokenizer round-trips every input perfectly. Optional normalization may change the text before segmentation, and decoding may omit control tokens. Byte-level tokenizers can preserve ordinary input text exactly when their byte mapping and decoding rules are used consistently.
+
+A tokenizer is part of a model's specification. Two models can assign different pieces, IDs, and sequence lengths to the same string. Token IDs therefore have meaning only with the matching tokenizer and vocabulary.
 
 ## Why Subword Tokens Exist
 
-A vocabulary of whole words is brittle. New names, code identifiers, URLs, chemical strings, emojis, and multilingual text would constantly fall outside the vocabulary. A character-only vocabulary avoids unknown words but makes sequences very long.
+A whole-word vocabulary is brittle. Names, inflected words, code identifiers, URLs, scientific notation, emoji, and text from many languages would constantly produce unseen words. A character-only vocabulary can represent such inputs, but it usually creates much longer sequences and gives the model less opportunity to reuse frequent multi-character patterns as single units.
 
-Subword tokenization is the compromise. Byte Pair Encoding and related methods represent frequent strings as larger tokens and rare strings as combinations of smaller tokens. Sennrich, Haddow, and Birch introduced subword units for open-vocabulary neural machine translation, showing that rare and unseen words can be handled by decomposing them into pieces ([Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909)).
+Subword tokenization is a compromise. Frequent strings can receive their own tokens, while less frequent strings are composed from smaller pieces. Sennrich, Haddow, and Birch showed how subword units could support open-vocabulary neural machine translation by decomposing rare and unseen words ([Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909)).
 
-BPE builds its vocabulary by starting from individual bytes or characters and then repeatedly merging the most frequent adjacent pair into a new token, growing the vocabulary one merge at a time. Because the base units are raw bytes, any input can always be encoded as some sequence of tokens, so there is no out-of-vocabulary case; an unfamiliar string just falls back to smaller pieces. This is why most "surprises" later in the chapter have a single root cause: the boundaries are whatever the learned merges happened to produce.
+Byte Pair Encoding (BPE), WordPiece, and Unigram are related subword approaches, but they do not learn or segment text in exactly the same way. BPE training typically begins with a base inventory and repeatedly adds a token for a selected adjacent pair. The base inventory depends on the tokenizer: classical formulations may begin with characters or symbols, whereas **byte-level BPE** begins with a representation of bytes.
 
-Modern LLM tokenizers use this broad idea at massive scale, with vocabularies typically ranging from tens of thousands to around 100k or more tokens. The exact tokenizer differs by model family, so the same text may consume different token counts in different systems.
+That distinction matters. A byte-level BPE tokenizer that retains the full byte alphabet can encode arbitrary Unicode text through its UTF-8 bytes, falling back to smaller byte units when no larger learned piece matches. It is not correct to claim that every BPE tokenizer starts from raw bytes or that every subword tokenizer is automatically free of unknown tokens. Other tokenizers may use an unknown token, character coverage rules, or a separate byte-fallback mechanism.
 
-## Token Budgets Are Not Word Budgets
+## How a Tokenizer Is Trained and Used
 
-Harnesses often reason in terms of "documents," "messages," or "paragraphs," but the model is bounded by tokens. English prose may average roughly a few characters per token, but code, tables, JSON, base64, logs, CJK text, and URLs can behave very differently.
+Tokenizer training happens before the tokenizer is used to encode model inputs. A representative text corpus is collected, and choices are made about normalization, whitespace handling, pre-tokenization, the base alphabet, special tokens, and vocabulary size. The training algorithm then learns a vocabulary and, depending on the method, merge rules or token scores. Once model training begins, this tokenizer is normally fixed so that each token ID continues to identify the same embedding row.
 
-This creates practical design rules:
+For BPE, training counts adjacent units and repeatedly adds selected merges until it reaches a target vocabulary or another stopping condition. Unigram tokenization instead starts with many candidate pieces, learns probabilities for them, and prunes the vocabulary while preserving likely segmentations. These procedures both produce subword vocabularies, but the resulting boundaries need not agree.
 
-- Count tokens before sending large contexts, using a tokenizer library or the provider's token-count endpoint. Count with the tokenizer that matches the target model, since token counts differ by model family.
-- Truncate by semantic unit, not by raw character count.
-- Avoid dumping logs, tables, or minified JSON directly into prompts.
-- Prefer tools that search, filter, and summarize before returning data.
-- Test multilingual and code-heavy inputs separately.
+At encoding time, a tokenizer generally applies some version of these steps:
 
-A harness that only counts files or characters will eventually overflow context or waste budget.
+1. Normalize the text if the tokenizer defines a normalization rule.
+2. Divide or mark the input according to its whitespace and pre-tokenization rules.
+3. Segment it using the learned vocabulary and algorithm.
+4. Replace each resulting piece with its vocabulary ID.
+5. Add any special tokens required by the model's input format.
 
-## Whitespace and Formatting Matter
+Implementations may combine or omit steps, so the tokenizer itself is the authority. Its decoder must also be used to interpret generated token IDs correctly.
 
-Tokenizers often encode leading spaces as part of a token. This is why `"world"` and `" world"` can be different tokens. In prose this rarely matters visibly. In code, indentation, newlines, and punctuation create token patterns the model has learned from training data.
+## Reading Tokenization Examples
 
-This helps explain why models are sensitive to prompt formatting. A prompt written as a clean Markdown task with examples may tokenize into familiar patterns. A dense blob of escaped JSON may still be parseable, but it is farther from the distribution where the model learned to follow instructions naturally.
+Token boundaries must be inspected with a specific tokenizer. The following are possible segmentations, not claims about every model:
 
-For tool design, this matters. If the model must emit structured data, choose formats that are both machine-parseable and natural for the model. A small schema with clear fields is easier than deeply nested escaped code inside JSON strings.
+| Text | One possible segmentation | What it illustrates |
+|---|---|---|
+| `world` versus ` world` | different pieces for the two forms | A leading space may be encoded with nearby text. |
+| `unhappiness` | `un` + `happi` + `ness` | Familiar subword fragments can compose a less frequent word. |
+| `HTTPResponse2` | a mixture of larger fragments and smaller pieces | Case changes, identifiers, and digits can shift boundaries. |
+| `你好` | one piece, multiple character pieces, or byte fallback | Language coverage and the tokenizer's base units matter. |
 
-Karpathy demonstrates this with tokenizer examples: capitalized and lowercase variants, leading spaces, and small punctuation changes can produce different token sequences ([Deep Dive, around 00:12:33](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=753s)). The exact token IDs are less important than the operational fact: the model's input is a discrete encoded stream, and tiny textual changes can alter that stream.
+Karpathy demonstrates the same principle with capitalization, leading spaces, and small punctuation changes ([Deep Dive, around 00:12:33](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=753s)). Newlines and indentation can likewise change the sequence produced for code. Debugging tools sometimes display artificial markers for spaces or bytes; those markers describe the tokenizer's internal representation and are not necessarily literal characters in the input.
 
-This is one reason prompt templates should be treated as code. A change that looks cosmetic in Markdown can change token boundaries, shift instructions farther from the answer, or alter the pattern the model is expected to continue.
+Small formatting changes therefore can produce different token sequences. They do not guarantee a large behavioral change, but the model is receiving a different sequence of IDs.
 
-## Conversation Tokenization
+## Token Counts Are Not Word Counts
 
-Chat models do not receive a mystical "conversation" object. The conversation is serialized into tokens. Roles such as system, user, assistant, and tool must become a concrete token sequence using a chat template. Karpathy returns to tokenization later in the deep dive to show that conversations themselves are tokenized, not just standalone strings ([Deep Dive, around 01:05:03](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=3903s)).
+A model's sequence limits are measured in tokens, not words, files, messages, or characters. A rough characters-per-token estimate can be useful for a quick approximation in familiar English prose, but it is not a reliable conversion rule.
 
-This detail matters for harness design:
+Code, tables, numbers, URLs, repeated whitespace, uncommon symbols, and different writing systems can all segment differently. The result also depends on how well a language or text style was represented when the tokenizer was trained. It is therefore unsafe to infer that two passages with the same character or word count will occupy the same number of tokens.
 
-- The model learns the provider's chat format during [post-training](./07-post-training.md).
-- Role boundaries must be preserved when constructing prompts.
-- Tool results should be clearly delimited from user instructions.
-- Summaries inserted as assistant messages may be interpreted differently from summaries inserted as system or developer context.
-- [Prompt injection](./08-prompting-and-in-context-learning.md) attacks often work by smuggling instruction-like text into data positions.
+For an exact count, encode the actual text with the tokenizer for the target model and count the returned IDs. A context window usually has to accommodate both the input and generated continuation; [Chapter 9](./09-context-window-and-kv-cache.md) explains that shared sequence limit in detail. Computation and pricing policies are model- and provider-specific consequences of these counts, not properties of tokenization alone.
 
-If a harness builds conversation strings manually, it should understand the target model's expected template. Otherwise, it may accidentally create a distribution shift: the model sees a sequence that looks unlike the conversations it was trained to follow.
+Text token counts also cannot be used to estimate image, audio, or other multimodal inputs. Those inputs use model-specific encoders and accounting rules.
 
-## Special Tokens and Tool Protocols
+## Special Tokens and Chat Templates
 
-Modern assistants often use special tokens or structured templates for tool calls, refusal behavior, and multimodal inputs. Even when an API hides these details, the model still receives an encoded representation. A tool call may be represented as JSON-like text, special message metadata, or a provider-specific internal format.
+Special tokens are vocabulary entries reserved for structural or control purposes. Depending on the model, they may mark the beginning or end of a sequence, separate documents, or delimit messages and roles. They are still token IDs, but their interpretation comes from the model's training format rather than from ordinary written language.
 
-This means that a harness is not just passing words to a model. It is building an encoded protocol. The protocol must carry:
+A chat API may accept a list of messages, but the model ultimately receives an encoded sequence. A **chat template** renders message roles and contents into the format expected by that model, often inserting special tokens and fixed separators. Assistant models learn these conventions during [post-training](./07-post-training.md).
 
-- who said what,
-- what data came from tools,
-- what output shape is expected,
-- what actions are available,
-- which prior messages are still relevant,
-- and which content is untrusted.
+Karpathy returns to tokenization later in the deep dive to show that a conversation, like any other model input, must be represented as tokens ([Deep Dive, around 01:05:03](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=3903s)). The rendered template creates token overhead that is not visible in message content. Counting only the `content` fields—even with the correct text tokenizer—can therefore undercount a request. Exact accounting must use the target model's chat template together with its tokenizer; the format and overhead can change across model families or versions.
 
-Poor serialization can erase these boundaries.
+## Character-Level Capability Gaps
 
-## Multimodal Tokenization
+Tokenization does not present most text as one model position per character. A word may occupy one token, several subword tokens, or a sequence that falls back to characters or bytes. As a result, operations that require stable access to individual characters—counting letters, reversing an unfamiliar string, or tracking exact spelling—can be harder than their surface simplicity suggests.
 
-The same token-machine frame extends beyond text. Near the end of the deep dive, Karpathy describes audio and images as inputs that can be tokenized or represented in token-like units: audio can be chunked into representational pieces, and images can be represented with patches ([Deep Dive, around 03:09:57](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=11397s)). The implementation details vary by model, but the harness consequence is stable: multimodal input still consumes budget and still needs boundaries.
+This is a tendency, not an absolute inability. Models can learn spelling patterns, infer characters contained inside tokens, and sometimes solve these tasks correctly. Tokenization is nevertheless one reason the representation is poorly aligned with character-by-character operations. Karpathy uses spelling and letter-counting examples to illustrate this mismatch ([Deep Dive, around 02:01:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=7271s)).
 
-For example, an image-capable assistant may receive a screenshot as visual tokens plus the user's instruction as text tokens. A harness should not assume the model "sees" like a person. It receives an encoded representation with limits, resolution tradeoffs, and possible blind spots. For computer-use agents, screenshots, DOM text, accessibility trees, and OCR are different encodings of the environment. Each one changes what the model can attend to.
+Numbers can also be split into variable-length pieces, but token boundaries are not a complete explanation for arithmetic errors. Training data, the next-token objective, limited learned algorithms, and the difficulty of carrying intermediate state can also contribute.
 
-## Tokenization Failure Modes
+## Common Token-Counting Pitfalls
 
-Common failures include:
+Several recurring mistakes follow directly from model-specific encoding:
 
-- A prompt fits in characters but overflows in tokens.
-- A retrieved code block consumes far more context than expected.
-- A non-English document is truncated more aggressively than English documents.
-- A JSON tool result includes escaped text that is expensive and hard to read.
-- A summary deletes role boundaries and causes the model to treat data as instruction.
-- A screenshot is downsampled or encoded in a way that hides small but important UI text.
+- Estimating from words or characters and treating the estimate as an exact limit.
+- Counting with a tokenizer from a different model family or tokenizer version.
+- Counting message contents without applying the chat template and its special tokens.
+- Measuring only the prompt even though generated tokens occupy part of the available sequence.
+- Assuming prose, source code, URLs, and multilingual text have the same token density.
+- Applying a text-token estimate to image, audio, or other multimodal input.
 
-Most of these are representation and budgeting failures rather than reasoning failures: the model is capable, but the encoding hid or distorted what it needed. The next section covers a different class, where tokenization degrades a capability directly.
-
-## Tokenization-Induced Capability Gaps
-
-Some weaknesses are not about budget at all. Because characters are packed inside tokens, the model never sees text as a clean stream of letters or digits, and tasks that operate on individual characters become systematically harder. Spelling, counting characters (the classic "how many r's in strawberry"), reversing a string, and arithmetic where digits are split across token boundaries are the common examples. Karpathy revisits this in the deep dive, noting that models struggle with spelling for exactly this reason ([Deep Dive, around 02:01:11](https://www.youtube.com/watch?v=7xTGNNLPyMI&t=7271s)).
-
-The harness lesson is to route such tasks to tools instead of asking the model to do them by inspection. A code interpreter can count, reverse, or compute exactly, and the model reads back the result. Treat character-level and exact-arithmetic operations as tool calls, not as something the model should reliably do in its head.
-
-## Tokenization and Context Engineering
-
-Every tool result competes for the same token budget as instructions, examples, retrieved documents, previous turns, and intermediate reasoning. Tokenization turns context engineering into an accounting problem.
-
-The harness should make token cost visible:
-
-- Log input and output tokens by step.
-- Track which tools produce the largest context payloads.
-- Provide concise and detailed response modes.
-- Use IDs and handles for large artifacts instead of pasting full content repeatedly.
-- Keep source text in files or databases and retrieve slices when needed.
-
-Tokenization is the first reason a harness cannot treat context as an infinite scratchpad.
+Truncation creates a related problem. A character slice may not correspond to the desired token budget, while a token slice can cut through a sentence or other meaningful unit after decoding. Token counts determine whether a sequence fits; they do not determine which content is semantically safe to remove.
 
 ## Key Takeaways
 
-- Models process token IDs, not raw human words.
-- Subword tokenization lets models handle rare strings, but creates surprising token counts.
-- Formatting, whitespace, code, and multilingual text can materially change token use.
-- Harnesses should count, budget, truncate, and retrieve at the token level.
+- A tokenizer maps text into model-specific token IDs; embedding lookup turns those IDs into the vectors processed by the model.
+- Subword methods balance reusable frequent pieces against the ability to compose unfamiliar strings.
+- BPE is a family of methods, and only byte-level variants necessarily begin from byte representations.
+- Sequence length depends on the exact tokenizer, text, special tokens, and chat template—not on word count alone.
+- Tokenization can make character-level operations less natural, but it is not the sole cause of every spelling or arithmetic error.

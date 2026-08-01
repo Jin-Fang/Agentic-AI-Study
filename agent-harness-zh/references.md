@@ -154,6 +154,12 @@
 - Thomas Kwa et al., *Measuring AI Ability to Complete Long Tasks*, METR / arXiv, Mar 2025.
   https://arxiv.org/abs/2503.14499
 
+- METR，*Task-Completion Time Horizons of Frontier AI Models*，更新于 2026 年 5 月 8 日。
+  https://metr.org/time-horizons/
+
+- Joel Becker，*Clarifying Limitations of Time Horizon*，METR，2026 年 1 月 22 日。
+  https://metr.org/notes/2026-01-22-time-horizon-limitations/
+
 ---
 
 ## Loop Engineering（循环工程）
@@ -321,6 +327,204 @@
 
 ---
 
+## 协议、标准与 Provider 契约
+
+本节中可能变化的 provider 文档已于 **2026-07-31** 核验。产品行为、可用性、价格、保留时间与计量方式仍然取决于 provider 与日期。
+
+- OpenAI，*Prompt Caching*。
+  https://developers.openai.com/api/docs/guides/prompt-caching
+
+- Anthropic，*Prompt Caching*。
+  https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+
+- Eric Wallace et al.，*The Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions*，2024。
+  https://arxiv.org/abs/2404.13208
+
+- Zuxin Liu et al.，*IHEval: Evaluating Language Models on Following the Instruction Hierarchy*，2025。
+  https://arxiv.org/abs/2502.08745
+
+- Model Context Protocol，*Tools Specification*，2025-06-18。
+  https://modelcontextprotocol.io/specification/2025-06-18/server/tools
+
+- OpenAI，*Computer Use*。
+  https://developers.openai.com/api/docs/guides/tools-computer-use
+
+- Anthropic，*Computer Use Tool*。
+  https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool
+
+- Anthropic，*How Tool Use Works*。
+  https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works
+
+- Anthropic，*Vision*。
+  https://platform.claude.com/docs/en/build-with-claude/vision
+
+- OpenTelemetry，*Trace API*。
+  https://opentelemetry.io/docs/specs/otel/trace/api/
+
+- Temporal，*History Service Architecture*。
+  https://github.com/temporalio/temporal/blob/main/docs/architecture/history-service.md
+
+- NIST，*SP 800-53 Rev. 5: Security and Privacy Controls for Information Systems and Organizations*。
+  https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
+
+- NIST，*Audit — Glossary*。
+  https://csrc.nist.gov/glossary/term/audit
+
+- NIST，*Zero Trust Architecture Glossary*。
+  https://pages.nist.gov/zero-trust-architecture/glossary.html
+
+- Anthropic，*Contextual Retrieval*，2024 年 9 月。
+  https://www.anthropic.com/engineering/contextual-retrieval
+
+- Microsoft Azure API Management，*Enable Semantic Caching for Azure OpenAI APIs*。
+  https://learn.microsoft.com/en-us/azure/api-management/azure-openai-enable-semantic-caching
+
+- Microsoft Azure API Management，*Cache Lookup Policy*。
+  https://learn.microsoft.com/en-us/azure/api-management/cache-lookup-policy
+
+---
+
+## 正文使用的其他一手资料
+
+本节中可能变化的文档已于 **2026-07-31** 核验。
+
+- A2A Protocol，*Specification*。
+  https://a2a-protocol.org/latest/specification/
+
+- Patrick Lewis et al.，*Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks*，2020。
+  https://arxiv.org/abs/2005.11401
+
+- Tianyu Gao et al.，*Enabling Large Language Models to Generate Text with Citations*，2023。
+  https://arxiv.org/abs/2305.14627
+
+- Nelson F. Liu et al.，*Lost in the Middle: How Language Models Use Long Contexts*，2023。
+  https://arxiv.org/abs/2307.03172
+
+- Mark Chen et al.，*Evaluating Large Language Models Trained on Code*，2021。
+  https://arxiv.org/abs/2107.03374
+
+- OpenAI，*Function Calling*。
+  https://developers.openai.com/api/docs/guides/function-calling
+
+- OpenAI，*Images and Vision*。
+  https://developers.openai.com/api/docs/guides/images-vision
+
+- OpenAI，*Using the Latest Model*。
+  https://developers.openai.com/api/docs/guides/latest-model
+
+- OpenAI，*Your Data / Data Residency Controls*。
+  https://developers.openai.com/api/docs/guides/your-data
+
+- OpenAI，*Models*。
+  https://developers.openai.com/api/docs/models
+
+- OpenAI，*Model Spec*，2025-10-27。
+  https://model-spec.openai.com/2025-10-27
+
+- Anthropic，*Handle Tool Calls*。
+  https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls
+
+- Anthropic，*Tool Reference*。
+  https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-reference
+
+- Anthropic，*Tool Combinations*。
+  https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-combinations
+
+- Anthropic，*Extended Thinking*。
+  https://platform.claude.com/docs/en/build-with-claude/extended-thinking
+
+- Model Context Protocol，*Server Features Overview*，2025-06-18。
+  https://modelcontextprotocol.io/specification/2025-06-18/server/index
+
+- IETF，*RFC 9110: HTTP Semantics*，2022 年 6 月。
+  https://www.rfc-editor.org/rfc/rfc9110.html
+
+- Temporal，*Workflow Execution*。
+  https://docs.temporal.io/workflow-execution
+
+- Temporal，*Events and Event History*。
+  https://docs.temporal.io/workflow-execution/event
+
+- Temporal，*Activities*。
+  https://docs.temporal.io/activities
+
+- Microsoft Azure Architecture Center，*Event Sourcing Pattern*。
+  https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing
+
+- Microsoft Azure AI Search，*Security Filters for Trimming Results*。
+  https://learn.microsoft.com/en-us/azure/search/search-security-trimming-for-azure-search
+
+- Elasticsearch，*Aliases*。
+  https://www.elastic.co/guide/en/elasticsearch/reference/current/aliases.html
+
+- Kubernetes，*Components*。
+  https://kubernetes.io/docs/concepts/overview/components/
+
+- Kubernetes，*Resource Management for Pods and Containers*。
+  https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+
+- Docker，*Building Best Practices*。
+  https://docs.docker.com/build/building/best-practices/
+
+- Microsoft Playwright，*Auto-Waiting and Actionability*。
+  https://playwright.dev/docs/actionability
+
+- Jeffrey Dean and Luiz André Barroso，*The Tail at Scale*，2013。
+  https://research.google/pubs/the-tail-at-scale/
+
+- Geoffrey Huntley，*Ralph Wiggum as a “software engineer”*。
+  https://ghuntley.com/ralph/
+
+- OpenTelemetry，*Tracing SDK*。
+  https://opentelemetry.io/docs/specs/otel/trace/sdk/
+
+- OpenTelemetry，*Exceptions*。
+  https://opentelemetry.io/docs/specs/otel/trace/exceptions/
+
+- W3C，*Trace Context*。
+  https://www.w3.org/TR/trace-context/
+
+- W3C，*PROV-DM: The PROV Data Model*。
+  https://www.w3.org/TR/prov-dm/
+
+- SPIFFE，*SPIFFE Concepts*。
+  https://spiffe.io/docs/latest/spiffe-about/spiffe-concepts/
+
+- IETF，*RFC 8693: OAuth 2.0 Token Exchange*，2020 年 1 月。
+  https://www.rfc-editor.org/rfc/rfc8693.html
+
+- IETF，*RFC 7009: OAuth 2.0 Token Revocation*，2013 年 8 月。
+  https://www.rfc-editor.org/rfc/rfc7009.html
+
+- NIST，*AI RMF Core*。
+  https://airc.nist.gov/airmf-resources/airmf/5-sec-core/
+
+- NIST，*SP 800-61 Rev. 3: Incident Response Recommendations and Considerations for Cybersecurity Risk Management*。
+  https://csrc.nist.gov/pubs/sp/800/61/r3/final
+
+- NIST，*Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations*，AI 100-2e2025。
+  https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-2e2025.pdf
+
+- NIST，*IR 7987: Policy Machine*。
+  https://nvlpubs.nist.gov/nistpubs/ir/2014/NIST.IR.7987.pdf
+
+- NIST，*IR 7987 Rev. 1: Policy Machine — Features, Architecture, and Specification*。
+  https://nvlpubs.nist.gov/nistpubs/ir/2015/nist.ir.7987r1.pdf
+
+- NIST，*Privacy Framework*。
+  https://www.nist.gov/privacy-framework
+
+- NIST/SEMATECH，*Confidence Intervals for a Proportion*。
+  https://itl.nist.gov/div898/handbook/prc/section2/prc241.htm
+
+- NIST/SEMATECH，*Analysis of Paired Observations*。
+  https://www.itl.nist.gov/div898/handbook/prc/section3/prc311.htm
+
+- NIST/SEMATECH，*Randomized Block Designs*。
+  https://www.itl.nist.gov/div898/handbook/pri/section3/pri332.htm
+
+---
+
 ## 姊妹卷
 
 - *LLM Foundations for Harness Engineering*（本书的模型内部姊妹卷）。
@@ -333,8 +537,14 @@
 - *Awesome Harness Engineering*, walkinglabs.  
   https://github.com/walkinglabs/awesome-harness-engineering
 
-- *Learn Harness Engineering*, Walking Labs.
+- *Learn Harness Engineering — 英文版*, Walking Labs.
+  https://walkinglabs.github.io/learn-harness-engineering/en/
+
+- *Learn Harness Engineering — 中文版*, Walking Labs.
   https://walkinglabs.github.io/learn-harness-engineering/zh/
 
-- *Learn Harness Engineering — Skills*, Walking Labs.
+- *Learn Harness Engineering — Skills（英文）*, Walking Labs.
+  https://walkinglabs.github.io/learn-harness-engineering/en/skills/
+
+- *Learn Harness Engineering — Skills（中文）*, Walking Labs.
   https://walkinglabs.github.io/learn-harness-engineering/zh/skills/
